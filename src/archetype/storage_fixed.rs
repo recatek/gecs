@@ -50,7 +50,7 @@ macro_rules! declare_dense_fixed_n {
                 }
 
                 #[inline(always)]
-                pub const fn capacity() -> usize {
+                pub const fn capacity(&self) -> usize {
                     N
                 }
 
@@ -168,13 +168,40 @@ macro_rules! declare_dense_fixed_n {
                         // SAFETY: We guarantee that the storage is valid up to self.len.
                         S::new(
                             self.entities.assume_init_slice(self.len),
-                            $(self.[<d$i>].get_mut().assume_init_slice_mut(self.len)),+
+                            $(self.[<d$i>].get_mut().assume_init_mut_slice(self.len)),+
                         )
                     }
                 }
 
+                /// Gets a read-only slice of our currently stored entity handles.
+                #[inline(always)]
+                pub fn get_slice_entities(&self) -> &[Entity<A>] {
+                    unsafe {
+                        // SAFETY: We guarantee that the storage is valid up to self.len.
+                        self.entities.assume_init_slice(self.len)
+                    }
+                }
+
                 $(
-                    /// Borrows the given slice by index.
+                    /// Gets a slice of the given component index.
+                    #[inline(always)]
+                    pub fn [<get_slice_$i>](&mut self) -> &[[<T$i>]] {
+                        unsafe {
+                            // SAFETY: We guarantee that the storage is valid up to self.len.
+                            self.[<d$i>].get_mut().assume_init_slice(self.len)
+                        }
+                    }
+
+                    /// Gets a slice of the given component index.
+                    #[inline(always)]
+                    pub fn [<get_mut_slice_$i>](&mut self) -> &mut [[<T$i>]] {
+                        unsafe {
+                            // SAFETY: We guarantee that the storage is valid up to self.len.
+                            self.[<d$i>].get_mut().assume_init_mut_slice(self.len)
+                        }
+                    }
+
+                    /// Borrows the slice of the given component index.
                     #[inline(always)]
                     pub fn [<borrow_slice_$i>](&self) -> Ref<[[<T$i>]]> {
                         Ref::map(self.[<d$i>].borrow(), |slice| unsafe {
@@ -183,12 +210,12 @@ macro_rules! declare_dense_fixed_n {
                         })
                     }
 
-                    /// Mutably borrows the given slice by index.
+                    /// Mutably borrows the slice of the given component index.
                     #[inline(always)]
                     pub fn [<borrow_mut_slice_$i>](&self) -> RefMut<[[<T$i>]]> {
                         RefMut::map(self.[<d$i>].borrow_mut(), |slice| unsafe {
                             // SAFETY: We guarantee that the storage is valid up to self.len.
-                            slice.assume_init_slice_mut(self.len)
+                            slice.assume_init_mut_slice(self.len)
                         })
                     }
                 )+
@@ -329,7 +356,7 @@ impl<T, const N: usize> MaybeUninitArray<T, N> {
     /// - All elements in the range `0..len` are initialized
     /// - `len <= N`
     #[inline(always)]
-    pub(crate) unsafe fn assume_init_slice_mut(&mut self, len: usize) -> &mut [T] {
+    pub(crate) unsafe fn assume_init_mut_slice(&mut self, len: usize) -> &mut [T] {
         // SAFETY: Similar to safety notes for `assume_init_slice`, but we have a
         // mutable reference which is also guaranteed to be valid for writes.
         // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#994

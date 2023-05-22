@@ -3,7 +3,7 @@ use quote::{format_ident, quote};
 
 use crate::parse::ParseWorld;
 
-pub fn generate_cfg_checks(world: ParseWorld, raw: TokenStream) -> TokenStream {
+pub fn generate_cfg_checks(world: &ParseWorld, raw: TokenStream) -> TokenStream {
     let predicates = world.collect_all_cfg_predicates();
     let mut macros = Vec::<TokenStream>::with_capacity(predicates.len());
 

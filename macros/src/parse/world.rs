@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::token::{Comma, Pound, Semi};
+use syn::token::{Comma, Dyn, Pound, Semi};
 use syn::{braced, bracketed, parenthesized, Ident, LitBool, LitInt, Token};
 
 mod kw {
@@ -45,6 +45,7 @@ pub struct ParseCfg {
 pub enum ParseCapacity {
     Literal(LitInt),
     Constant(Ident),
+    Dynamic,
 }
 
 impl ParseWorld {
@@ -186,6 +187,9 @@ impl Parse for ParseCapacity {
             input.parse().map(ParseCapacity::Literal)
         } else if lookahead.peek(Ident) {
             input.parse().map(ParseCapacity::Constant)
+        } else if lookahead.peek(Dyn) {
+            input.parse::<Dyn>()?;
+            Ok(ParseCapacity::Dynamic)
         } else {
             Err(lookahead.error())
         }

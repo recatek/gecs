@@ -1,24 +1,33 @@
 use std::collections::HashMap;
 
-use crate::parse::{ParseCfg, ParseFinalize};
+use crate::parse::{ParseCapacity, ParseCfg, ParseFinalize};
 
 #[derive(Debug)]
-pub struct World {
-    pub archetypes: Vec<Archetype>,
-}
-
-#[derive(Debug)]
-pub struct Archetype {
+pub struct DataWorld {
     pub name: String,
-    pub components: Vec<Component>,
+    pub archetypes: Vec<DataArchetype>,
 }
 
 #[derive(Debug)]
-pub struct Component {
+pub struct DataArchetype {
+    pub name: String,
+    pub capacity: DataCapacity,
+    pub components: Vec<DataComponent>,
+}
+
+#[derive(Debug)]
+pub struct DataComponent {
     pub name: String,
 }
 
-impl World {
+#[derive(Debug)]
+pub enum DataCapacity {
+    Literal(usize),
+    Constant(String),
+    Dynamic,
+}
+
+impl DataWorld {
     pub fn new(mut parse: ParseFinalize) -> Self {
         let cfg_data = parse.cfg_lookup;
         let mut archetypes = Vec::new();
@@ -34,18 +43,30 @@ impl World {
                     continue;
                 }
 
-                components.push(Component {
+                components.push(DataComponent {
                     name: component.name.to_string(),
                 });
             }
 
-            archetypes.push(Archetype {
+            archetypes.push(DataArchetype {
                 name: archetype.name.to_string(),
+                capacity: convert_capacity(archetype.capacity),
                 components,
             })
         }
 
-        World { archetypes }
+        DataWorld {
+            name: "World".to_string(), // TODO: Allow this to be configured
+            archetypes,
+        }
+    }
+}
+
+fn convert_capacity(capacity: ParseCapacity) -> DataCapacity {
+    match capacity {
+        ParseCapacity::Literal(lit) => DataCapacity::Literal(lit.base10_parse::<usize>().unwrap()),
+        ParseCapacity::Constant(ident) => DataCapacity::Constant(ident.to_string()),
+        ParseCapacity::Dynamic => DataCapacity::Dynamic,
     }
 }
 
