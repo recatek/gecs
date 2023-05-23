@@ -97,9 +97,9 @@ impl EntityAny {
     }
 }
 
-impl<T: Archetype> From<Entity<T>> for EntityAny {
+impl<A: Archetype> From<Entity<A>> for EntityAny {
     #[inline(always)]
-    fn from(entity: Entity<T>) -> Self {
+    fn from(entity: Entity<A>) -> Self {
         entity.inner
     }
 }

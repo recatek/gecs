@@ -11,13 +11,14 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
 
     // Types and traits
     let World = format_ident!("{}", world_data.name);
+    let EntityWorld = format_ident!("Entity{}", world_data.name);
     let Archetype = world_data
         .archetypes
         .iter()
         .map(|archetype| format_ident!("{}", archetype.name))
         .collect::<Vec<_>>();
 
-    // Variables/fields
+    // Variables and fields
     let archetype = world_data
         .archetypes
         .iter()
@@ -34,6 +35,7 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
 
     quote!(
         pub use #ecs_world_sealed::#World;
+        pub use #ecs_world_sealed::#EntityWorld;
         #( pub use #ecs_world_sealed::#Archetype; )*
 
         mod #ecs_world_sealed {
@@ -67,6 +69,34 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
                     }
                 }
             )*
+
+            #[derive(Clone, Copy, Eq, PartialEq, Hash)]
+            pub enum #EntityWorld {
+                #( #Archetype(Entity<#Archetype>), )*
+            }
+
+            #(
+                impl From<Entity<#Archetype>> for #EntityWorld {
+                    #[inline(always)]
+                    fn from(entity: Entity<#Archetype>) -> Self {
+                        #EntityWorld::#Archetype(entity)
+                    }
+                }
+            )*
+
+            impl From<EntityAny> for #EntityWorld {
+                #[inline(always)]
+                fn from(entity: EntityAny) -> Self {
+                    match entity.type_id() {
+                        #(
+                            #Archetype::TYPE_ID => {
+                                #EntityWorld::#Archetype(Entity::from_any(entity))
+                            },
+                        )*
+                        _ => panic!("invalid entity type"),
+                    }
+                }
+            }
         }
     )
 }
@@ -106,6 +136,7 @@ fn section_archetype(raw_index: usize, archetype_data: &DataArchetype) -> TokenS
         DataCapacity::Dynamic => panic!("dynamic archetype capacity not yet supported"),
     };
 
+    // Function names
     let get_slice = (0..count)
         .into_iter()
         .map(|idx| format_ident!("get_slice_{}", idx.to_string()));
