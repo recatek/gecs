@@ -91,7 +91,7 @@ macro_rules! declare_dense_fixed_n {
                 /// Resolves an entity to an index in the storage data slices.
                 /// This index is guaranteed to be in bounds and point to valid data.
                 #[inline(always)]
-                pub fn resolve(&mut self, entity: Entity<A>) -> Option<usize> {
+                pub fn resolve(&self, entity: Entity<A>) -> Option<usize> {
                     let (_, dense_index) = match self.resolve_slot(entity) {
                         None => { return None; }
                         Some(found) => found,

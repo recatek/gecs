@@ -6,6 +6,8 @@ use syn::punctuated::Punctuated;
 use syn::token::{Comma, Dyn, Pound, Semi};
 use syn::{braced, bracketed, parenthesized, Ident, LitBool, LitInt, Token};
 
+use super::*;
+
 mod kw {
     syn::custom_keyword!(archetype);
     syn::custom_keyword!(cfg);
@@ -159,8 +161,7 @@ impl Parse for ParseComponent {
         let name = input.parse::<Ident>()?;
 
         // Don't allow special keyword names as component types
-        let name_str = name.to_string();
-        if (name_str == "Entity") || (name_str == "EntityAny") || (name_str == "AnyOf") {
+        if is_allowed_component_name(&name.to_string()) == false {
             return Err(syn::Error::new_spanned(name, "illegal component name"));
         }
 

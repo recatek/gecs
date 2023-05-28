@@ -6,6 +6,8 @@ use data::DataWorld;
 use proc_macro::TokenStream;
 use syn::{self, parse_macro_input};
 
+use generate::FetchMode;
+
 use parse::*;
 
 #[proc_macro]
@@ -22,10 +24,20 @@ pub fn __ecs_finalize(args: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn __ecs_iter_mut(args: TokenStream) -> TokenStream {
-    let query_parse = parse_macro_input!(args as ParseQueryIter);
+pub fn __ecs_find_borrow(args: TokenStream) -> TokenStream {
+    let query_parse = parse_macro_input!(args as ParseQueryFind);
 
-    match generate::generate_query_iter_mut(&query_parse) {
+    match generate::generate_query_find(FetchMode::Borrow, &query_parse) {
+        Ok(tokens) => tokens.into(),
+        Err(err) => err.into_compile_error().into(),
+    }
+}
+
+#[proc_macro]
+pub fn __ecs_find_mut(args: TokenStream) -> TokenStream {
+    let query_parse = parse_macro_input!(args as ParseQueryFind);
+
+    match generate::generate_query_find(FetchMode::Mut, &query_parse) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.into_compile_error().into(),
     }
@@ -35,7 +47,17 @@ pub fn __ecs_iter_mut(args: TokenStream) -> TokenStream {
 pub fn __ecs_iter_borrow(args: TokenStream) -> TokenStream {
     let query_parse = parse_macro_input!(args as ParseQueryIter);
 
-    match generate::generate_query_iter_borrow(&query_parse) {
+    match generate::generate_query_iter(FetchMode::Borrow, &query_parse) {
+        Ok(tokens) => tokens.into(),
+        Err(err) => err.into_compile_error().into(),
+    }
+}
+
+#[proc_macro]
+pub fn __ecs_iter_mut(args: TokenStream) -> TokenStream {
+    let query_parse = parse_macro_input!(args as ParseQueryIter);
+
+    match generate::generate_query_iter(FetchMode::Mut, &query_parse) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.into_compile_error().into(),
     }

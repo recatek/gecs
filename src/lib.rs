@@ -21,6 +21,7 @@ pub mod __internal {
     use super::*;
 
     pub use gecs_macros::__ecs_finalize;
+    pub use gecs_macros::{__ecs_find_borrow, __ecs_find_mut};
     pub use gecs_macros::{__ecs_iter_borrow, __ecs_iter_mut};
 
     pub use archetype::slices::*;

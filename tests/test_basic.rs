@@ -22,7 +22,6 @@ ecs_world! {
         ArchBar,
         30,
         ComponentA,
-        ComponentB,
         ComponentC,
     );
 
@@ -30,15 +29,14 @@ ecs_world! {
         ArchBaz,
         30,
         ComponentA,
-        ComponentB,
         ComponentC,
     );
 }
 
-pub fn test(world: &mut World) {
+pub fn test(world: &World, entity: EntityAny) {
     let mut sum: u64 = 0;
 
-    ecs_iter_borrow!(world, |_: &EntityAny, _: &mut ComponentA| {
+    let _found: bool = ecs_find_borrow!(world, entity, |_: &EntityAny, _: &mut ComponentA| {
         sum += 1;
     });
 }

@@ -103,16 +103,16 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
         }
 
         #[macro_export]
-        macro_rules! ecs_iter_mut {
+        macro_rules! ecs_find_borrow {
             ($($args:tt)*) => {
-                ::gecs::__internal::__ecs_iter_mut!(#WORLD_DATA, $($args)*);
+                ::gecs::__internal::__ecs_find_borrow!(#WORLD_DATA, $($args)*)
             }
         }
 
         #[macro_export]
         macro_rules! ecs_find_mut {
             ($($args:tt)*) => {
-                ::gecs::__internal::__ecs_find_mut!(#WORLD_DATA, $($args)*);
+                ::gecs::__internal::__ecs_find_mut!(#WORLD_DATA, $($args)*)
             }
         }
 
@@ -124,9 +124,9 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
         }
 
         #[macro_export]
-        macro_rules! ecs_find_borrow {
+        macro_rules! ecs_iter_mut {
             ($($args:tt)*) => {
-                ::gecs::__internal::__ecs_find_borrow!(#WORLD_DATA, $($args)*);
+                ::gecs::__internal::__ecs_iter_mut!(#WORLD_DATA, $($args)*);
             }
         }
     )
@@ -222,7 +222,7 @@ fn section_archetype(raw_index: usize, archetype_data: &DataArchetype) -> TokenS
             }
 
             #[inline(always)]
-            pub fn resolve(&mut self, entity: Entity<#Archetype>) -> Option<usize> {
+            pub fn resolve(&self, entity: Entity<#Archetype>) -> Option<usize> {
                 self.data.resolve(entity)
             }
 

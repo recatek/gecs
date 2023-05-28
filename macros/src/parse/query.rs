@@ -1,11 +1,20 @@
 use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
-use syn::token::{And, Colon, Comma, Gt, Lt, Mut};
+use syn::token::{Colon, Comma, Gt, Lt, Mut};
 use syn::{Ident, LitStr, Token};
 
 mod kw {
     syn::custom_keyword!(archetype);
     syn::custom_keyword!(cfg);
+}
+
+#[derive(Debug)]
+pub struct ParseQueryFind {
+    pub world_data: String,
+    pub world: Ident,
+    pub entity: Ident,
+    pub params: Vec<ParseQueryParam>,
+    pub body: TokenStream,
 }
 
 #[derive(Debug)]
@@ -19,15 +28,45 @@ pub struct ParseQueryIter {
 #[derive(Debug)]
 pub struct ParseQueryParam {
     pub name: Ident,
-    pub ty: ParseQueryParamType,
+    pub is_mut: bool,
+    pub ty: ParseParamType,
 }
 
 #[derive(Clone, Debug)]
-pub enum ParseQueryParamType {
+pub enum ParseParamType {
     Component(Ident),
-    MutComponent(Ident),
     Entity(Ident),
     EntityAny,
+}
+
+impl Parse for ParseQueryFind {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        // Parse out the hidden serialized world data
+        let world_data = input.parse::<LitStr>()?;
+        input.parse::<Comma>()?;
+
+        // Parse out the meta-arguments for the query
+        let world = input.parse::<Ident>()?;
+        input.parse::<Comma>()?;
+        let entity = input.parse::<Ident>()?;
+        input.parse::<Comma>()?;
+
+        // Parse out the closure arguments
+        input.parse::<Token![|]>()?;
+        let params = parse_params(&input)?;
+        input.parse::<Token![|]>()?;
+
+        // Parse the rest of the body, including the braces (if any)
+        let body = input.parse::<TokenStream>()?;
+
+        Ok(Self {
+            world_data: world_data.value(),
+            world,
+            entity,
+            params,
+            body,
+        })
+    }
 }
 
 impl Parse for ParseQueryIter {
@@ -63,41 +102,34 @@ impl Parse for ParseQueryParam {
         let name = parse_param_name(input)?;
         input.parse::<Colon>()?;
 
-        // Must be a reference in all cases
-        input.parse::<And>()?;
-        // The mut is optional
+        input.parse::<Token![&]>()?;
         let is_mut = input.parse::<Option<Mut>>()?.is_some();
+        let check_span = input.span();
+        let ty = input.parse::<ParseParamType>()?;
 
+        // Enforce mutability rules
+        match ty {
+            ParseParamType::Entity(_) | ParseParamType::EntityAny if is_mut => Err(
+                syn::Error::new(check_span, "mut entity access is forbidden"),
+            ),
+            _ => Ok(Self { name, is_mut, ty }),
+        }
+    }
+}
+
+impl Parse for ParseParamType {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         let ty = input.parse::<Ident>()?;
-        let ty = match ty.to_string().as_str() {
+        match ty.to_string().as_str() {
             "Entity" => {
-                if is_mut {
-                    Err(syn::Error::new_spanned(
-                        ty,
-                        "mutable entity access is not allowed",
-                    ))
-                } else {
-                    input.parse::<Lt>()?;
-                    let archetype = input.parse::<Ident>()?;
-                    input.parse::<Gt>()?;
-                    Ok(ParseQueryParamType::Entity(archetype))
-                }
+                input.parse::<Lt>()?;
+                let archetype = input.parse::<Ident>()?;
+                input.parse::<Gt>()?;
+                Ok(ParseParamType::Entity(archetype))
             }
-            "EntityAny" => {
-                if is_mut {
-                    Err(syn::Error::new_spanned(
-                        ty,
-                        "mutable entity access is not allowed",
-                    ))
-                } else {
-                    Ok(ParseQueryParamType::EntityAny)
-                }
-            }
-            _ if is_mut => Ok(ParseQueryParamType::MutComponent(ty)),
-            _ => Ok(ParseQueryParamType::Component(ty)),
-        }?;
-
-        Ok(Self { name, ty })
+            "EntityAny" => Ok(ParseParamType::EntityAny),
+            _ => Ok(ParseParamType::Component(ty)),
+        }
     }
 }
 
