@@ -133,6 +133,7 @@ impl Parse for ParseArchetype {
         parenthesized!(content in input);
 
         let name: Ident = content.parse()?;
+
         content.parse::<Comma>()?;
         let capacity: ParseCapacity = content.parse()?;
         content.parse::<Comma>()?;
@@ -154,10 +155,16 @@ impl Parse for ParseArchetype {
 
 impl Parse for ParseComponent {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(Self {
-            cfgs: input.call(parse_cfg_outer)?.into_iter().collect(),
-            name: input.parse()?,
-        })
+        let cfgs = input.call(parse_cfg_outer)?.into_iter().collect();
+        let name = input.parse::<Ident>()?;
+
+        // Don't allow special keyword names as component types
+        let name_str = name.to_string();
+        if (name_str == "Entity") || (name_str == "EntityAny") || (name_str == "AnyOf") {
+            return Err(syn::Error::new_spanned(name, "illegal component name"));
+        }
+
+        Ok(Self { cfgs, name })
     }
 }
 

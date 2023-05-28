@@ -9,6 +9,9 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
     // Module
     let ecs_world_sealed = format_ident!("ecs_{}_sealed", to_snake(&world_data.name));
 
+    // Constants and literals
+    let WORLD_DATA = world_data.to_base64();
+
     // Types and traits
     let World = format_ident!("{}", world_data.name);
     let EntityWorld = format_ident!("Entity{}", world_data.name);
@@ -70,7 +73,7 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
                 }
             )*
 
-            #[derive(Clone, Copy, Eq, PartialEq, Hash)]
+            #[derive(Clone, Copy)]
             pub enum #EntityWorld {
                 #( #Archetype(Entity<#Archetype>), )*
             }
@@ -96,6 +99,34 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
                         _ => panic!("invalid entity type"),
                     }
                 }
+            }
+        }
+
+        #[macro_export]
+        macro_rules! ecs_iter_mut {
+            ($($args:tt)*) => {
+                ::gecs::__internal::__ecs_iter_mut!(#WORLD_DATA, $($args)*);
+            }
+        }
+
+        #[macro_export]
+        macro_rules! ecs_find_mut {
+            ($($args:tt)*) => {
+                ::gecs::__internal::__ecs_find_mut!(#WORLD_DATA, $($args)*);
+            }
+        }
+
+        #[macro_export]
+        macro_rules! ecs_iter_borrow {
+            ($($args:tt)*) => {
+                ::gecs::__internal::__ecs_iter_borrow!(#WORLD_DATA, $($args)*);
+            }
+        }
+
+        #[macro_export]
+        macro_rules! ecs_find_borrow {
+            ($($args:tt)*) => {
+                ::gecs::__internal::__ecs_find_borrow!(#WORLD_DATA, $($args)*);
             }
         }
     )
@@ -133,7 +164,7 @@ fn section_archetype(raw_index: usize, archetype_data: &DataArchetype) -> TokenS
             let CAPACITY = format_ident!("{}", name);
             (StorageFixed, quote!(Self, #(#Component,)* #CAPACITY))
         }
-        DataCapacity::Dynamic => panic!("dynamic archetype capacity not yet supported"),
+        DataCapacity::Dynamic => todo!("dynamic archetype capacity not yet supported"),
     };
 
     // Function names

@@ -1,26 +1,30 @@
 use std::collections::HashMap;
 
+use base64::Engine as _;
+use speedy::{Readable, Writable};
+
 use crate::parse::{ParseCapacity, ParseCfg, ParseFinalize};
 
-#[derive(Debug)]
+#[derive(Debug, Readable, Writable)]
 pub struct DataWorld {
     pub name: String,
     pub archetypes: Vec<DataArchetype>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Readable, Writable)]
 pub struct DataArchetype {
     pub name: String,
     pub capacity: DataCapacity,
     pub components: Vec<DataComponent>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Readable, Writable)]
 pub struct DataComponent {
     pub name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Readable, Writable)]
+#[speedy(tag_type = u8)]
 pub enum DataCapacity {
     Literal(usize),
     Constant(String),
@@ -59,6 +63,20 @@ impl DataWorld {
             name: "World".to_string(), // TODO: Allow this to be configured
             archetypes,
         }
+    }
+
+    pub fn to_base64(&self) -> String {
+        base64::engine::general_purpose::STANDARD_NO_PAD
+            .encode(self.write_to_vec().expect("failed to serialize world"))
+    }
+
+    pub fn from_base64(base64: &str) -> Self {
+        Self::read_from_buffer(
+            &base64::engine::general_purpose::STANDARD_NO_PAD
+                .decode(base64)
+                .expect("failed to deserialize world"),
+        )
+        .expect("failed to deserialize world")
     }
 }
 

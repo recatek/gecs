@@ -40,14 +40,14 @@ pub trait HasComponents: Archetype {
         <Self as HasComponent<C>>::resolve_get_mut_slice(self)
     }
 
-    fn borrow_slice<C>(&mut self) -> Ref<[C]>
+    fn borrow_slice<C>(&self) -> Ref<[C]>
     where
         Self: HasComponent<C>,
     {
         <Self as HasComponent<C>>::resolve_borrow_slice(self)
     }
 
-    fn borrow_mut_slice<C>(&mut self) -> RefMut<[C]>
+    fn borrow_mut_slice<C>(&self) -> RefMut<[C]>
     where
         Self: HasComponent<C>,
     {
