@@ -25,7 +25,7 @@ dependencies = [
 
 [[package]]
 name = "gecs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "gecs_macros",
  "paste",
@@ -33,7 +33,7 @@ dependencies = [
 
 [[package]]
 name = "gecs_macros"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "base64",
  "convert_case",

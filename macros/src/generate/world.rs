@@ -37,6 +37,12 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
         .map(|(index, archetype)| section_archetype(index, archetype))
         .collect::<Vec<_>>();
 
+    // Macros
+    let __ecs_find_borrow_world = format_ident!("__ecs_find_borrow_{}", to_snake(&world_data.name));
+    let __ecs_find_mut_world = format_ident!("__ecs_find_mut_{}", to_snake(&world_data.name));
+    let __ecs_iter_borrow_world = format_ident!("__ecs_iter_borrow_{}", to_snake(&world_data.name));
+    let __ecs_iter_mut_world = format_ident!("__ecs_iter_mut_{}", to_snake(&world_data.name));
+
     quote!(
         pub use #ecs_world_sealed::{#World, #EntityWorld, #EntityWorldExt};
         #( pub use #ecs_world_sealed::#Archetype; )*
@@ -168,32 +174,41 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
         }
 
         #[macro_export]
-        macro_rules! ecs_find_borrow {
+        #[doc(hidden)]
+        macro_rules! #__ecs_find_borrow_world {
             ($($args:tt)*) => {
                 ::gecs::__internal::__ecs_find_borrow!(#WORLD_DATA, $($args)*)
             }
         }
 
         #[macro_export]
-        macro_rules! ecs_find_mut {
+        #[doc(hidden)]
+        macro_rules! #__ecs_find_mut_world {
             ($($args:tt)*) => {
                 ::gecs::__internal::__ecs_find_mut!(#WORLD_DATA, $($args)*)
             }
         }
 
         #[macro_export]
-        macro_rules! ecs_iter_borrow {
+        #[doc(hidden)]
+        macro_rules! #__ecs_iter_borrow_world {
             ($($args:tt)*) => {
                 ::gecs::__internal::__ecs_iter_borrow!(#WORLD_DATA, $($args)*);
             }
         }
 
         #[macro_export]
-        macro_rules! ecs_iter_mut {
+        #[doc(hidden)]
+        macro_rules! #__ecs_iter_mut_world {
             ($($args:tt)*) => {
                 ::gecs::__internal::__ecs_iter_mut!(#WORLD_DATA, $($args)*);
             }
         }
+
+        pub use #__ecs_find_borrow_world as ecs_find_borrow;
+        pub use #__ecs_find_mut_world as ecs_find_mut;
+        pub use #__ecs_iter_borrow_world as ecs_iter_borrow;
+        pub use #__ecs_iter_mut_world as ecs_iter_mut;
     )
 }
 
