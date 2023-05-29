@@ -1,9 +1,7 @@
-use std::alloc::{self, Layout};
 use std::array;
 use std::cell::{Ref, RefCell, RefMut};
-use std::mem;
-use std::ptr::{self, NonNull};
-use std::slice;
+use std::mem::MaybeUninit;
+use std::ptr;
 
 use paste::paste;
 
@@ -11,7 +9,7 @@ use crate::archetype::slices::*;
 use crate::archetype::slot::Slot;
 use crate::entity::{Entity, MAX_ARCHETYPE_CAPACITY};
 use crate::traits::Archetype;
-use crate::util::{debug_checked_assume, num_assert_leq, num_assert_lt};
+use crate::util::{debug_checked_assume, num_assert_leq};
 
 macro_rules! declare_dense_fixed_n {
     ($n:literal, $($i:literal),+) => {
@@ -19,10 +17,10 @@ macro_rules! declare_dense_fixed_n {
             pub struct [<StorageFixed$n>]<A: Archetype, $([<T$i>],)+ const N: usize> {
                 len: usize,
                 free_head: u32,
-                slots: [Slot; N], // Sparse
+                slots: Box<[Slot; N]>, // Sparse
                 // No RefCell here since we never grant mutable access externally
-                entities: FixedDataPtr<Entity<A>, N>,
-                $([<d$i>]: RefCell<FixedDataPtr<[<T$i>], N>>,)+
+                entities: Box<MaybeUninitArray<Entity<A>, N>>,
+                $([<d$i>]: RefCell<Box<MaybeUninitArray<[<T$i>], N>>>,)+
             }
 
             impl<A: Archetype, $([<T$i>],)+ const N: usize> [<StorageFixed$n>]<A, $([<T$i>],)+ N>
@@ -36,8 +34,8 @@ macro_rules! declare_dense_fixed_n {
                         len: 0,
                         free_head: 0,
                         slots: new_free_list_slot_array(),
-                        entities: FixedDataPtr::new(),
-                        $([<d$i>]: RefCell::new(FixedDataPtr::new()),)+
+                        entities: Box::new(MaybeUninitArray::new()),
+                        $([<d$i>]: RefCell::new(Box::new(MaybeUninitArray::new())),)+
                     }
                 }
 
@@ -81,14 +79,14 @@ macro_rules! declare_dense_fixed_n {
                     let index = self.len;
                     self.len += 1;
 
-                    // Unpack the given components
-                    let ($([<v$i>],)+) = data;
-
                     // Store the entity and data
                     unsafe {
+                        // SAFETY: We can't overflow because self.len < N.
+                        debug_checked_assume!(index < self.len);
+
                         // SAFETY: We know that index < N and points to an empty cell.
-                        *self.entities.slice_mut(self.len).get_unchecked_mut(index) = entity;
-                        $(*self.[<d$i>].get_mut().slice_mut(self.len).get_unchecked_mut(index) = [<v$i>];)+
+                        self.entities.slice_mut(self.len)[index] = entity;
+                        $(self.[<d$i>].get_mut().slice_mut(self.len)[index] = data.$i;)+
                     }
 
                     Some(entity)
@@ -273,12 +271,7 @@ macro_rules! declare_dense_fixed_n {
                     unsafe {
                         $(self.[<d$i>].get_mut().drop_to(self.len);)+
                         // We don't need to drop the other stuff since it's all trivial.
-
-                        // Deallocate all of our data
-                        self.entities.dealloc();
-                        $(self.[<d$i>].get_mut().dealloc();)+
                     };
-
                 }
             }
 
@@ -312,113 +305,98 @@ declare_dense_fixed_n!(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
 declare_dense_fixed_n!(16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
 
 #[inline(always)]
-fn new_free_list_slot_array<const N: usize>() -> [Slot; N] {
+fn new_free_list_slot_array<const N: usize>() -> Box<[Slot; N]> {
     // NOTE: The last slot will point off the end of the free list.
     // In practice, we should never read this value anyway, since
     // we'd only ask to reserve when the dense list has room. However,
     // we may still want to check in the future if we decide to orphan
     // slots with overflowed versions (since we'd then have fewer slots
     // than dense list space). We'll need to revisit this logic if so.
-    array::from_fn(|i| Slot::new((i + 1).try_into().unwrap()))
+    Box::new(array::from_fn(|i| Slot::new((i + 1).try_into().unwrap())))
 }
 
-#[derive(Clone, Copy)]
-pub(crate) struct FixedDataPtr<T, const N: usize>(NonNull<T>);
+struct MaybeUninitArray<T, const N: usize>([MaybeUninit<T>; N]);
 
-impl<T, const N: usize> FixedDataPtr<T, N> {
-    /// Creates a new block of sized data.
-    pub fn new() -> Self {
-        if mem::size_of::<T>() == 0 {
-            return Self(NonNull::dangling());
-        }
-
-        num_assert_lt!(0, N);
-        let layout = new_layout::<T>(N);
-        debug_assert!(layout.size() > 0);
-
-        assert!(
-            layout.size() <= (isize::MAX as usize),
-            "allocation too large"
-        );
-
-        // SAFETY: We have checked to make sure layout has nonzero size.
-        unsafe { Self(resolve_ptr(alloc::alloc(layout), layout)) }
+impl<T, const N: usize> MaybeUninitArray<T, N> {
+    /// Creates a new fully uninitialized array.
+    #[inline(always)]
+    fn new() -> Self {
+        // SAFETY: An uninitialized `[MaybeUninit<_>; LEN]` is valid.
+        // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#350
+        unsafe { Self(MaybeUninit::<[MaybeUninit<T>; N]>::uninit().assume_init()) }
     }
 
-    /// Deallocates our memory. This does not drop any elements.
-    pub unsafe fn dealloc(&mut self) {
-        if mem::size_of::<T>() == 0 {
-            return;
-        }
-
-        num_assert_lt!(0, N);
-        let layout = new_layout::<T>(N);
-        debug_assert!(layout.size() > 0);
-
-        // SAFETY: We have checked to make sure layout has nonzero size.
+    /// Gets a slice for the range `0..len`.
+    ///
+    /// # Safety
+    ///
+    /// It is up to the caller to guarantee the following:
+    /// - All elements in the array in the range `0..len` are valid data
+    /// - `len <= N`
+    #[inline(always)]
+    unsafe fn slice(&self, len: usize) -> &[T] {
+        // SAFETY: Casting `slice` to a `*const [T]` is safe since the caller guarantees that
+        // `slice` is initialized, and `MaybeUninit` is guaranteed to have the same layout as `T`.
+        // The pointer obtained is valid since it refers to memory owned by `slice` which is a
+        // reference and thus guaranteed to be valid for reads.
+        // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#972
         unsafe {
-            alloc::dealloc(self.0.as_ptr() as *mut u8, layout);
+            debug_checked_assume!(len <= N); // SAFETY: The caller guarantees len <= N.
+
+            &*(self.0.get_unchecked(0..len) as *const [MaybeUninit<T>] as *const [T])
         }
     }
 
-    /// Returns a slice of our data up to the given length.
+    /// Gets a mutable slice for the range `0..len`.
     ///
-    /// # SAFETY
-    ///
-    /// It is up to the caller to guarantee the following:
-    /// - All elements in `0..len` are valid data
-    /// - `len <= N`
-    pub unsafe fn slice(&self, len: usize) -> &[T] {
-        debug_assert!(len <= N);
-
-        // SAFETY: See caller guarantees above.
-        unsafe { slice::from_raw_parts(self.0.as_ptr(), len) }
-    }
-
-    /// Returns a mutable slice of our data up to the given length.
-    ///
-    /// # SAFETY
+    /// # Safety
     ///
     /// It is up to the caller to guarantee the following:
-    /// - All elements in `0..len` are valid data
+    /// - All elements in the range `0..len` are initialized
     /// - `len <= N`
-    pub unsafe fn slice_mut(&mut self, len: usize) -> &mut [T] {
-        if mem::size_of::<T>() == 0 {
-            return &mut [];
+    #[inline(always)]
+    unsafe fn slice_mut(&mut self, len: usize) -> &mut [T] {
+        // SAFETY: Similar to safety notes for `assume_init_slice`, but we have a
+        // mutable reference which is also guaranteed to be valid for writes.
+        // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#994
+        unsafe {
+            debug_checked_assume!(len <= N); // SAFETY: The caller guarantees len <= N.
+
+            &mut *(self.0.get_unchecked_mut(0..len) as *mut [MaybeUninit<T>] as *mut [T])
         }
-
-        debug_assert!(len <= N);
-
-        // SAFETY: See caller guarantees above.
-        unsafe { slice::from_raw_parts_mut(self.0.as_ptr(), len) }
     }
 
-    /// Returns a mutable slice of our data up to the given length.
+    /// Drops the element at `index` and replaces it with the last element in `0..len`.
     ///
-    /// # SAFETY
+    /// # Safety
     ///
     /// It is up to the caller to guarantee the following:
-    /// - All elements in `0..len` are valid data
+    /// - All elements in the range `0..len` are initialized
+    /// - `len <= N`
     /// - `len > 0`
-    /// - `len <= N`
+    /// - `index < N`
     /// - `index < len`
-    pub unsafe fn swap_remove(&mut self, index: usize, len: usize) -> T {
-        debug_assert!(len > 0);
-        debug_assert!(len <= N);
-        debug_assert!(index < len);
-
-        // SAFETY: The caller is guaranteeing that the element at index, and
-        // the element at len - 1 are both valid. With this guarantee we can
-        // safely take the element at index. We then perform a direct pointer
-        // copy (we can't assume nonoverlapping here!) from the last element
-        // to the one at index. This moves the data, making the data at index
-        // initialized to the data at last, and the data at last effectively
-        // uninitialized (though bitwise identical to the data at index).
+    #[inline(always)]
+    unsafe fn swap_remove(&mut self, index: usize, len: usize) -> T {
         unsafe {
+            // SAFETY: These are all guaranteed by the caller and stated above.
+            debug_checked_assume!(len <= N);
+            debug_checked_assume!(len > 0);
+            debug_checked_assume!(index < N);
+            debug_checked_assume!(index < len);
+
+            // SAFETY: The caller is guaranteeing that the element at index, and
+            // the element at len - 1 are both valid. With this guarantee we can
+            // safely take the element at index. We then perform a direct pointer
+            // copy (we can't assume nonoverlapping here!) from the last element
+            // to the one at index. This moves the data, making the data at index
+            // initialized to the data at last, and the data at last effectively
+            // uninitialized (though bitwise identical to the data at index).
             let last = len - 1;
-            let ptr = self.0.as_ptr();
-            let result = ptr::read(ptr.add(index));
-            ptr::copy(ptr.add(last), ptr.add(index), 1);
+            let array_ptr = self.0.as_mut_ptr();
+            let result = ptr::read(array_ptr.add(index)).assume_init();
+            ptr::copy(array_ptr.add(last), array_ptr.add(index), 1);
+            *array_ptr.add(last) = MaybeUninit::uninit(); // Hint for Miri
             result
         }
     }
@@ -428,33 +406,19 @@ impl<T, const N: usize> FixedDataPtr<T, N> {
     /// # Safety
     ///
     /// It is up to the caller to guarantee the following:
-    /// - All elements in `0..len` are valid data
+    /// - All elements in the range `0..len` are initialized
     /// - `len <= N`
     #[inline(always)]
-    pub(crate) unsafe fn drop_to(&mut self, len: usize) {
-        debug_assert!(len <= N);
-
-        // SAFETY: See caller guarantees above.
+    unsafe fn drop_to(&mut self, len: usize) {
         unsafe {
-            let ptr = self.0.as_ptr();
-            for index in 0..len {
-                ptr::drop_in_place(ptr.add(index));
+            // SAFETY: The caller guarantees len <= N.
+            debug_checked_assume!(len <= N);
+
+            for v in self.0[..len].iter_mut() {
+                // SAFETY: The caller guarantees v is valid.
+                v.assume_init_drop();
+                *v = MaybeUninit::uninit(); // Hint for Miri
             }
         };
-    }
-}
-
-#[inline(always)]
-fn new_layout<T>(capacity: usize) -> Layout {
-    let layout = Layout::array::<T>(capacity).unwrap();
-    assert!(layout.size() <= isize::MAX as usize, "allocation too large");
-    layout
-}
-
-#[inline(always)]
-fn resolve_ptr<T>(ptr: *mut u8, layout: Layout) -> NonNull<T> {
-    match NonNull::new(ptr as *mut T) {
-        Some(p) => p,
-        None => alloc::handle_alloc_error(layout),
     }
 }
