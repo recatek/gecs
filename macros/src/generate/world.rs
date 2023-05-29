@@ -1,12 +1,14 @@
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
+use xxhash_rust::xxh3::xxh3_128;
 
 use crate::data::{DataArchetype, DataCapacity, DataWorld};
 
 #[allow(non_snake_case)] // Allow for type-like names to make quote!() clearer
-pub fn generate_world(world_data: &DataWorld) -> TokenStream {
+pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     let world_snake = to_snake(&world_data.name);
+    let unique_hash = xxh3_128(raw_input.as_bytes());
 
     // Module
     let ecs_world_sealed = format_ident!("ecs_{}_sealed", world_snake);
@@ -40,10 +42,10 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
         .collect::<Vec<_>>();
 
     // Macros
-    let __ecs_find_borrow_world = format_ident!("__ecs_find_borrow_{}", world_snake);
-    let __ecs_find_mut_world = format_ident!("__ecs_find_mut_{}", world_snake);
-    let __ecs_iter_borrow_world = format_ident!("__ecs_iter_borrow_{}", world_snake);
-    let __ecs_iter_mut_world = format_ident!("__ecs_iter_mut_{}", world_snake);
+    let __ecs_find_borrow_unique = format_ident!("__ecs_find_borrow_{}", unique_hash);
+    let __ecs_find_mut_unique = format_ident!("__ecs_find_mut_{}", unique_hash);
+    let __ecs_iter_borrow_unique = format_ident!("__ecs_iter_borrow_{}", unique_hash);
+    let __ecs_iter_mut_unique = format_ident!("__ecs_iter_mut_{}", unique_hash);
 
     quote!(
         pub use #ecs_world_sealed::{#World, #EntityWorld, #EntityWorldExt};
@@ -177,7 +179,7 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
 
         #[macro_export]
         #[doc(hidden)]
-        macro_rules! #__ecs_find_borrow_world {
+        macro_rules! #__ecs_find_borrow_unique {
             ($($args:tt)*) => {
                 ::gecs::__internal::__ecs_find_borrow!(#WORLD_DATA, $($args)*)
             }
@@ -185,7 +187,7 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
 
         #[macro_export]
         #[doc(hidden)]
-        macro_rules! #__ecs_find_mut_world {
+        macro_rules! #__ecs_find_mut_unique {
             ($($args:tt)*) => {
                 ::gecs::__internal::__ecs_find_mut!(#WORLD_DATA, $($args)*)
             }
@@ -193,7 +195,7 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
 
         #[macro_export]
         #[doc(hidden)]
-        macro_rules! #__ecs_iter_borrow_world {
+        macro_rules! #__ecs_iter_borrow_unique {
             ($($args:tt)*) => {
                 ::gecs::__internal::__ecs_iter_borrow!(#WORLD_DATA, $($args)*);
             }
@@ -201,16 +203,20 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
 
         #[macro_export]
         #[doc(hidden)]
-        macro_rules! #__ecs_iter_mut_world {
+        macro_rules! #__ecs_iter_mut_unique {
             ($($args:tt)*) => {
                 ::gecs::__internal::__ecs_iter_mut!(#WORLD_DATA, $($args)*);
             }
         }
 
-        pub use #__ecs_find_borrow_world as ecs_find_borrow;
-        pub use #__ecs_find_mut_world as ecs_find_mut;
-        pub use #__ecs_iter_borrow_world as ecs_iter_borrow;
-        pub use #__ecs_iter_mut_world as ecs_iter_mut;
+        #[doc(hidden)]
+        pub use #__ecs_find_borrow_unique as ecs_find_borrow;
+        #[doc(hidden)]
+        pub use #__ecs_find_mut_unique as ecs_find_mut;
+        #[doc(hidden)]
+        pub use #__ecs_iter_borrow_unique as ecs_iter_borrow;
+        #[doc(hidden)]
+        pub use #__ecs_iter_mut_unique as ecs_iter_mut;
     )
 }
 
@@ -402,4 +408,22 @@ fn section_archetype(raw_index: usize, archetype_data: &DataArchetype) -> TokenS
 
 fn to_snake(name: &String) -> String {
     name.from_case(Case::Pascal).to_case(Case::Snake)
+}
+
+fn top_most_ancestor_of_call_site_span() -> String {
+    #![allow(dead_code, unstable_name_collisions)]
+    /// for code without the `proc_macro_span` feature
+    trait ParentSpanPolyfill {
+        fn parent(&self) -> Option<::proc_macro::Span> {
+            None
+        }
+    }
+    impl ParentSpanPolyfill for ::proc_macro::Span {}
+
+    let mut span = ::proc_macro::Span::call_site();
+    while let Some(parent_span) = span.parent() {
+        span = parent_span;
+    }
+
+    format!("{span:?}")
 }

@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use proc_macro2::TokenStream;
+use quote::format_ident;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::token::{Comma, Dyn, Pound, Semi};
@@ -10,6 +11,7 @@ use super::*;
 
 mod kw {
     syn::custom_keyword!(archetype);
+    syn::custom_keyword!(name);
     syn::custom_keyword!(cfg);
 }
 
@@ -21,7 +23,19 @@ pub struct ParseFinalize {
 
 #[derive(Debug)]
 pub struct ParseWorld {
+    pub name: Ident,
     pub archetypes: Vec<ParseArchetype>,
+}
+
+#[derive(Debug)]
+pub enum ParseItem {
+    ParseName(ParseName),
+    ParseArchetype(ParseArchetype),
+}
+
+#[derive(Debug)]
+pub struct ParseName {
+    pub name: Ident,
 }
 
 #[derive(Debug)]
@@ -113,20 +127,80 @@ impl Parse for ParseFinalize {
 
 impl Parse for ParseWorld {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let archetypes: Vec<ParseArchetype> =
-            Punctuated::<ParseArchetype, Semi>::parse_terminated(input)?
-                .into_iter()
-                .collect();
+        let items = Punctuated::<ParseItem, Semi>::parse_terminated(input)?
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        let mut name = format_ident!("World");
+        let mut archetypes = Vec::new();
+
+        for item in items {
+            match item {
+                ParseItem::ParseArchetype(item) => {
+                    // Collect all the archetypes
+                    archetypes.push(item);
+                }
+                ParseItem::ParseName(item) => {
+                    // TODO: Check for duplicates?
+                    name = item.name;
+                }
+            }
+        }
 
         // TODO: Check for duplicates?
 
-        Ok(Self { archetypes })
+        Ok(Self { name, archetypes })
+    }
+}
+
+impl Parse for ParseItem {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let cfgs = input.call(parse_cfg_outer)?.into_iter().collect::<Vec<_>>();
+
+        let span = input.span();
+        let lookahead = input.lookahead1();
+
+        if lookahead.peek(kw::archetype) {
+            // archetype! pseudo-macro
+            let mut archetype = input.parse::<ParseArchetype>()?;
+            archetype.cfgs.extend(cfgs); // Push the parsed cfgs
+            Ok(ParseItem::ParseArchetype(archetype))
+        } else if lookahead.peek(kw::name) {
+            // name! pseudo-macro
+            if cfgs.is_empty() == false {
+                Err(syn::Error::new(
+                    span,
+                    "#[cfg] unsupported on name declaration",
+                ))
+            } else {
+                let name = input.parse::<ParseName>()?;
+                Ok(ParseItem::ParseName(name))
+            }
+        } else {
+            Err(lookahead.error())
+        }
+    }
+}
+
+impl Parse for ParseName {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        input.parse::<kw::name>()?;
+        input.parse::<Token![!]>()?;
+
+        let content;
+        parenthesized!(content in input);
+
+        let name: Ident = content.parse()?;
+
+        // TODO: Check for duplicates?
+
+        Ok(Self { name })
     }
 }
 
 impl Parse for ParseArchetype {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let cfgs = input.call(parse_cfg_outer)?.into_iter().collect();
+        let cfgs = Vec::new(); // This will be filled at the item level
 
         input.parse::<kw::archetype>()?;
         input.parse::<Token![!]>()?;

@@ -20,8 +20,9 @@ pub fn ecs_world(args: TokenStream) -> TokenStream {
 #[proc_macro]
 #[doc(hidden)]
 pub fn __ecs_finalize(args: TokenStream) -> TokenStream {
+    let raw_input = args.to_string();
     let world_data = DataWorld::new(parse_macro_input!(args as ParseFinalize));
-    generate::generate_world(&world_data).into()
+    generate::generate_world(&world_data, &raw_input).into()
 }
 
 #[proc_macro]

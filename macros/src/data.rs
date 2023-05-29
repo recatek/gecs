@@ -60,7 +60,7 @@ impl DataWorld {
         }
 
         DataWorld {
-            name: "World".to_string(), // TODO: Allow this to be configured
+            name: parse.world.name.to_string(),
             archetypes,
         }
     }
