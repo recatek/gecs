@@ -9,6 +9,7 @@ use crate::parse::{ParseParamType, ParseQueryFind, ParseQueryIter, ParseQueryPar
 // Doing so will attribute the error to the ecs_world! declaration (due to the redirect
 // macro) rather than to the query macro itself. Always use an Err result where possible.
 
+#[derive(Clone, Copy, Debug)]
 pub enum FetchMode {
     Mut,
     Borrow,
@@ -33,7 +34,8 @@ pub fn generate_query_find(mode: FetchMode, query: &ParseQueryFind) -> syn::Resu
     let maybe_mut = query.params.iter().map(to_maybe_mut).collect::<Vec<_>>();
     let maybe_into = query.params.iter().map(to_maybe_into).collect::<Vec<_>>();
 
-    // Inner generation
+    // Mode-specific behavior
+    let archetype_access = generate_archetype_access(mode);
     let slice_access = generate_slice_access(mode, &query.params);
 
     let mut queries = Vec::<TokenStream>::new();
@@ -46,7 +48,7 @@ pub fn generate_query_find(mode: FetchMode, query: &ParseQueryFind) -> syn::Resu
                 #EntityWorld::#Archetype(entity) => {
                     // The closure needs to be made per-archetype because of AnyOf types
                     let mut closure = |#(#arg: &#maybe_mut #Type),*| #body;
-                    let archetype = #world.get_archetype::<#Archetype>();
+                    let archetype = #world.#archetype_access::<#Archetype>();
                     if let Some(idx) = archetype.resolve(entity) {
                         #slice_access // This depends on fetch mode
                         closure(#(&#maybe_mut #slice[idx] #maybe_into),*);
@@ -86,7 +88,8 @@ pub fn generate_query_iter(mode: FetchMode, query: &ParseQueryIter) -> syn::Resu
     let maybe_mut = query.params.iter().map(to_maybe_mut).collect::<Vec<_>>();
     let maybe_into = query.params.iter().map(to_maybe_into).collect::<Vec<_>>();
 
-    // Inner generation
+    // Mode-specific behavior
+    let archetype_access = generate_archetype_access(mode);
     let slice_access = generate_slice_access(mode, &query.params);
 
     let mut queries = Vec::<TokenStream>::new();
@@ -99,7 +102,7 @@ pub fn generate_query_iter(mode: FetchMode, query: &ParseQueryIter) -> syn::Resu
                 {
                     // The closure needs to be made per-archetype because of AnyOf types
                     let mut closure = |#(#arg: &#maybe_mut #Type),*| #body;
-                    let archetype = #world.get_archetype::<#Archetype>();
+                    let archetype = #world.#archetype_access::<#Archetype>();
                     let len = archetype.len();
                     #slice_access // This depends on fetch mode
                     for idx in 0..len {
@@ -112,18 +115,25 @@ pub fn generate_query_iter(mode: FetchMode, query: &ParseQueryIter) -> syn::Resu
     Ok(quote!(#(#queries)*))
 }
 
+fn generate_archetype_access(mode: FetchMode) -> TokenStream {
+    match mode {
+        FetchMode::Borrow => quote!(archetype),
+        FetchMode::Mut => quote!(archetype_mut),
+    }
+}
+
 fn generate_slice_access(mode: FetchMode, params: &[ParseQueryParam]) -> TokenStream {
     let slice = params.iter().map(to_slice).collect::<Vec<_>>();
     let maybe_mut = params.iter().map(to_maybe_mut).collect::<Vec<_>>();
     let fn_borrow = params.iter().map(to_borrow).collect::<Vec<_>>();
 
     match mode {
-        FetchMode::Mut => quote_spanned!(Span::mixed_site() =>
-            let slices = archetype.get_mut_slices();
-            #(let #maybe_mut #slice = slices.#slice;)*
-        ),
         FetchMode::Borrow => quote_spanned!(Span::mixed_site() =>
             #(let #maybe_mut #slice = archetype.#fn_borrow;)*
+        ),
+        FetchMode::Mut => quote_spanned!(Span::mixed_site() =>
+            let slices = archetype.get_slice_muts();
+            #(let #maybe_mut #slice = slices.#slice;)*
         ),
     }
 }
@@ -182,7 +192,7 @@ fn to_slice(param: &ParseQueryParam) -> TokenStream {
 fn to_borrow(param: &ParseQueryParam) -> TokenStream {
     match (param.is_mut, &param.ty) {
         (false, ParseParamType::Component(ident)) => quote!(borrow_slice::<#ident>()),
-        (true, ParseParamType::Component(ident)) => quote!(borrow_mut_slice::<#ident>()),
+        (true, ParseParamType::Component(ident)) => quote!(borrow_slice_mut::<#ident>()),
         (_, ParseParamType::Entity(_)) => quote!(get_slice_entities()),
         (_, ParseParamType::EntityAny) => quote!(get_slice_entities()),
     }

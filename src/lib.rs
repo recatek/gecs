@@ -3,10 +3,11 @@
 #![allow(clippy::too_many_arguments)] // lmao
 
 mod archetype;
-mod entity;
-mod error;
-mod traits;
 mod util;
+
+pub mod entity;
+pub mod error;
+pub mod traits;
 
 pub mod prelude {
     use super::*;
@@ -14,9 +15,12 @@ pub mod prelude {
     pub use gecs_macros::ecs_world;
 
     pub use entity::{Entity, EntityAny};
-    pub use traits::{Archetype, HasArchetype, HasArchetypes, HasComponent, HasComponents};
+    pub use traits::Archetype;
+    pub use traits::{ArchetypeContainer, ComponentContainer};
+    pub use traits::{HasArchetype, HasComponent};
 }
 
+#[doc(hidden)]
 pub mod __internal {
     use super::*;
 
@@ -28,5 +32,7 @@ pub mod __internal {
     pub use archetype::storage_dynamic::*;
     pub use archetype::storage_fixed::*;
 
-    pub use traits::{Archetype, HasArchetype, HasArchetypes, HasComponent, HasComponents};
+    pub use traits::Archetype;
+    pub use traits::{ArchetypeContainer, ComponentContainer};
+    pub use traits::{HasArchetype, HasComponent};
 }

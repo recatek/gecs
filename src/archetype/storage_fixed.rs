@@ -57,7 +57,7 @@ macro_rules! declare_dense_fixed_n {
                 /// Reserves a slot in the map pointing to the given dense index.
                 /// Returns an entity handle if successful, or None if we're full.
                 #[inline(always)]
-                pub fn push(&mut self, $([<v$i>]: [<T$i>]),+) -> Option<Entity<A>> {
+                pub fn push(&mut self, data: ($([<T$i>],)+)) -> Option<Entity<A>> {
                     if self.len >= N {
                         return None;
                     }
@@ -74,9 +74,13 @@ macro_rules! declare_dense_fixed_n {
                     debug_assert!(slot.is_free());
                     self.free_head = slot.index();
                     slot.assign(dense_index);
-                    let entity = Entity::new(self.len.try_into().unwrap(), slot.version());
+                    // SAFETY: We know slot_index fits in a usize because N <= u32::MAX.
+                    let entity = Entity::new(slot_index as u32, slot.version());
                     let index = self.len;
                     self.len += 1;
+
+                    // Unpack the given components
+                    let ($([<v$i>],)+) = data;
 
                     // Store the entity and data
                     unsafe {
@@ -108,24 +112,27 @@ macro_rules! declare_dense_fixed_n {
                     Some(dense_index)
                 }
 
-                /// Removes the given entity from storage, returning true if successful.
+                /// Removes the given entity from storage if it exists there.
+                /// Returns the removed entity's components, if any.
                 #[inline(always)]
-                pub fn remove(&mut self, entity: Entity<A>) -> bool {
+                pub fn remove(&mut self, entity: Entity<A>) -> Option<($([<T$i>],)*)> {
                     let (slot_index, dense_index) = match self.resolve_slot(entity) {
-                        None => { return false; }
+                        None => { return None; }
                         Some(found) => found,
                     };
 
-                    unsafe {
+                    let result = unsafe {
                         // SAFETY: These are guaranteed by resolve_slot to be in range.
                         let slot_index_usize: usize = slot_index.try_into().unwrap();
                         let dense_index_usize: usize = dense_index.try_into().unwrap();
-                        debug_assert!(slot_index_usize <= N);
-                        debug_assert!(dense_index_usize <= N);
 
-                        let entities = self.entities.assume_init_slice(self.len);
                         debug_assert!(self.len > 0);
                         debug_assert!(self.len <= N);
+                        debug_assert!(slot_index_usize <= N);
+                        debug_assert!(dense_index_usize <= N);
+                        debug_assert!(dense_index_usize < self.len);
+
+                        let entities = self.entities.assume_init_slice(self.len);
                         debug_assert!(entities.len() == self.len);
                         debug_assert!(entities[dense_index_usize].index() == entity.index());
                         debug_assert!(entities[dense_index_usize].version() == entity.version());
@@ -140,7 +147,8 @@ macro_rules! declare_dense_fixed_n {
                         // Perform the swap_remove on our data to drop the target entity.
                         // SAFETY: We guarantee that non-free slots point to valid dense data.
                         self.entities.swap_remove(dense_index_usize, self.len);
-                        $(self.[<d$i>].get_mut().swap_remove(dense_index_usize, self.len);)+
+                        let result =
+                            ($(self.[<d$i>].get_mut().swap_remove(dense_index_usize, self.len),)+);
 
                         // NOTE: Order matters here to support the (target == last) case!
                         // Fix up the slot pointing to the last entity
@@ -152,18 +160,23 @@ macro_rules! declare_dense_fixed_n {
                             .get_unchecked_mut(slot_index_usize) // SAFETY: See declaration.
                             .release(self.free_head)
                             .expect("slot version overflow"); // TODO: Orphan this slot?
-                    }
+
+                        result
+                    };
+
+                    // TODO: We shouldn't add a slot to the free list if its version number
+                    // is maxed out. It would be better to orphan that slot to avoid issues.
 
                     // Update the free list head
                     self.free_head = entity.index();
                     self.len -= 1;
 
-                    true
+                    Some(result)
                 }
 
                 /// Populates a slice struct with slices to our stored data.
                 #[inline(always)]
-                pub fn get_mut_slices<'a, S: [<Slices$n>]<'a, A, $([<T$i>],)+>>(&'a mut self,) -> S {
+                pub fn get_slice_muts<'a, S: [<Slices$n>]<'a, A, $([<T$i>],)+>>(&'a mut self,) -> S {
                     unsafe {
                         // SAFETY: We guarantee that the storage is valid up to self.len.
                         S::new(
@@ -194,7 +207,7 @@ macro_rules! declare_dense_fixed_n {
 
                     /// Gets a slice of the given component index.
                     #[inline(always)]
-                    pub fn [<get_mut_slice_$i>](&mut self) -> &mut [[<T$i>]] {
+                    pub fn [<get_slice_mut_$i>](&mut self) -> &mut [[<T$i>]] {
                         unsafe {
                             // SAFETY: We guarantee that the storage is valid up to self.len.
                             self.[<d$i>].get_mut().assume_init_mut_slice(self.len)
@@ -212,7 +225,7 @@ macro_rules! declare_dense_fixed_n {
 
                     /// Mutably borrows the slice of the given component index.
                     #[inline(always)]
-                    pub fn [<borrow_mut_slice_$i>](&self) -> RefMut<[[<T$i>]]> {
+                    pub fn [<borrow_slice_mut_$i>](&self) -> RefMut<[[<T$i>]]> {
                         RefMut::map(self.[<d$i>].borrow_mut(), |slice| unsafe {
                             // SAFETY: We guarantee that the storage is valid up to self.len.
                             slice.assume_init_mut_slice(self.len)
@@ -378,7 +391,7 @@ impl<T, const N: usize> MaybeUninitArray<T, N> {
     /// - `index < N`
     /// - `index < len`
     #[inline(always)]
-    pub(crate) unsafe fn swap_remove(&mut self, index: usize, len: usize) {
+    pub(crate) unsafe fn swap_remove(&mut self, index: usize, len: usize) -> T {
         unsafe {
             // SAFETY: These are all guaranteed by the caller and stated above.
             debug_checked_assume!(len <= N);
@@ -388,15 +401,17 @@ impl<T, const N: usize> MaybeUninitArray<T, N> {
 
             // SAFETY: The caller is guaranteeing that the element at index, and
             // the element at len - 1 are both valid. With this guarantee we can
-            // safely drop the element at index. We then perform a direct pointer
+            // safely take the element at index. We then perform a direct pointer
             // copy (we can't assume nonoverlapping here!) from the last element
             // to the one at index. This moves the data, making the data at index
             // initialized to the data at last, and the data at last effectively
             // uninitialized (though bitwise identical to the data at index).
             let last = len - 1;
-            self.0[index].assume_init_drop();
-            ptr::copy(self.0[last].as_mut_ptr(), self.0[index].as_mut_ptr(), 1);
-            self.0[last] = MaybeUninit::uninit(); // This is a no-op but it helps Miri
+            let array_ptr = self.0.as_mut_ptr();
+            let result = ptr::read(array_ptr.add(index)).assume_init();
+            ptr::copy(array_ptr.add(last), array_ptr.add(index), 1);
+            *array_ptr.add(last) = MaybeUninit::uninit(); // Hint for Miri
+            result
         }
     }
 
@@ -410,11 +425,13 @@ impl<T, const N: usize> MaybeUninitArray<T, N> {
     #[inline(always)]
     pub(crate) unsafe fn drop_all(&mut self, len: usize) {
         unsafe {
-            debug_checked_assume!(len <= N); // SAFETY: The caller guarantees len <= N.
+            // SAFETY: The caller guarantees len <= N.
+            debug_checked_assume!(len <= N);
 
             for v in self.0[..len].iter_mut() {
-                v.assume_init_drop(); // SAFETY: The caller guarantees this is valid.
-                *v = MaybeUninit::uninit(); // This is a no-op but it helps Miri
+                // SAFETY: The caller guarantees v is valid.
+                v.assume_init_drop();
+                *v = MaybeUninit::uninit(); // Hint for Miri
             }
         };
     }

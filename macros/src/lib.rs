@@ -18,12 +18,14 @@ pub fn ecs_world(args: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
+#[doc(hidden)]
 pub fn __ecs_finalize(args: TokenStream) -> TokenStream {
     let world_data = DataWorld::new(parse_macro_input!(args as ParseFinalize));
     generate::generate_world(&world_data).into()
 }
 
 #[proc_macro]
+#[doc(hidden)]
 pub fn __ecs_find_borrow(args: TokenStream) -> TokenStream {
     let query_parse = parse_macro_input!(args as ParseQueryFind);
 
@@ -34,6 +36,7 @@ pub fn __ecs_find_borrow(args: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
+#[doc(hidden)]
 pub fn __ecs_find_mut(args: TokenStream) -> TokenStream {
     let query_parse = parse_macro_input!(args as ParseQueryFind);
 
@@ -44,6 +47,7 @@ pub fn __ecs_find_mut(args: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
+#[doc(hidden)]
 pub fn __ecs_iter_borrow(args: TokenStream) -> TokenStream {
     let query_parse = parse_macro_input!(args as ParseQueryIter);
 
@@ -54,6 +58,7 @@ pub fn __ecs_iter_borrow(args: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
+#[doc(hidden)]
 pub fn __ecs_iter_mut(args: TokenStream) -> TokenStream {
     let query_parse = parse_macro_input!(args as ParseQueryIter);
 

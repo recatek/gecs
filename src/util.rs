@@ -10,6 +10,7 @@ impl<const L: usize, const R: usize> NumAssert<L, R> {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! num_assert_leq {
     ($a:expr, $b:expr) => {
         #[allow(path_statements)]
@@ -21,6 +22,7 @@ macro_rules! num_assert_leq {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! num_assert_lt {
     ($a:expr, $b:expr) => {
         #[allow(path_statements)]
@@ -31,7 +33,9 @@ macro_rules! num_assert_lt {
     };
 }
 
+#[doc(hidden)]
 pub(crate) use num_assert_leq;
+#[doc(hidden)]
 pub(crate) use num_assert_lt;
 
 /// Hints the compiler that the given predicate will always be true.
@@ -41,6 +45,7 @@ pub(crate) use num_assert_lt;
 /// If the given predicate is ever not true, this will result in UB.
 /// This is checked only in builds with debug assertions enabled.
 #[macro_export]
+#[doc(hidden)]
 macro_rules! debug_checked_assume {
     ($ex:expr) => {
         if (!$ex) {
@@ -57,6 +62,7 @@ macro_rules! debug_checked_assume {
 /// If this line of code is ever reached, this will result in UB.
 /// This is checked only in builds with debug assertions enabled.
 #[macro_export]
+#[doc(hidden)]
 macro_rules! debug_checked_unreachable {
     () => {
         debug_assert!(false);
@@ -64,5 +70,7 @@ macro_rules! debug_checked_unreachable {
     };
 }
 
+#[doc(hidden)]
 pub(crate) use debug_checked_assume;
+#[doc(hidden)]
 pub(crate) use debug_checked_unreachable;
