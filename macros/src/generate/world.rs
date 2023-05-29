@@ -6,8 +6,10 @@ use crate::data::{DataArchetype, DataCapacity, DataWorld};
 
 #[allow(non_snake_case)] // Allow for type-like names to make quote!() clearer
 pub fn generate_world(world_data: &DataWorld) -> TokenStream {
+    let world_snake = to_snake(&world_data.name);
+
     // Module
-    let ecs_world_sealed = format_ident!("ecs_{}_sealed", to_snake(&world_data.name));
+    let ecs_world_sealed = format_ident!("ecs_{}_sealed", world_snake);
 
     // Constants and literals
     let WORLD_DATA = world_data.to_base64();
@@ -38,10 +40,10 @@ pub fn generate_world(world_data: &DataWorld) -> TokenStream {
         .collect::<Vec<_>>();
 
     // Macros
-    let __ecs_find_borrow_world = format_ident!("__ecs_find_borrow_{}", to_snake(&world_data.name));
-    let __ecs_find_mut_world = format_ident!("__ecs_find_mut_{}", to_snake(&world_data.name));
-    let __ecs_iter_borrow_world = format_ident!("__ecs_iter_borrow_{}", to_snake(&world_data.name));
-    let __ecs_iter_mut_world = format_ident!("__ecs_iter_mut_{}", to_snake(&world_data.name));
+    let __ecs_find_borrow_world = format_ident!("__ecs_find_borrow_{}", world_snake);
+    let __ecs_find_mut_world = format_ident!("__ecs_find_mut_{}", world_snake);
+    let __ecs_iter_borrow_world = format_ident!("__ecs_iter_borrow_{}", world_snake);
+    let __ecs_iter_mut_world = format_ident!("__ecs_iter_mut_{}", world_snake);
 
     quote!(
         pub use #ecs_world_sealed::{#World, #EntityWorld, #EntityWorldExt};
@@ -332,8 +334,8 @@ fn section_archetype(raw_index: usize, archetype_data: &DataArchetype) -> TokenS
             /// Returns mutable slices to all data for all entities in the archetype. To get the
             /// data index for a specific entity using this function, use the `resolve` function.
             #[inline(always)]
-            pub fn get_slice_muts(&mut self) -> #ArchetypeSlices {
-                self.data.get_slice_muts()
+            pub fn get_all_slices(&mut self) -> #ArchetypeSlices {
+                self.data.get_all_slices()
             }
         }
 

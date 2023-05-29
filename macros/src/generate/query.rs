@@ -132,7 +132,7 @@ fn generate_slice_access(mode: FetchMode, params: &[ParseQueryParam]) -> TokenSt
             #(let #maybe_mut #slice = archetype.#fn_borrow;)*
         ),
         FetchMode::Mut => quote_spanned!(Span::mixed_site() =>
-            let slices = archetype.get_slice_muts();
+            let slices = archetype.get_all_slices();
             #(let #maybe_mut #slice = slices.#slice;)*
         ),
     }
