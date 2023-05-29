@@ -42,10 +42,10 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         .collect::<Vec<_>>();
 
     // Macros
+    let __ecs_find_unique = format_ident!("__ecs_find_{}", unique_hash);
+    let __ecs_iter_unique = format_ident!("__ecs_iter_{}", unique_hash);
     let __ecs_find_borrow_unique = format_ident!("__ecs_find_borrow_{}", unique_hash);
-    let __ecs_find_mut_unique = format_ident!("__ecs_find_mut_{}", unique_hash);
     let __ecs_iter_borrow_unique = format_ident!("__ecs_iter_borrow_{}", unique_hash);
-    let __ecs_iter_mut_unique = format_ident!("__ecs_iter_mut_{}", unique_hash);
 
     quote!(
         pub use #ecs_world_sealed::{#World, #EntityWorld, #EntityWorldExt};
@@ -179,17 +179,25 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
         #[macro_export]
         #[doc(hidden)]
-        macro_rules! #__ecs_find_borrow_unique {
+        macro_rules! #__ecs_find_unique {
             ($($args:tt)*) => {
-                ::gecs::__internal::__ecs_find_borrow!(#WORLD_DATA, $($args)*)
+                ::gecs::__internal::__ecs_find!(#WORLD_DATA, $($args)*)
             }
         }
 
         #[macro_export]
         #[doc(hidden)]
-        macro_rules! #__ecs_find_mut_unique {
+        macro_rules! #__ecs_iter_unique {
             ($($args:tt)*) => {
-                ::gecs::__internal::__ecs_find_mut!(#WORLD_DATA, $($args)*)
+                ::gecs::__internal::__ecs_iter!(#WORLD_DATA, $($args)*);
+            }
+        }
+
+        #[macro_export]
+        #[doc(hidden)]
+        macro_rules! #__ecs_find_borrow_unique {
+            ($($args:tt)*) => {
+                ::gecs::__internal::__ecs_find_borrow!(#WORLD_DATA, $($args)*)
             }
         }
 
@@ -201,22 +209,14 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             }
         }
 
-        #[macro_export]
         #[doc(hidden)]
-        macro_rules! #__ecs_iter_mut_unique {
-            ($($args:tt)*) => {
-                ::gecs::__internal::__ecs_iter_mut!(#WORLD_DATA, $($args)*);
-            }
-        }
-
+        pub use #__ecs_find_unique as ecs_find;
+        #[doc(hidden)]
+        pub use #__ecs_iter_unique as ecs_iter;
         #[doc(hidden)]
         pub use #__ecs_find_borrow_unique as ecs_find_borrow;
         #[doc(hidden)]
-        pub use #__ecs_find_mut_unique as ecs_find_mut;
-        #[doc(hidden)]
         pub use #__ecs_iter_borrow_unique as ecs_iter_borrow;
-        #[doc(hidden)]
-        pub use #__ecs_iter_mut_unique as ecs_iter_mut;
     )
 }
 

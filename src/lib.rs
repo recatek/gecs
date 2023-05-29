@@ -25,8 +25,8 @@ pub mod __internal {
     use super::*;
 
     pub use gecs_macros::__ecs_finalize;
-    pub use gecs_macros::{__ecs_find_borrow, __ecs_find_mut};
-    pub use gecs_macros::{__ecs_iter_borrow, __ecs_iter_mut};
+    pub use gecs_macros::{__ecs_find, __ecs_find_borrow};
+    pub use gecs_macros::{__ecs_iter, __ecs_iter_borrow};
 
     pub use archetype::slices::*;
     pub use archetype::storage_dynamic::*;

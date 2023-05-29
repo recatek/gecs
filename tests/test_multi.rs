@@ -84,6 +84,17 @@ pub fn test_multi_find() {
     let entity_8 = world.push::<ArchBar>((ComponentA(8), ComponentC(18))).unwrap();
     let entity_9 = world.push::<ArchBar>((ComponentA(9), ComponentC(19))).unwrap();
 
+    assert!(ecs_find!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
+    assert!(ecs_find!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
+    assert!(ecs_find!(world, entity_2, |v: &ComponentA| assert_eq!(v.0, 2)));
+    assert!(ecs_find!(world, entity_3, |v: &ComponentA| assert_eq!(v.0, 3)));
+    assert!(ecs_find!(world, entity_4, |v: &ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_5, |v: &ComponentA| assert_eq!(v.0, 5)));
+    assert!(ecs_find!(world, entity_6, |v: &ComponentA| assert_eq!(v.0, 6)));
+    assert!(ecs_find!(world, entity_7, |v: &ComponentA| assert_eq!(v.0, 7)));
+    assert!(ecs_find!(world, entity_8, |v: &ComponentA| assert_eq!(v.0, 8)));
+    assert!(ecs_find!(world, entity_9, |v: &ComponentA| assert_eq!(v.0, 9)));
+
     assert!(ecs_find_borrow!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
     assert!(ecs_find_borrow!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
     assert!(ecs_find_borrow!(world, entity_2, |v: &ComponentA| assert_eq!(v.0, 2)));
@@ -95,16 +106,16 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &ComponentA| assert_eq!(v.0, 8)));
     assert!(ecs_find_borrow!(world, entity_9, |v: &ComponentA| assert_eq!(v.0, 9)));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_mut!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_mut!(world, entity_2, |v: &ComponentA| assert_eq!(v.0, 2)));
-    assert!(ecs_find_mut!(world, entity_3, |v: &ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_mut!(world, entity_4, |v: &ComponentA| assert_eq!(v.0, 4)));
-    assert!(ecs_find_mut!(world, entity_5, |v: &ComponentA| assert_eq!(v.0, 5)));
-    assert!(ecs_find_mut!(world, entity_6, |v: &ComponentA| assert_eq!(v.0, 6)));
-    assert!(ecs_find_mut!(world, entity_7, |v: &ComponentA| assert_eq!(v.0, 7)));
-    assert!(ecs_find_mut!(world, entity_8, |v: &ComponentA| assert_eq!(v.0, 8)));
-    assert!(ecs_find_mut!(world, entity_9, |v: &ComponentA| assert_eq!(v.0, 9)));
+    assert!(ecs_find!(world, entity_0, |v: &ComponentB| assert_eq!(v.0, 10)));
+    assert!(ecs_find!(world, entity_1, |v: &ComponentB| assert_eq!(v.0, 11)));
+    assert!(ecs_find!(world, entity_2, |v: &ComponentB| assert_eq!(v.0, 12)));
+    assert!(ecs_find!(world, entity_3, |v: &ComponentB| assert_eq!(v.0, 13)));
+    assert!(ecs_find!(world, entity_4, |v: &ComponentB| assert_eq!(v.0, 14)));
+    assert!(ecs_find!(world, entity_5, |v: &ComponentC| assert_eq!(v.0, 15)));
+    assert!(ecs_find!(world, entity_6, |v: &ComponentC| assert_eq!(v.0, 16)));
+    assert!(ecs_find!(world, entity_7, |v: &ComponentC| assert_eq!(v.0, 17)));
+    assert!(ecs_find!(world, entity_8, |v: &ComponentC| assert_eq!(v.0, 18)));
+    assert!(ecs_find!(world, entity_9, |v: &ComponentC| assert_eq!(v.0, 19)));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &ComponentB| assert_eq!(v.0, 10)));
     assert!(ecs_find_borrow!(world, entity_1, |v: &ComponentB| assert_eq!(v.0, 11)));
@@ -117,16 +128,16 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &ComponentC| assert_eq!(v.0, 18)));
     assert!(ecs_find_borrow!(world, entity_9, |v: &ComponentC| assert_eq!(v.0, 19)));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &ComponentB| assert_eq!(v.0, 10)));
-    assert!(ecs_find_mut!(world, entity_1, |v: &ComponentB| assert_eq!(v.0, 11)));
-    assert!(ecs_find_mut!(world, entity_2, |v: &ComponentB| assert_eq!(v.0, 12)));
-    assert!(ecs_find_mut!(world, entity_3, |v: &ComponentB| assert_eq!(v.0, 13)));
-    assert!(ecs_find_mut!(world, entity_4, |v: &ComponentB| assert_eq!(v.0, 14)));
-    assert!(ecs_find_mut!(world, entity_5, |v: &ComponentC| assert_eq!(v.0, 15)));
-    assert!(ecs_find_mut!(world, entity_6, |v: &ComponentC| assert_eq!(v.0, 16)));
-    assert!(ecs_find_mut!(world, entity_7, |v: &ComponentC| assert_eq!(v.0, 17)));
-    assert!(ecs_find_mut!(world, entity_8, |v: &ComponentC| assert_eq!(v.0, 18)));
-    assert!(ecs_find_mut!(world, entity_9, |v: &ComponentC| assert_eq!(v.0, 19)));
+    assert!(ecs_find!(world, entity_0, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (0, 10))));
+    assert!(ecs_find!(world, entity_1, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1, 11))));
+    assert!(ecs_find!(world, entity_2, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (2, 12))));
+    assert!(ecs_find!(world, entity_3, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (3, 13))));
+    assert!(ecs_find!(world, entity_4, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (4, 14))));
+    assert!(ecs_find!(world, entity_5, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (5, 15))));
+    assert!(ecs_find!(world, entity_6, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (6, 16))));
+    assert!(ecs_find!(world, entity_7, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (7, 17))));
+    assert!(ecs_find!(world, entity_8, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (8, 18))));
+    assert!(ecs_find!(world, entity_9, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (9, 19))));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (0, 10))));
     assert!(ecs_find_borrow!(world, entity_1, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1, 11))));
@@ -139,16 +150,16 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (8, 18))));
     assert!(ecs_find_borrow!(world, entity_9, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (9, 19))));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (0, 10))));
-    assert!(ecs_find_mut!(world, entity_1, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1, 11))));
-    assert!(ecs_find_mut!(world, entity_2, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (2, 12))));
-    assert!(ecs_find_mut!(world, entity_3, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (3, 13))));
-    assert!(ecs_find_mut!(world, entity_4, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (4, 14))));
-    assert!(ecs_find_mut!(world, entity_5, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (5, 15))));
-    assert!(ecs_find_mut!(world, entity_6, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (6, 16))));
-    assert!(ecs_find_mut!(world, entity_7, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (7, 17))));
-    assert!(ecs_find_mut!(world, entity_8, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (8, 18))));
-    assert!(ecs_find_mut!(world, entity_9, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (9, 19))));
+    assert!(ecs_find!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
+    assert!(ecs_find!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
+    assert!(ecs_find!(world, entity_2, |v: &ComponentA| assert_eq!(v.0, 2)));
+    assert!(ecs_find!(world, entity_3, |v: &ComponentA| assert_eq!(v.0, 3)));
+    assert!(ecs_find!(world, entity_4, |v: &ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_5, |v: &ComponentA| assert_eq!(v.0, 5)));
+    assert!(ecs_find!(world, entity_6, |v: &ComponentA| assert_eq!(v.0, 6)));
+    assert!(ecs_find!(world, entity_7, |v: &ComponentA| assert_eq!(v.0, 7)));
+    assert!(ecs_find!(world, entity_8, |v: &ComponentA| assert_eq!(v.0, 8)));
+    assert!(ecs_find!(world, entity_9, |v: &ComponentA| assert_eq!(v.0, 9)));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
     assert!(ecs_find_borrow!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
@@ -161,18 +172,18 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &ComponentA| assert_eq!(v.0, 8)));
     assert!(ecs_find_borrow!(world, entity_9, |v: &ComponentA| assert_eq!(v.0, 9)));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_mut!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_mut!(world, entity_2, |v: &ComponentA| assert_eq!(v.0, 2)));
-    assert!(ecs_find_mut!(world, entity_3, |v: &ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_mut!(world, entity_4, |v: &ComponentA| assert_eq!(v.0, 4)));
-    assert!(ecs_find_mut!(world, entity_5, |v: &ComponentA| assert_eq!(v.0, 5)));
-    assert!(ecs_find_mut!(world, entity_6, |v: &ComponentA| assert_eq!(v.0, 6)));
-    assert!(ecs_find_mut!(world, entity_7, |v: &ComponentA| assert_eq!(v.0, 7)));
-    assert!(ecs_find_mut!(world, entity_8, |v: &ComponentA| assert_eq!(v.0, 8)));
-    assert!(ecs_find_mut!(world, entity_9, |v: &ComponentA| assert_eq!(v.0, 9)));
-
     // As above, but mutable component access:
+    assert!(ecs_find!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
+    assert!(ecs_find!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
+    assert!(ecs_find!(world, entity_2, |v: &mut ComponentA| assert_eq!(v.0, 2)));
+    assert!(ecs_find!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
+    assert!(ecs_find!(world, entity_4, |v: &mut ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_5, |v: &mut ComponentA| assert_eq!(v.0, 5)));
+    assert!(ecs_find!(world, entity_6, |v: &mut ComponentA| assert_eq!(v.0, 6)));
+    assert!(ecs_find!(world, entity_7, |v: &mut ComponentA| assert_eq!(v.0, 7)));
+    assert!(ecs_find!(world, entity_8, |v: &mut ComponentA| assert_eq!(v.0, 8)));
+    assert!(ecs_find!(world, entity_9, |v: &mut ComponentA| assert_eq!(v.0, 9)));
+
     assert!(ecs_find_borrow!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
     assert!(ecs_find_borrow!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
     assert!(ecs_find_borrow!(world, entity_2, |v: &mut ComponentA| assert_eq!(v.0, 2)));
@@ -184,16 +195,16 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &mut ComponentA| assert_eq!(v.0, 8)));
     assert!(ecs_find_borrow!(world, entity_9, |v: &mut ComponentA| assert_eq!(v.0, 9)));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_mut!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_mut!(world, entity_2, |v: &mut ComponentA| assert_eq!(v.0, 2)));
-    assert!(ecs_find_mut!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_mut!(world, entity_4, |v: &mut ComponentA| assert_eq!(v.0, 4)));
-    assert!(ecs_find_mut!(world, entity_5, |v: &mut ComponentA| assert_eq!(v.0, 5)));
-    assert!(ecs_find_mut!(world, entity_6, |v: &mut ComponentA| assert_eq!(v.0, 6)));
-    assert!(ecs_find_mut!(world, entity_7, |v: &mut ComponentA| assert_eq!(v.0, 7)));
-    assert!(ecs_find_mut!(world, entity_8, |v: &mut ComponentA| assert_eq!(v.0, 8)));
-    assert!(ecs_find_mut!(world, entity_9, |v: &mut ComponentA| assert_eq!(v.0, 9)));
+    assert!(ecs_find!(world, entity_0, |v: &mut ComponentB| assert_eq!(v.0, 10)));
+    assert!(ecs_find!(world, entity_1, |v: &mut ComponentB| assert_eq!(v.0, 11)));
+    assert!(ecs_find!(world, entity_2, |v: &mut ComponentB| assert_eq!(v.0, 12)));
+    assert!(ecs_find!(world, entity_3, |v: &mut ComponentB| assert_eq!(v.0, 13)));
+    assert!(ecs_find!(world, entity_4, |v: &mut ComponentB| assert_eq!(v.0, 14)));
+    assert!(ecs_find!(world, entity_5, |v: &mut ComponentC| assert_eq!(v.0, 15)));
+    assert!(ecs_find!(world, entity_6, |v: &mut ComponentC| assert_eq!(v.0, 16)));
+    assert!(ecs_find!(world, entity_7, |v: &mut ComponentC| assert_eq!(v.0, 17)));
+    assert!(ecs_find!(world, entity_8, |v: &mut ComponentC| assert_eq!(v.0, 18)));
+    assert!(ecs_find!(world, entity_9, |v: &mut ComponentC| assert_eq!(v.0, 19)));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &mut ComponentB| assert_eq!(v.0, 10)));
     assert!(ecs_find_borrow!(world, entity_1, |v: &mut ComponentB| assert_eq!(v.0, 11)));
@@ -206,16 +217,16 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &mut ComponentC| assert_eq!(v.0, 18)));
     assert!(ecs_find_borrow!(world, entity_9, |v: &mut ComponentC| assert_eq!(v.0, 19)));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &mut ComponentB| assert_eq!(v.0, 10)));
-    assert!(ecs_find_mut!(world, entity_1, |v: &mut ComponentB| assert_eq!(v.0, 11)));
-    assert!(ecs_find_mut!(world, entity_2, |v: &mut ComponentB| assert_eq!(v.0, 12)));
-    assert!(ecs_find_mut!(world, entity_3, |v: &mut ComponentB| assert_eq!(v.0, 13)));
-    assert!(ecs_find_mut!(world, entity_4, |v: &mut ComponentB| assert_eq!(v.0, 14)));
-    assert!(ecs_find_mut!(world, entity_5, |v: &mut ComponentC| assert_eq!(v.0, 15)));
-    assert!(ecs_find_mut!(world, entity_6, |v: &mut ComponentC| assert_eq!(v.0, 16)));
-    assert!(ecs_find_mut!(world, entity_7, |v: &mut ComponentC| assert_eq!(v.0, 17)));
-    assert!(ecs_find_mut!(world, entity_8, |v: &mut ComponentC| assert_eq!(v.0, 18)));
-    assert!(ecs_find_mut!(world, entity_9, |v: &mut ComponentC| assert_eq!(v.0, 19)));
+    assert!(ecs_find!(world, entity_0, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (0, 10))));
+    assert!(ecs_find!(world, entity_1, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (1, 11))));
+    assert!(ecs_find!(world, entity_2, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (2, 12))));
+    assert!(ecs_find!(world, entity_3, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (3, 13))));
+    assert!(ecs_find!(world, entity_4, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (4, 14))));
+    assert!(ecs_find!(world, entity_5, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (5, 15))));
+    assert!(ecs_find!(world, entity_6, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (6, 16))));
+    assert!(ecs_find!(world, entity_7, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (7, 17))));
+    assert!(ecs_find!(world, entity_8, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (8, 18))));
+    assert!(ecs_find!(world, entity_9, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (9, 19))));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (0, 10))));
     assert!(ecs_find_borrow!(world, entity_1, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (1, 11))));
@@ -228,16 +239,16 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (8, 18))));
     assert!(ecs_find_borrow!(world, entity_9, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (9, 19))));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (0, 10))));
-    assert!(ecs_find_mut!(world, entity_1, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (1, 11))));
-    assert!(ecs_find_mut!(world, entity_2, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (2, 12))));
-    assert!(ecs_find_mut!(world, entity_3, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (3, 13))));
-    assert!(ecs_find_mut!(world, entity_4, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (4, 14))));
-    assert!(ecs_find_mut!(world, entity_5, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (5, 15))));
-    assert!(ecs_find_mut!(world, entity_6, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (6, 16))));
-    assert!(ecs_find_mut!(world, entity_7, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (7, 17))));
-    assert!(ecs_find_mut!(world, entity_8, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (8, 18))));
-    assert!(ecs_find_mut!(world, entity_9, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (9, 19))));
+    assert!(ecs_find!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
+    assert!(ecs_find!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
+    assert!(ecs_find!(world, entity_2, |v: &mut ComponentA| assert_eq!(v.0, 2)));
+    assert!(ecs_find!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
+    assert!(ecs_find!(world, entity_4, |v: &mut ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_5, |v: &mut ComponentA| assert_eq!(v.0, 5)));
+    assert!(ecs_find!(world, entity_6, |v: &mut ComponentA| assert_eq!(v.0, 6)));
+    assert!(ecs_find!(world, entity_7, |v: &mut ComponentA| assert_eq!(v.0, 7)));
+    assert!(ecs_find!(world, entity_8, |v: &mut ComponentA| assert_eq!(v.0, 8)));
+    assert!(ecs_find!(world, entity_9, |v: &mut ComponentA| assert_eq!(v.0, 9)));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
     assert!(ecs_find_borrow!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
@@ -250,19 +261,17 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &mut ComponentA| assert_eq!(v.0, 8)));
     assert!(ecs_find_borrow!(world, entity_9, |v: &mut ComponentA| assert_eq!(v.0, 9)));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_mut!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_mut!(world, entity_2, |v: &mut ComponentA| assert_eq!(v.0, 2)));
-    assert!(ecs_find_mut!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_mut!(world, entity_4, |v: &mut ComponentA| assert_eq!(v.0, 4)));
-    assert!(ecs_find_mut!(world, entity_5, |v: &mut ComponentA| assert_eq!(v.0, 5)));
-    assert!(ecs_find_mut!(world, entity_6, |v: &mut ComponentA| assert_eq!(v.0, 6)));
-    assert!(ecs_find_mut!(world, entity_7, |v: &mut ComponentA| assert_eq!(v.0, 7)));
-    assert!(ecs_find_mut!(world, entity_8, |v: &mut ComponentA| assert_eq!(v.0, 8)));
-    assert!(ecs_find_mut!(world, entity_9, |v: &mut ComponentA| assert_eq!(v.0, 9)));
-
     assert!(world.remove(entity_2).is_some());
     assert!(world.remove(entity_7).is_some());
+
+    assert!(ecs_find!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
+    assert!(ecs_find!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
+    assert!(ecs_find!(world, entity_3, |v: &ComponentA| assert_eq!(v.0, 3)));
+    assert!(ecs_find!(world, entity_4, |v: &ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_5, |v: &ComponentA| assert_eq!(v.0, 5)));
+    assert!(ecs_find!(world, entity_6, |v: &ComponentA| assert_eq!(v.0, 6)));
+    assert!(ecs_find!(world, entity_8, |v: &ComponentA| assert_eq!(v.0, 8)));
+    assert!(ecs_find!(world, entity_9, |v: &ComponentA| assert_eq!(v.0, 9)));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
     assert!(ecs_find_borrow!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
@@ -273,14 +282,14 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &ComponentA| assert_eq!(v.0, 8)));
     assert!(ecs_find_borrow!(world, entity_9, |v: &ComponentA| assert_eq!(v.0, 9)));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_mut!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_mut!(world, entity_3, |v: &ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_mut!(world, entity_4, |v: &ComponentA| assert_eq!(v.0, 4)));
-    assert!(ecs_find_mut!(world, entity_5, |v: &ComponentA| assert_eq!(v.0, 5)));
-    assert!(ecs_find_mut!(world, entity_6, |v: &ComponentA| assert_eq!(v.0, 6)));
-    assert!(ecs_find_mut!(world, entity_8, |v: &ComponentA| assert_eq!(v.0, 8)));
-    assert!(ecs_find_mut!(world, entity_9, |v: &ComponentA| assert_eq!(v.0, 9)));
+    assert!(ecs_find!(world, entity_0, |v: &ComponentB| assert_eq!(v.0, 10)));
+    assert!(ecs_find!(world, entity_1, |v: &ComponentB| assert_eq!(v.0, 11)));
+    assert!(ecs_find!(world, entity_3, |v: &ComponentB| assert_eq!(v.0, 13)));
+    assert!(ecs_find!(world, entity_4, |v: &ComponentB| assert_eq!(v.0, 14)));
+    assert!(ecs_find!(world, entity_5, |v: &ComponentC| assert_eq!(v.0, 15)));
+    assert!(ecs_find!(world, entity_6, |v: &ComponentC| assert_eq!(v.0, 16)));
+    assert!(ecs_find!(world, entity_8, |v: &ComponentC| assert_eq!(v.0, 18)));
+    assert!(ecs_find!(world, entity_9, |v: &ComponentC| assert_eq!(v.0, 19)));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &ComponentB| assert_eq!(v.0, 10)));
     assert!(ecs_find_borrow!(world, entity_1, |v: &ComponentB| assert_eq!(v.0, 11)));
@@ -291,14 +300,14 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &ComponentC| assert_eq!(v.0, 18)));
     assert!(ecs_find_borrow!(world, entity_9, |v: &ComponentC| assert_eq!(v.0, 19)));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &ComponentB| assert_eq!(v.0, 10)));
-    assert!(ecs_find_mut!(world, entity_1, |v: &ComponentB| assert_eq!(v.0, 11)));
-    assert!(ecs_find_mut!(world, entity_3, |v: &ComponentB| assert_eq!(v.0, 13)));
-    assert!(ecs_find_mut!(world, entity_4, |v: &ComponentB| assert_eq!(v.0, 14)));
-    assert!(ecs_find_mut!(world, entity_5, |v: &ComponentC| assert_eq!(v.0, 15)));
-    assert!(ecs_find_mut!(world, entity_6, |v: &ComponentC| assert_eq!(v.0, 16)));
-    assert!(ecs_find_mut!(world, entity_8, |v: &ComponentC| assert_eq!(v.0, 18)));
-    assert!(ecs_find_mut!(world, entity_9, |v: &ComponentC| assert_eq!(v.0, 19)));
+    assert!(ecs_find!(world, entity_0, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (0, 10))));
+    assert!(ecs_find!(world, entity_1, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1, 11))));
+    assert!(ecs_find!(world, entity_3, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (3, 13))));
+    assert!(ecs_find!(world, entity_4, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (4, 14))));
+    assert!(ecs_find!(world, entity_5, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (5, 15))));
+    assert!(ecs_find!(world, entity_6, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (6, 16))));
+    assert!(ecs_find!(world, entity_8, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (8, 18))));
+    assert!(ecs_find!(world, entity_9, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (9, 19))));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (0, 10))));
     assert!(ecs_find_borrow!(world, entity_1, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1, 11))));
@@ -309,14 +318,14 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (8, 18))));
     assert!(ecs_find_borrow!(world, entity_9, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (9, 19))));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (0, 10))));
-    assert!(ecs_find_mut!(world, entity_1, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1, 11))));
-    assert!(ecs_find_mut!(world, entity_3, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (3, 13))));
-    assert!(ecs_find_mut!(world, entity_4, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (4, 14))));
-    assert!(ecs_find_mut!(world, entity_5, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (5, 15))));
-    assert!(ecs_find_mut!(world, entity_6, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (6, 16))));
-    assert!(ecs_find_mut!(world, entity_8, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (8, 18))));
-    assert!(ecs_find_mut!(world, entity_9, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (9, 19))));
+    assert!(ecs_find!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
+    assert!(ecs_find!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
+    assert!(ecs_find!(world, entity_3, |v: &ComponentA| assert_eq!(v.0, 3)));
+    assert!(ecs_find!(world, entity_4, |v: &ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_5, |v: &ComponentA| assert_eq!(v.0, 5)));
+    assert!(ecs_find!(world, entity_6, |v: &ComponentA| assert_eq!(v.0, 6)));
+    assert!(ecs_find!(world, entity_8, |v: &ComponentA| assert_eq!(v.0, 8)));
+    assert!(ecs_find!(world, entity_9, |v: &ComponentA| assert_eq!(v.0, 9)));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
     assert!(ecs_find_borrow!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
@@ -327,16 +336,16 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &ComponentA| assert_eq!(v.0, 8)));
     assert!(ecs_find_borrow!(world, entity_9, |v: &ComponentA| assert_eq!(v.0, 9)));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_mut!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_mut!(world, entity_3, |v: &ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_mut!(world, entity_4, |v: &ComponentA| assert_eq!(v.0, 4)));
-    assert!(ecs_find_mut!(world, entity_5, |v: &ComponentA| assert_eq!(v.0, 5)));
-    assert!(ecs_find_mut!(world, entity_6, |v: &ComponentA| assert_eq!(v.0, 6)));
-    assert!(ecs_find_mut!(world, entity_8, |v: &ComponentA| assert_eq!(v.0, 8)));
-    assert!(ecs_find_mut!(world, entity_9, |v: &ComponentA| assert_eq!(v.0, 9)));
-
     // As above, but mutable component access:
+    assert!(ecs_find!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
+    assert!(ecs_find!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
+    assert!(ecs_find!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
+    assert!(ecs_find!(world, entity_4, |v: &mut ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_5, |v: &mut ComponentA| assert_eq!(v.0, 5)));
+    assert!(ecs_find!(world, entity_6, |v: &mut ComponentA| assert_eq!(v.0, 6)));
+    assert!(ecs_find!(world, entity_8, |v: &mut ComponentA| assert_eq!(v.0, 8)));
+    assert!(ecs_find!(world, entity_9, |v: &mut ComponentA| assert_eq!(v.0, 9)));
+
     assert!(ecs_find_borrow!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
     assert!(ecs_find_borrow!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
     assert!(ecs_find_borrow!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
@@ -346,14 +355,14 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &mut ComponentA| assert_eq!(v.0, 8)));
     assert!(ecs_find_borrow!(world, entity_9, |v: &mut ComponentA| assert_eq!(v.0, 9)));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_mut!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_mut!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_mut!(world, entity_4, |v: &mut ComponentA| assert_eq!(v.0, 4)));
-    assert!(ecs_find_mut!(world, entity_5, |v: &mut ComponentA| assert_eq!(v.0, 5)));
-    assert!(ecs_find_mut!(world, entity_6, |v: &mut ComponentA| assert_eq!(v.0, 6)));
-    assert!(ecs_find_mut!(world, entity_8, |v: &mut ComponentA| assert_eq!(v.0, 8)));
-    assert!(ecs_find_mut!(world, entity_9, |v: &mut ComponentA| assert_eq!(v.0, 9)));
+    assert!(ecs_find!(world, entity_0, |v: &mut ComponentB| assert_eq!(v.0, 10)));
+    assert!(ecs_find!(world, entity_1, |v: &mut ComponentB| assert_eq!(v.0, 11)));
+    assert!(ecs_find!(world, entity_3, |v: &mut ComponentB| assert_eq!(v.0, 13)));
+    assert!(ecs_find!(world, entity_4, |v: &mut ComponentB| assert_eq!(v.0, 14)));
+    assert!(ecs_find!(world, entity_5, |v: &mut ComponentC| assert_eq!(v.0, 15)));
+    assert!(ecs_find!(world, entity_6, |v: &mut ComponentC| assert_eq!(v.0, 16)));
+    assert!(ecs_find!(world, entity_8, |v: &mut ComponentC| assert_eq!(v.0, 18)));
+    assert!(ecs_find!(world, entity_9, |v: &mut ComponentC| assert_eq!(v.0, 19)));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &mut ComponentB| assert_eq!(v.0, 10)));
     assert!(ecs_find_borrow!(world, entity_1, |v: &mut ComponentB| assert_eq!(v.0, 11)));
@@ -364,14 +373,14 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &mut ComponentC| assert_eq!(v.0, 18)));
     assert!(ecs_find_borrow!(world, entity_9, |v: &mut ComponentC| assert_eq!(v.0, 19)));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &mut ComponentB| assert_eq!(v.0, 10)));
-    assert!(ecs_find_mut!(world, entity_1, |v: &mut ComponentB| assert_eq!(v.0, 11)));
-    assert!(ecs_find_mut!(world, entity_3, |v: &mut ComponentB| assert_eq!(v.0, 13)));
-    assert!(ecs_find_mut!(world, entity_4, |v: &mut ComponentB| assert_eq!(v.0, 14)));
-    assert!(ecs_find_mut!(world, entity_5, |v: &mut ComponentC| assert_eq!(v.0, 15)));
-    assert!(ecs_find_mut!(world, entity_6, |v: &mut ComponentC| assert_eq!(v.0, 16)));
-    assert!(ecs_find_mut!(world, entity_8, |v: &mut ComponentC| assert_eq!(v.0, 18)));
-    assert!(ecs_find_mut!(world, entity_9, |v: &mut ComponentC| assert_eq!(v.0, 19)));
+    assert!(ecs_find!(world, entity_0, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (0, 10))));
+    assert!(ecs_find!(world, entity_1, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (1, 11))));
+    assert!(ecs_find!(world, entity_3, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (3, 13))));
+    assert!(ecs_find!(world, entity_4, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (4, 14))));
+    assert!(ecs_find!(world, entity_5, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (5, 15))));
+    assert!(ecs_find!(world, entity_6, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (6, 16))));
+    assert!(ecs_find!(world, entity_8, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (8, 18))));
+    assert!(ecs_find!(world, entity_9, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (9, 19))));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (0, 10))));
     assert!(ecs_find_borrow!(world, entity_1, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (1, 11))));
@@ -382,14 +391,14 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (8, 18))));
     assert!(ecs_find_borrow!(world, entity_9, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (9, 19))));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (0, 10))));
-    assert!(ecs_find_mut!(world, entity_1, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (1, 11))));
-    assert!(ecs_find_mut!(world, entity_3, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (3, 13))));
-    assert!(ecs_find_mut!(world, entity_4, |v: &mut ComponentA, u: &mut ComponentB| assert_eq!((v.0, u.0), (4, 14))));
-    assert!(ecs_find_mut!(world, entity_5, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (5, 15))));
-    assert!(ecs_find_mut!(world, entity_6, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (6, 16))));
-    assert!(ecs_find_mut!(world, entity_8, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (8, 18))));
-    assert!(ecs_find_mut!(world, entity_9, |v: &mut ComponentA, u: &mut ComponentC| assert_eq!((v.0, u.0), (9, 19))));
+    assert!(ecs_find!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
+    assert!(ecs_find!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
+    assert!(ecs_find!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
+    assert!(ecs_find!(world, entity_4, |v: &mut ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_5, |v: &mut ComponentA| assert_eq!(v.0, 5)));
+    assert!(ecs_find!(world, entity_6, |v: &mut ComponentA| assert_eq!(v.0, 6)));
+    assert!(ecs_find!(world, entity_8, |v: &mut ComponentA| assert_eq!(v.0, 8)));
+    assert!(ecs_find!(world, entity_9, |v: &mut ComponentA| assert_eq!(v.0, 9)));
 
     assert!(ecs_find_borrow!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
     assert!(ecs_find_borrow!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
@@ -400,43 +409,34 @@ pub fn test_multi_find() {
     assert!(ecs_find_borrow!(world, entity_8, |v: &mut ComponentA| assert_eq!(v.0, 8)));
     assert!(ecs_find_borrow!(world, entity_9, |v: &mut ComponentA| assert_eq!(v.0, 9)));
 
-    assert!(ecs_find_mut!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_mut!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_mut!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_mut!(world, entity_4, |v: &mut ComponentA| assert_eq!(v.0, 4)));
-    assert!(ecs_find_mut!(world, entity_5, |v: &mut ComponentA| assert_eq!(v.0, 5)));
-    assert!(ecs_find_mut!(world, entity_6, |v: &mut ComponentA| assert_eq!(v.0, 6)));
-    assert!(ecs_find_mut!(world, entity_8, |v: &mut ComponentA| assert_eq!(v.0, 8)));
-    assert!(ecs_find_mut!(world, entity_9, |v: &mut ComponentA| assert_eq!(v.0, 9)));
-
-    assert_eq!(ecs_find_mut!(world, entity_2, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_7, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_2, |_: &ComponentB| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_7, |_: &ComponentC| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_2, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_7, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_2, |_: &ComponentB| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_7, |_: &ComponentC| panic!()), false);
 
     assert_eq!(ecs_find_borrow!(world, entity_2, |_: &ComponentA| panic!()), false);
     assert_eq!(ecs_find_borrow!(world, entity_7, |_: &ComponentA| panic!()), false);
     assert_eq!(ecs_find_borrow!(world, entity_2, |_: &ComponentB| panic!()), false);
     assert_eq!(ecs_find_borrow!(world, entity_7, |_: &ComponentC| panic!()), false);
 
-    assert_eq!(ecs_find_mut!(world, entity_2, |_: &ComponentA, _: &ComponentB| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_7, |_: &ComponentA, _: &ComponentC| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_2, |_: &ComponentA, _: &ComponentB| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_7, |_: &ComponentA, _: &ComponentC| panic!()), false);
 
     assert_eq!(ecs_find_borrow!(world, entity_2, |_: &ComponentA, _: &ComponentB| panic!()), false);
     assert_eq!(ecs_find_borrow!(world, entity_7, |_: &ComponentA, _: &ComponentC| panic!()), false);
 
-    assert_eq!(ecs_find_mut!(world, entity_2, |_: &mut ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_7, |_: &mut ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_2, |_: &mut ComponentB| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_7, |_: &mut ComponentC| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_2, |_: &mut ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_7, |_: &mut ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_2, |_: &mut ComponentB| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_7, |_: &mut ComponentC| panic!()), false);
 
     assert_eq!(ecs_find_borrow!(world, entity_2, |_: &mut ComponentA| panic!()), false);
     assert_eq!(ecs_find_borrow!(world, entity_7, |_: &mut ComponentA| panic!()), false);
     assert_eq!(ecs_find_borrow!(world, entity_2, |_: &mut ComponentB| panic!()), false);
     assert_eq!(ecs_find_borrow!(world, entity_7, |_: &mut ComponentC| panic!()), false);
 
-    assert_eq!(ecs_find_mut!(world, entity_2, |_: &mut ComponentA, _: &mut ComponentB| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_7, |_: &mut ComponentA, _: &mut ComponentC| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_2, |_: &mut ComponentA, _: &mut ComponentB| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_7, |_: &mut ComponentA, _: &mut ComponentC| panic!()), false);
 
     assert_eq!(ecs_find_borrow!(world, entity_2, |_: &mut ComponentA, _: &mut ComponentB| panic!()), false);
     assert_eq!(ecs_find_borrow!(world, entity_7, |_: &mut ComponentA, _: &mut ComponentC| panic!()), false);
@@ -460,86 +460,86 @@ pub fn test_multi_iter() {
     let _entity_9 = world.push::<ArchBar>((ComponentA(9), ComponentC(19))).unwrap();
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &ComponentA| sum += v.0);
     assert_eq!(sum, 0+1+2+3+4+5+6+7+8+9);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentB| sum += v.0);
+    ecs_iter!(world, |v: &ComponentB| sum += v.0);
     assert_eq!(sum, 10+11+12+13+14);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentC| sum += v.0);
+    ecs_iter!(world, |v: &ComponentC| sum += v.0);
     assert_eq!(sum, 15+16+17+18+19);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentA, u: &ComponentB| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &ComponentA, u: &ComponentB| sum += v.0 + u.0);
     assert_eq!(sum, 0+1+2+3+4+10+11+12+13+14);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentA, u: &ComponentC| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &ComponentA, u: &ComponentC| sum += v.0 + u.0);
     assert_eq!(sum, 5+6+7+8+9+15+16+17+18+19);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &mut ComponentA| sum += v.0);
     assert_eq!(sum, 0+1+2+3+4+5+6+7+8+9);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentB| sum += v.0);
+    ecs_iter!(world, |v: &mut ComponentB| sum += v.0);
     assert_eq!(sum, 10+11+12+13+14);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentC| sum += v.0);
+    ecs_iter!(world, |v: &mut ComponentC| sum += v.0);
     assert_eq!(sum, 15+16+17+18+19);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentA, u: &mut ComponentB| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &mut ComponentA, u: &mut ComponentB| sum += v.0 + u.0);
     assert_eq!(sum, 0+1+2+3+4+10+11+12+13+14);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentA, u: &mut ComponentC| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &mut ComponentA, u: &mut ComponentC| sum += v.0 + u.0);
     assert_eq!(sum, 5+6+7+8+9+15+16+17+18+19);
 
     assert!(world.remove(_entity_2).is_some());
     assert!(world.remove(_entity_7).is_some());
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &ComponentA| sum += v.0);
     assert_eq!(sum, 0+1+3+4+5+6+8+9);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentB| sum += v.0);
+    ecs_iter!(world, |v: &ComponentB| sum += v.0);
     assert_eq!(sum, 10+11+13+14);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentC| sum += v.0);
+    ecs_iter!(world, |v: &ComponentC| sum += v.0);
     assert_eq!(sum, 15+16+18+19);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentA, u: &ComponentB| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &ComponentA, u: &ComponentB| sum += v.0 + u.0);
     assert_eq!(sum, 0+1+3+4+10+11+13+14);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentA, u: &ComponentC| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &ComponentA, u: &ComponentC| sum += v.0 + u.0);
     assert_eq!(sum, 5+6+8+9+15+16+18+19);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &mut ComponentA| sum += v.0);
     assert_eq!(sum, 0+1+3+4+5+6+8+9);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentB| sum += v.0);
+    ecs_iter!(world, |v: &mut ComponentB| sum += v.0);
     assert_eq!(sum, 10+11+13+14);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentC| sum += v.0);
+    ecs_iter!(world, |v: &mut ComponentC| sum += v.0);
     assert_eq!(sum, 15+16+18+19);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentA, u: &mut ComponentB| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &mut ComponentA, u: &mut ComponentB| sum += v.0 + u.0);
     assert_eq!(sum, 0+1+3+4+10+11+13+14);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentA, u: &mut ComponentC| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &mut ComponentA, u: &mut ComponentC| sum += v.0 + u.0);
     assert_eq!(sum, 5+6+8+9+15+16+18+19);
 }
 
@@ -560,91 +560,91 @@ pub fn test_multi_iter_write() {
     let _entity_8 = world.push::<ArchBar>((ComponentA(8), ComponentC(18))).unwrap();
     let _entity_9 = world.push::<ArchBar>((ComponentA(9), ComponentC(19))).unwrap();
 
-    ecs_iter_mut!(world, |v: &mut ComponentA| v.0 += 100);
-    ecs_iter_mut!(world, |v: &mut ComponentB| v.0 += 100);
-    ecs_iter_mut!(world, |v: &mut ComponentC| v.0 += 100);
+    ecs_iter!(world, |v: &mut ComponentA| v.0 += 100);
+    ecs_iter!(world, |v: &mut ComponentB| v.0 += 100);
+    ecs_iter!(world, |v: &mut ComponentC| v.0 += 100);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &ComponentA| sum += v.0);
     assert_eq!(sum, 100+101+102+103+104+105+106+107+108+109);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentB| sum += v.0);
+    ecs_iter!(world, |v: &ComponentB| sum += v.0);
     assert_eq!(sum, 110+111+112+113+114);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentC| sum += v.0);
+    ecs_iter!(world, |v: &ComponentC| sum += v.0);
     assert_eq!(sum, 115+116+117+118+119);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentA, u: &ComponentB| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &ComponentA, u: &ComponentB| sum += v.0 + u.0);
     assert_eq!(sum, 100+101+102+103+104+110+111+112+113+114);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentA, u: &ComponentC| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &ComponentA, u: &ComponentC| sum += v.0 + u.0);
     assert_eq!(sum, 105+106+107+108+109+115+116+117+118+119);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &mut ComponentA| sum += v.0);
     assert_eq!(sum, 100+101+102+103+104+105+106+107+108+109);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentB| sum += v.0);
+    ecs_iter!(world, |v: &mut ComponentB| sum += v.0);
     assert_eq!(sum, 110+111+112+113+114);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentC| sum += v.0);
+    ecs_iter!(world, |v: &mut ComponentC| sum += v.0);
     assert_eq!(sum, 115+116+117+118+119);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentA, u: &mut ComponentB| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &mut ComponentA, u: &mut ComponentB| sum += v.0 + u.0);
     assert_eq!(sum, 100+101+102+103+104+110+111+112+113+114);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentA, u: &mut ComponentC| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &mut ComponentA, u: &mut ComponentC| sum += v.0 + u.0);
     assert_eq!(sum, 105+106+107+108+109+115+116+117+118+119);
 
     assert!(world.remove(_entity_2).is_some());
     assert!(world.remove(_entity_7).is_some());
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &ComponentA| sum += v.0);
     assert_eq!(sum, 100+101+103+104+105+106+108+109);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentB| sum += v.0);
+    ecs_iter!(world, |v: &ComponentB| sum += v.0);
     assert_eq!(sum, 110+111+113+114);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentC| sum += v.0);
+    ecs_iter!(world, |v: &ComponentC| sum += v.0);
     assert_eq!(sum, 115+116+118+119);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentA, u: &ComponentB| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &ComponentA, u: &ComponentB| sum += v.0 + u.0);
     assert_eq!(sum, 100+101+103+104+110+111+113+114);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &ComponentA, u: &ComponentC| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &ComponentA, u: &ComponentC| sum += v.0 + u.0);
     assert_eq!(sum, 105+106+108+109+115+116+118+119);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &mut ComponentA| sum += v.0);
     assert_eq!(sum, 100+101+103+104+105+106+108+109);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentB| sum += v.0);
+    ecs_iter!(world, |v: &mut ComponentB| sum += v.0);
     assert_eq!(sum, 110+111+113+114);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentC| sum += v.0);
+    ecs_iter!(world, |v: &mut ComponentC| sum += v.0);
     assert_eq!(sum, 115+116+118+119);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentA, u: &mut ComponentB| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &mut ComponentA, u: &mut ComponentB| sum += v.0 + u.0);
     assert_eq!(sum, 100+101+103+104+110+111+113+114);
 
     let mut sum = 0;
-    ecs_iter_mut!(world, |v: &mut ComponentA, u: &mut ComponentC| sum += v.0 + u.0);
+    ecs_iter!(world, |v: &mut ComponentA, u: &mut ComponentC| sum += v.0 + u.0);
     assert_eq!(sum, 105+106+108+109+115+116+118+119);
 }
 
@@ -698,6 +698,17 @@ pub fn test_multi_replace() {
     assert_eq!(world.remove(entity_5).unwrap(), (ComponentA(5), ComponentC(15)));
     assert_eq!(world.len::<ArchBar>(), 0);
 
+    assert_eq!(ecs_find!(world, entity_0, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_1, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_2, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_3, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_4, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_5, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_6, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_7, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_8, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_9, |_: &ComponentA| panic!()), false);
+
     assert_eq!(ecs_find_borrow!(world, entity_0, |_: &ComponentA| panic!()), false);
     assert_eq!(ecs_find_borrow!(world, entity_1, |_: &ComponentA| panic!()), false);
     assert_eq!(ecs_find_borrow!(world, entity_2, |_: &ComponentA| panic!()), false);
@@ -708,17 +719,6 @@ pub fn test_multi_replace() {
     assert_eq!(ecs_find_borrow!(world, entity_7, |_: &ComponentA| panic!()), false);
     assert_eq!(ecs_find_borrow!(world, entity_8, |_: &ComponentA| panic!()), false);
     assert_eq!(ecs_find_borrow!(world, entity_9, |_: &ComponentA| panic!()), false);
-
-    assert_eq!(ecs_find_mut!(world, entity_0, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_1, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_2, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_3, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_4, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_5, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_6, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_7, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_8, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_mut!(world, entity_9, |_: &ComponentA| panic!()), false);
 
     assert!(world.remove(entity_0).is_none());
     assert!(world.remove(entity_1).is_none());
@@ -742,6 +742,17 @@ pub fn test_multi_replace() {
     let entity_8b = world.push::<ArchBar>((ComponentA(1008), ComponentC(1018))).unwrap();
     let entity_9b = world.push::<ArchBar>((ComponentA(1009), ComponentC(1019))).unwrap();
 
+    assert!(ecs_find!(world, entity_0b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1000, 1010))));
+    assert!(ecs_find!(world, entity_1b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1001, 1011))));
+    assert!(ecs_find!(world, entity_2b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1002, 1012))));
+    assert!(ecs_find!(world, entity_3b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1003, 1013))));
+    assert!(ecs_find!(world, entity_4b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1004, 1014))));
+    assert!(ecs_find!(world, entity_5b, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (1005, 1015))));
+    assert!(ecs_find!(world, entity_6b, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (1006, 1016))));
+    assert!(ecs_find!(world, entity_7b, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (1007, 1017))));
+    assert!(ecs_find!(world, entity_8b, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (1008, 1018))));
+    assert!(ecs_find!(world, entity_9b, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (1009, 1019))));
+
     assert!(ecs_find_borrow!(world, entity_0b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1000, 1010))));
     assert!(ecs_find_borrow!(world, entity_1b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1001, 1011))));
     assert!(ecs_find_borrow!(world, entity_2b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1002, 1012))));
@@ -753,14 +764,4 @@ pub fn test_multi_replace() {
     assert!(ecs_find_borrow!(world, entity_8b, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (1008, 1018))));
     assert!(ecs_find_borrow!(world, entity_9b, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (1009, 1019))));
 
-    assert!(ecs_find_mut!(world, entity_0b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1000, 1010))));
-    assert!(ecs_find_mut!(world, entity_1b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1001, 1011))));
-    assert!(ecs_find_mut!(world, entity_2b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1002, 1012))));
-    assert!(ecs_find_mut!(world, entity_3b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1003, 1013))));
-    assert!(ecs_find_mut!(world, entity_4b, |v: &ComponentA, u: &ComponentB| assert_eq!((v.0, u.0), (1004, 1014))));
-    assert!(ecs_find_mut!(world, entity_5b, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (1005, 1015))));
-    assert!(ecs_find_mut!(world, entity_6b, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (1006, 1016))));
-    assert!(ecs_find_mut!(world, entity_7b, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (1007, 1017))));
-    assert!(ecs_find_mut!(world, entity_8b, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (1008, 1018))));
-    assert!(ecs_find_mut!(world, entity_9b, |v: &ComponentA, u: &ComponentC| assert_eq!((v.0, u.0), (1009, 1019))));
 }
