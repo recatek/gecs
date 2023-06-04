@@ -14,6 +14,12 @@ ecs_world! {
 
 #[test]
 #[rustfmt::skip]
+pub fn test_archetype_id() {
+    assert_eq!(ArchFoo::TYPE_ID.get(), 1); // Implicit
+}
+
+#[test]
+#[rustfmt::skip]
 pub fn test_single_push() {
     let mut world = World::default();
 

@@ -1,18 +1,22 @@
 use std::collections::{HashMap, HashSet};
+use std::num::NonZeroU8;
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::format_ident;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::token::{Comma, Dyn, Pound, Semi};
+use syn::token::{Comma, Dyn, Semi};
 use syn::{braced, bracketed, parenthesized, Ident, LitBool, LitInt, Token};
 
 use super::*;
 
 mod kw {
+    syn::custom_keyword!(cfg);
+
+    syn::custom_keyword!(archetype_id);
+
     syn::custom_keyword!(ecs_archetype);
     syn::custom_keyword!(ecs_name);
-    syn::custom_keyword!(cfg);
 }
 
 #[derive(Debug)]
@@ -40,7 +44,8 @@ pub struct ParseName {
 
 #[derive(Debug)]
 pub struct ParseArchetype {
-    pub cfgs: Vec<ParseCfg>,
+    pub cfgs: Vec<ParseAttributeCfg>,
+    pub id: Option<NonZeroU8>,
     pub name: Ident,
     pub capacity: ParseCapacity,
     pub components: Vec<ParseComponent>,
@@ -48,13 +53,30 @@ pub struct ParseArchetype {
 
 #[derive(Debug)]
 pub struct ParseComponent {
-    pub cfgs: Vec<ParseCfg>,
+    pub cfgs: Vec<ParseAttributeCfg>,
     pub name: Ident,
 }
 
 #[derive(Debug)]
-pub struct ParseCfg {
+pub struct ParseAttributeCfg {
     pub predicate: TokenStream,
+}
+
+#[derive(Debug)]
+pub struct ParseAttributeArchetypeId {
+    pub value: NonZeroU8,
+}
+
+#[derive(Debug)]
+pub struct ParseAttribute {
+    pub span: Span,
+    pub data: ParseAttributeData,
+}
+
+#[derive(Debug)]
+pub enum ParseAttributeData {
+    Cfg(ParseAttributeCfg),
+    ArchetypeId(ParseAttributeArchetypeId),
 }
 
 #[derive(Debug)]
@@ -155,27 +177,16 @@ impl Parse for ParseWorld {
 
 impl Parse for ParseItem {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let cfgs = input.call(parse_cfg_outer)?.into_iter().collect::<Vec<_>>();
+        let attributes = input
+            .call(parse_attributes)?
+            .into_iter()
+            .collect::<Vec<_>>();
 
-        let span = input.span();
         let lookahead = input.lookahead1();
-
         if lookahead.peek(kw::ecs_archetype) {
-            // archetype! pseudo-macro
-            let mut archetype = input.parse::<ParseArchetype>()?;
-            archetype.cfgs.extend(cfgs); // Push the parsed cfgs
-            Ok(ParseItem::ParseArchetype(archetype))
+            parse_item_archetype(input, attributes)
         } else if lookahead.peek(kw::ecs_name) {
-            // name! pseudo-macro
-            if cfgs.is_empty() == false {
-                Err(syn::Error::new(
-                    span,
-                    "#[cfg] unsupported on name declaration",
-                ))
-            } else {
-                let name = input.parse::<ParseName>()?;
-                Ok(ParseItem::ParseName(name))
-            }
+            parse_item_name(input, attributes)
         } else {
             Err(lookahead.error())
         }
@@ -213,6 +224,7 @@ impl Parse for ParseArchetype {
         content.parse::<Comma>()?;
         let capacity: ParseCapacity = content.parse()?;
         content.parse::<Comma>()?;
+
         let components: Vec<ParseComponent> =
             Punctuated::<ParseComponent, Comma>::parse_terminated(&content)?
                 .into_iter()
@@ -222,6 +234,7 @@ impl Parse for ParseArchetype {
 
         Ok(Self {
             cfgs,
+            id: None,
             name,
             capacity,
             components,
@@ -231,7 +244,13 @@ impl Parse for ParseArchetype {
 
 impl Parse for ParseComponent {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let cfgs = input.call(parse_cfg_outer)?.into_iter().collect();
+        let mut cfgs = Vec::new();
+
+        let attributes = input
+            .call(parse_attributes)?
+            .into_iter()
+            .collect::<Vec<_>>();
+
         let name = input.parse::<Ident>()?;
 
         // Don't allow special keyword names as component types
@@ -239,26 +258,67 @@ impl Parse for ParseComponent {
             return Err(syn::Error::new_spanned(name, "illegal component name"));
         }
 
+        for attribute in attributes.into_iter() {
+            match attribute.data {
+                ParseAttributeData::Cfg(cfg) => cfgs.push(cfg),
+                _ => {
+                    return Err(syn::Error::new(
+                        attribute.span,
+                        "this attribute is not supported here",
+                    ))
+                }
+            }
+        }
+
         Ok(Self { cfgs, name })
     }
 }
 
-impl Parse for ParseCfg {
+impl Parse for ParseAttributeCfg {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        input.parse::<Pound>()?;
+        input.parse::<kw::cfg>()?;
 
+        let args;
+        parenthesized!(args in input);
+
+        // Don't care about parsing the predicate contents
+        let predicate = args.parse::<TokenStream>()?;
+
+        Ok(ParseAttributeCfg { predicate })
+    }
+}
+
+impl Parse for ParseAttributeArchetypeId {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        input.parse::<kw::archetype_id>()?;
+
+        let args;
+        parenthesized!(args in input);
+
+        // Grab the int literal and make sure it's a NonZeroU8
+        let id = args.parse::<LitInt>()?.base10_parse()?;
+
+        Ok(ParseAttributeArchetypeId { value: id })
+    }
+}
+
+impl Parse for ParseAttribute {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        input.parse::<Token![#]>()?;
         let content;
         bracketed!(content in input);
 
-        content.parse::<kw::cfg>()?;
+        let span = content.span();
+        let lookahead = content.lookahead1();
+        let data = if lookahead.peek(kw::cfg) {
+            ParseAttributeData::Cfg(content.parse()?)
+        } else if lookahead.peek(kw::archetype_id) {
+            ParseAttributeData::ArchetypeId(content.parse()?)
+        } else {
+            return Err(lookahead.error());
+        };
 
-        let predicate;
-        parenthesized!(predicate in content);
-
-        // Don't care about parsing the predicate contents
-        let predicate = predicate.parse::<TokenStream>()?;
-
-        Ok(ParseCfg { predicate })
+        Ok(Self { span, data })
     }
 }
 
@@ -278,10 +338,52 @@ impl Parse for ParseCapacity {
     }
 }
 
-fn parse_cfg_outer(input: ParseStream) -> syn::Result<Vec<ParseCfg>> {
+fn parse_attributes(input: ParseStream) -> syn::Result<Vec<ParseAttribute>> {
     let mut attrs = Vec::new();
     while input.peek(Token![#]) {
-        attrs.push(input.parse::<ParseCfg>()?);
+        attrs.push(input.parse()?);
     }
     Ok(attrs)
+}
+
+fn parse_item_archetype(
+    input: ParseStream,
+    attributes: Vec<ParseAttribute>,
+) -> syn::Result<ParseItem> {
+    let mut archetype = input.parse::<ParseArchetype>()?;
+
+    for attribute in attributes.into_iter() {
+        match attribute.data {
+            ParseAttributeData::Cfg(cfg) => {
+                // We need to collect all cfgs in the world body
+                archetype.cfgs.push(cfg);
+            }
+            ParseAttributeData::ArchetypeId(id) => {
+                if archetype.id.is_some() {
+                    return Err(syn::Error::new(
+                        attribute.span,
+                        "duplicate archetype id assignments",
+                    ));
+                }
+                archetype.id = Some(id.value);
+            }
+        }
+    }
+
+    Ok(ParseItem::ParseArchetype(archetype))
+}
+
+fn parse_item_name(
+    input: ParseStream, //.
+    attributes: Vec<ParseAttribute>,
+) -> syn::Result<ParseItem> {
+    if attributes.is_empty() == false {
+        return Err(syn::Error::new(
+            attributes[0].span,
+            "attributes unsupported on name declaration",
+        ));
+    }
+
+    let name = input.parse::<ParseName>()?;
+    Ok(ParseItem::ParseName(name))
 }

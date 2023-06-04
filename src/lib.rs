@@ -91,10 +91,14 @@ mod macros {
     /// - `Component, ...`: One or more component types to include in this archetype. Because
     ///   generated archetypes are `pub` with `pub` members, all components must be `pub` too.
     ///
-    /// Additionally, the `ecs_archetype!` declaration supports the following attributes:
+    /// The `ecs_archetype!` declaration supports the following attributes:
     ///
-    /// - The `#[cfg]` attribute may be used both on the `ecs_archetype!` itself, and on
+    /// - `#[cfg]` attributes can be used both on the `ecs_archetype!` itself, and on
     ///   individual component parameters.
+    /// - `#[archetype_id(N)]` can be used to override an archetype's `TYPE_ID` value to `N`
+    ///   (which must be between `1` and `255`). By default, archetype IDs start at 1 and count
+    ///   up sequentially from the last value, similar to enum discriminants. No two archetypes
+    ///   may have the same archetype ID (this is compiler-enforced).
     ///
     /// # Example
     ///
@@ -129,6 +133,7 @@ mod macros {
     ///         CompC,
     ///     );
     ///    
+    ///     #[archetype_id(6)]
     ///     ecs_archetype!(
     ///         ArchBaz,
     ///         400,
@@ -158,6 +163,11 @@ mod macros {
     ///     // Use of #[cfg]-conditionals
     ///     #[cfg(feature = "some_feature")] world.push::<ArchBar>((CompA(2), CompB(3), CompC(4)));
     ///     world.push::<ArchBaz>((CompA(5), CompB(6), #[cfg(feature = "some_feature")] CompC(7)));
+    ///
+    ///     // Use of #[archetype_id(N)] assignment
+    ///     assert_eq!(ArchFoo::TYPE_ID.get(), 1);
+    ///     assert_eq!(ArchBaz::TYPE_ID.get(), 6);
+    ///     #[cfg(feature = "some_feature")] assert_eq!(ArchBar::TYPE_ID.get(), 2);
     /// }
     /// ```
     #[macro_export]

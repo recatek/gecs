@@ -37,8 +37,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     let section_archetype = world_data
         .archetypes
         .iter()
-        .enumerate()
-        .map(|(index, archetype)| section_archetype(index, archetype))
+        .map(|archetype| section_archetype(archetype))
         .collect::<Vec<_>>();
 
     // Macros
@@ -221,14 +220,12 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 }
 
 #[allow(non_snake_case)] // Allow for type-like names to make quote!() clearer
-fn section_archetype(raw_index: usize, archetype_data: &DataArchetype) -> TokenStream {
+fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let count = archetype_data.components.len();
     let count_str = count.to_string();
-    let index: u8 = raw_index
-        .checked_add(1) // The raw index starts at 0, but IDs start at 1
-        .expect("archetype index exceeds u8 bounds")
-        .try_into()
-        .expect("archetype index exceeds u8 bounds");
+
+    // Constants and literals
+    let ARCHETYPE_ID = archetype_data.id.get();
 
     // Types and traits
     let Archetype = format_ident!("{}", archetype_data.name);
@@ -374,7 +371,7 @@ fn section_archetype(raw_index: usize, archetype_data: &DataArchetype) -> TokenS
         impl Archetype for #Archetype {
             // See https://stackoverflow.com/questions/66838439 for info on this hack
             #[allow(unconditional_panic)]
-            const TYPE_ID: std::num::NonZeroU8 = match std::num::NonZeroU8::new(#index) {
+            const TYPE_ID: std::num::NonZeroU8 = match std::num::NonZeroU8::new(#ARCHETYPE_ID) {
                 Some(v) => v,
                 None => [][0],
             };

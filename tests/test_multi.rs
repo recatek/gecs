@@ -10,6 +10,7 @@ pub struct CompB(pub u32);
 pub struct CompC(pub u32);
 
 ecs_world! {
+    #[archetype_id(3)]
     ecs_archetype!(
         ArchFoo,
         TEST_CAPACITY,
@@ -23,6 +24,13 @@ ecs_world! {
         CompA,
         CompC,
     );
+}
+
+#[test]
+#[rustfmt::skip]
+pub fn test_archetype_id() {
+    assert_eq!(ArchFoo::TYPE_ID.get(), 3);
+    assert_eq!(ArchBar::TYPE_ID.get(), 4); // Implicit
 }
 
 #[test]
