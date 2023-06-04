@@ -8,7 +8,7 @@ fn is_allowed_component_name(name: &str) -> bool {
     match name {
         "Entity" => false,
         "EntityAny" => false,
-        "AnyOf" => false,
+        "OneOf" => false,
         "Option" => false,
         _ => true,
     }

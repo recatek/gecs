@@ -6,6 +6,10 @@ use syn::{Expr, Ident, LitStr, Token};
 mod kw {
     syn::custom_keyword!(archetype);
     syn::custom_keyword!(cfg);
+
+    syn::custom_keyword!(Entity);
+    syn::custom_keyword!(EntityAny);
+    syn::custom_keyword!(OneOf);
 }
 
 #[derive(Debug)]
@@ -25,18 +29,19 @@ pub struct ParseQueryIter {
     pub body: TokenStream,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ParseQueryParam {
     pub name: Ident,
     pub is_mut: bool,
-    pub ty: ParseParamType,
+    pub param_type: ParseQueryParamType,
 }
 
 #[derive(Clone, Debug)]
-pub enum ParseParamType {
+pub enum ParseQueryParamType {
     Component(Ident),
     Entity(Ident),
     EntityAny,
+    OneOf(Box<[Ident]>),
 }
 
 impl Parse for ParseQueryFind {
@@ -105,30 +110,58 @@ impl Parse for ParseQueryParam {
         input.parse::<Token![&]>()?;
         let is_mut = input.parse::<Option<Mut>>()?.is_some();
         let check_span = input.span();
-        let ty = input.parse::<ParseParamType>()?;
+        let ty = input.parse::<ParseQueryParamType>()?;
 
         // Enforce mutability rules
         match ty {
-            ParseParamType::Entity(_) | ParseParamType::EntityAny if is_mut => Err(
+            ParseQueryParamType::Entity(_) | ParseQueryParamType::EntityAny if is_mut => Err(
                 syn::Error::new(check_span, "mut entity access is forbidden"),
             ),
-            _ => Ok(Self { name, is_mut, ty }),
+            _ => Ok(Self {
+                name,
+                is_mut,
+                param_type: ty,
+            }),
         }
     }
 }
 
-impl Parse for ParseParamType {
+impl Parse for ParseQueryParamType {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let ty = input.parse::<Ident>()?;
-        match ty.to_string().as_str() {
-            "Entity" => {
-                input.parse::<Lt>()?;
-                let archetype = input.parse::<Ident>()?;
-                input.parse::<Gt>()?;
-                Ok(ParseParamType::Entity(archetype))
+        let lookahead = input.lookahead1();
+        if lookahead.peek(kw::Entity) {
+            // Entity<A>
+            input.parse::<kw::Entity>()?;
+            input.parse::<Lt>()?;
+            let archetype = input.parse::<Ident>()?;
+            input.parse::<Gt>()?;
+            Ok(ParseQueryParamType::Entity(archetype))
+        } else if lookahead.peek(kw::EntityAny) {
+            // EntityAny
+            input.parse::<kw::EntityAny>()?;
+            Ok(ParseQueryParamType::EntityAny)
+        } else if lookahead.peek(kw::OneOf) {
+            // OneOf<A, B, C>
+            input.parse::<kw::OneOf>()?;
+            input.parse::<Token![<]>()?;
+            let mut result = Vec::<Ident>::new();
+            loop {
+                let lookahead = input.lookahead1();
+                if lookahead.peek(Ident) {
+                    result.push(input.parse::<Ident>()?);
+                    input.parse::<Option<Token![,]>>()?;
+                } else if lookahead.peek(Token![>]) {
+                    input.parse::<Token![>]>()?;
+                    break Ok(ParseQueryParamType::OneOf(result.into_boxed_slice()));
+                } else {
+                    break Err(lookahead.error());
+                }
             }
-            "EntityAny" => Ok(ParseParamType::EntityAny),
-            _ => Ok(ParseParamType::Component(ty)),
+        } else if lookahead.peek(Ident) {
+            // Component
+            Ok(ParseQueryParamType::Component(input.parse()?))
+        } else {
+            Err(lookahead.error())
         }
     }
 }

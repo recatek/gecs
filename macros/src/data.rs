@@ -3,7 +3,7 @@ use std::num::NonZeroU8;
 
 use base64::Engine as _;
 use speedy::{Readable, Writable};
-use syn::Expr;
+use syn::{Expr, Ident};
 
 use crate::parse::{ParseArchetype, ParseAttributeCfg, ParseCapacity, ParseFinalize};
 
@@ -101,6 +101,17 @@ impl DataWorld {
                 .expect("failed to deserialize world"),
         )
         .expect("failed to deserialize world")
+    }
+}
+
+impl DataArchetype {
+    pub fn contains_component(&self, name: &Ident) -> bool {
+        for component in self.components.iter() {
+            if component.name == name.to_string() {
+                return true;
+            }
+        }
+        false
     }
 }
 

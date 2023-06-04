@@ -205,6 +205,7 @@ mod macros {
     /// - `&Entity<A>`/`&EntityAny`: Returns the current entity being accessed by the closure.
     ///   This is somewhat redundant for `ecs_find!` queries, but useful for `ecs_iter!` loops.
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
+    /// - `&OneOf<A, B, ...>` or `&mut OneOf<A, B, ...>`: See [`OneOf`](crate::OneOf).
     ///
     /// # Example
     ///
@@ -329,6 +330,7 @@ mod macros {
     /// - `&Entity<A>`/`&EntityAny`: Returns the current entity being accessed by the closure.
     ///   This is somewhat redundant for `ecs_find!` queries, but useful for `ecs_iter!` loops.
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
+    /// - `&OneOf<A, B, ...>` or `&mut OneOf<A, B, ...>`: See [`OneOf`](crate::OneOf).
     ///
     /// # Example
     ///
@@ -406,6 +408,68 @@ mod macros {
     macro_rules! ecs_iter_borrow {
         (...) => {};
     }
+}
+
+/// A special parameter type for ECS query closures to match one of multiple components.
+///
+/// The `OneOf<A, B, C, ...>` pseudo-type argument to an ECS closure allows a query to match
+/// exactly one of the given component types. The component can be accessed as a `&T` (or
+/// `&mut T` for a `&mut OneOf<...>`), and is effectively duck-typed within the body of the
+/// closure -- no traits or `where` clauses are needed to access elements of the component,
+/// so long as the same element or method is available on all potential results of the `OneOf`
+/// binding. If an archetype has more than one of the requested components in a `OneOf`, this
+/// will result in a compilation error. This query will only match archetypes that have one of
+/// the requested components.
+///
+/// ---
+///
+/// This is not a real struct and does not exist in any live code, it is a pseudo-type that
+/// only has meaning within an ECS query closure when parsed by the operation macro. It is
+/// presented here as a standalone struct for documentation purposes only.
+///
+/// # Example
+///
+/// ```rust
+/// use gecs::prelude::*;
+///
+/// pub struct CompA(pub u32);
+/// pub struct CompB(pub u32);
+/// pub struct CompC(pub u32);
+///
+/// ecs_world! {
+///     ecs_archetype!(ArchFoo, 5, CompA, CompB);
+///     ecs_archetype!(ArchBar, 5, CompA, CompC);
+/// }
+///
+/// fn main() {
+///     let mut world = World::default();
+///
+///     let entity_a = world.archetype_mut::<ArchFoo>().push((CompA(1), CompB(10))).unwrap();
+///     let entity_b = world.archetype_mut::<ArchBar>().push((CompA(1), CompC(10))).unwrap();
+///
+///     let mut sum_a = 0;
+///     let mut sum_b = 0;
+///
+///     ecs_find!(world, entity_a, |v: &mut OneOf<CompB, CompC>| {
+///         v.0 += 1;
+///     });
+///
+///     ecs_find!(world, entity_b, |v: &mut OneOf<CompB, CompC>| {
+///         v.0 += 1;
+///     });
+///
+///     ecs_iter!(world, |u: &CompA, v: &OneOf<CompB, CompC>| {
+///         sum_a += u.0;
+///         sum_b += v.0;
+///     });
+///
+///     assert_eq!(sum_a, 2);
+///     assert_eq!(sum_b, 22);
+/// }
+/// ```
+#[cfg(doc)]
+pub struct OneOf {
+    hidden: (),
 }
 
 #[cfg(not(doc))]
