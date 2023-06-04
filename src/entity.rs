@@ -14,6 +14,7 @@ const TYPE_SHIFT: u32 = u32::BITS - TYPE_BITS;
 ///
 /// On its own, this key does very little. Its primary purpose is to provide
 /// indexed access to component data within an ECS world and its archetypes.
+/// Entity handles are opaque and can't be accessed beyond type information.
 ///
 /// As a data structure, an entity has two parts -- a slot index and a
 /// generational version number. The slot index is used by the archetype data

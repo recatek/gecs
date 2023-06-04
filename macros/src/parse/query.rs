@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::token::{Colon, Comma, Gt, Lt, Mut};
-use syn::{Ident, LitStr, Token};
+use syn::{Expr, Ident, LitStr, Token};
 
 mod kw {
     syn::custom_keyword!(archetype);
@@ -11,8 +11,8 @@ mod kw {
 #[derive(Debug)]
 pub struct ParseQueryFind {
     pub world_data: String,
-    pub world: Ident,
-    pub entity: Ident,
+    pub world: Expr,
+    pub entity: Expr,
     pub params: Vec<ParseQueryParam>,
     pub body: TokenStream,
 }
@@ -20,7 +20,7 @@ pub struct ParseQueryFind {
 #[derive(Debug)]
 pub struct ParseQueryIter {
     pub world_data: String,
-    pub world: Ident,
+    pub world: Expr,
     pub params: Vec<ParseQueryParam>,
     pub body: TokenStream,
 }
@@ -46,9 +46,9 @@ impl Parse for ParseQueryFind {
         input.parse::<Comma>()?;
 
         // Parse out the meta-arguments for the query
-        let world = input.parse::<Ident>()?;
+        let world = input.parse()?;
         input.parse::<Comma>()?;
-        let entity = input.parse::<Ident>()?;
+        let entity = input.parse()?;
         input.parse::<Comma>()?;
 
         // Parse out the closure arguments
@@ -76,7 +76,7 @@ impl Parse for ParseQueryIter {
         input.parse::<Comma>()?;
 
         // Parse out the meta-arguments for the query
-        let world = input.parse::<Ident>()?;
+        let world = input.parse()?;
         input.parse::<Comma>()?;
 
         // Parse out the closure arguments

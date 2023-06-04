@@ -136,6 +136,33 @@ pub trait ComponentContainer: Archetype {
 /// A trait promising that an archetype container (i.e. world) has an archetype.
 ///
 /// Used for functions that take an ECS world as a generic type.
+///
+/// See [`ArchetypeContainer`] for the methods that this enables on a type.
+///
+/// Note that macros like `ecs_iter!` do not currently support these kinds of generics.
+/// This is primarily an advanced feature as it requires manual ECS manipulation.
+///
+/// # Example
+///
+/// ```
+/// use gecs::prelude::*;
+///
+/// pub struct CompA(pub u32);
+///
+/// ecs_world! {
+///     // Declare archetype ArchFoo with capacity 100 and one component: CompA
+///     ecs_archetype!(ArchFoo, 100, CompA);
+/// }
+///
+/// fn push_new<W>(world: &mut W)
+/// where
+///     W: HasArchetype<ArchFoo>,
+/// {
+///     world.push::<ArchFoo>((CompA(1),));
+/// }
+///
+/// # fn main() {} // Not actually running anything here
+/// ```
 pub trait HasArchetype<A: Archetype>: ArchetypeContainer {
     #[doc(hidden)]
     fn resolve_len(&self) -> usize;
@@ -156,6 +183,35 @@ pub trait HasArchetype<A: Archetype>: ArchetypeContainer {
 /// A trait promising that an component container (i.e. archetype) has a component.
 ///
 /// Used for functions that take an ECS world or archetype as a generic type.
+///
+/// See [`ComponentContainer`] for the methods that this enables on a type.
+///
+/// Note that macros like `ecs_iter!` do not currently support these kinds of generics.
+/// This is primarily an advanced feature as it requires manual ECS manipulation.
+///
+/// # Example
+///
+/// ```
+/// use gecs::prelude::*;
+///
+/// pub struct CompA(pub u32);
+///
+/// ecs_world! {
+///     // Declare archetype ArchFoo with capacity 100 and one component: CompA
+///     ecs_archetype!(ArchFoo, 100, CompA);
+/// }
+///
+/// fn double_a<A>(archetype: &mut A)
+/// where
+///     A: HasComponent<CompA>,
+/// {
+///     for component in archetype.get_slice_mut::<CompA>() {
+///         component.0 *= 2;
+///     }
+/// }
+///
+/// # fn main() {} // Not actually running anything here
+/// ```
 pub trait HasComponent<C>: ComponentContainer {
     #[doc(hidden)]
     fn resolve_get_slice(&mut self) -> &[C];

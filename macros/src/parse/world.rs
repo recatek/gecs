@@ -10,8 +10,8 @@ use syn::{braced, bracketed, parenthesized, Ident, LitBool, LitInt, Token};
 use super::*;
 
 mod kw {
-    syn::custom_keyword!(archetype);
-    syn::custom_keyword!(name);
+    syn::custom_keyword!(ecs_archetype);
+    syn::custom_keyword!(ecs_name);
     syn::custom_keyword!(cfg);
 }
 
@@ -160,12 +160,12 @@ impl Parse for ParseItem {
         let span = input.span();
         let lookahead = input.lookahead1();
 
-        if lookahead.peek(kw::archetype) {
+        if lookahead.peek(kw::ecs_archetype) {
             // archetype! pseudo-macro
             let mut archetype = input.parse::<ParseArchetype>()?;
             archetype.cfgs.extend(cfgs); // Push the parsed cfgs
             Ok(ParseItem::ParseArchetype(archetype))
-        } else if lookahead.peek(kw::name) {
+        } else if lookahead.peek(kw::ecs_name) {
             // name! pseudo-macro
             if cfgs.is_empty() == false {
                 Err(syn::Error::new(
@@ -184,7 +184,7 @@ impl Parse for ParseItem {
 
 impl Parse for ParseName {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        input.parse::<kw::name>()?;
+        input.parse::<kw::ecs_name>()?;
         input.parse::<Token![!]>()?;
 
         let content;
@@ -202,7 +202,7 @@ impl Parse for ParseArchetype {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let cfgs = Vec::new(); // This will be filled at the item level
 
-        input.parse::<kw::archetype>()?;
+        input.parse::<kw::ecs_archetype>()?;
         input.parse::<Token![!]>()?;
 
         let content;

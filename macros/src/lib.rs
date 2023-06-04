@@ -38,10 +38,10 @@ pub fn __ecs_find(args: TokenStream) -> TokenStream {
 
 #[proc_macro]
 #[doc(hidden)]
-pub fn __ecs_iter(args: TokenStream) -> TokenStream {
-    let query_parse = parse_macro_input!(args as ParseQueryIter);
+pub fn __ecs_find_borrow(args: TokenStream) -> TokenStream {
+    let query_parse = parse_macro_input!(args as ParseQueryFind);
 
-    match generate::generate_query_iter(FetchMode::Mut, &query_parse) {
+    match generate::generate_query_find(FetchMode::Borrow, &query_parse) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.into_compile_error().into(),
     }
@@ -49,10 +49,10 @@ pub fn __ecs_iter(args: TokenStream) -> TokenStream {
 
 #[proc_macro]
 #[doc(hidden)]
-pub fn __ecs_find_borrow(args: TokenStream) -> TokenStream {
-    let query_parse = parse_macro_input!(args as ParseQueryFind);
+pub fn __ecs_iter(args: TokenStream) -> TokenStream {
+    let query_parse = parse_macro_input!(args as ParseQueryIter);
 
-    match generate::generate_query_find(FetchMode::Borrow, &query_parse) {
+    match generate::generate_query_iter(FetchMode::Mut, &query_parse) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.into_compile_error().into(),
     }

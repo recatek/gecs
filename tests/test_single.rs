@@ -2,13 +2,13 @@ use gecs::prelude::*;
 
 const TEST_CAPACITY: usize = 5;
 
-pub struct ComponentA(pub u32);
+pub struct CompA(pub u32);
 
 ecs_world! {
-    archetype!(
+    ecs_archetype!(
         ArchFoo,
         TEST_CAPACITY,
-        ComponentA,
+        CompA,
     );
 }
 
@@ -17,15 +17,15 @@ ecs_world! {
 pub fn test_single_push() {
     let mut world = World::default();
 
-    world.arch_foo.push((ComponentA(0),)).unwrap();
-    world.arch_foo.push((ComponentA(1),)).unwrap();
-    world.arch_foo.push((ComponentA(2),)).unwrap();
-    world.arch_foo.push((ComponentA(3),)).unwrap();
-    world.arch_foo.push((ComponentA(4),)).unwrap();
+    world.arch_foo.push((CompA(0),)).unwrap();
+    world.arch_foo.push((CompA(1),)).unwrap();
+    world.arch_foo.push((CompA(2),)).unwrap();
+    world.arch_foo.push((CompA(3),)).unwrap();
+    world.arch_foo.push((CompA(4),)).unwrap();
 
     assert_eq!(world.arch_foo.len(), 5);
 
-    assert!(world.arch_foo.push((ComponentA(6),)).is_none());
+    assert!(world.arch_foo.push((CompA(6),)).is_none());
 }
 
 #[test]
@@ -33,11 +33,11 @@ pub fn test_single_push() {
 pub fn test_single_entity() {
     let mut world = World::default();
 
-    let entity_0 = world.arch_foo.push((ComponentA(0),)).unwrap();
-    let entity_1 = world.arch_foo.push((ComponentA(1),)).unwrap();
-    let entity_2 = world.arch_foo.push((ComponentA(2),)).unwrap();
-    let entity_3 = world.arch_foo.push((ComponentA(3),)).unwrap();
-    let entity_4 = world.arch_foo.push((ComponentA(4),)).unwrap();
+    let entity_0 = world.arch_foo.push((CompA(0),)).unwrap();
+    let entity_1 = world.arch_foo.push((CompA(1),)).unwrap();
+    let entity_2 = world.arch_foo.push((CompA(2),)).unwrap();
+    let entity_3 = world.arch_foo.push((CompA(3),)).unwrap();
+    let entity_4 = world.arch_foo.push((CompA(4),)).unwrap();
 
     assert!(ecs_find!(world, entity_0, |v: &Entity<ArchFoo>| assert!(*v == entity_0)));
     assert!(ecs_find!(world, entity_1, |v: &Entity<ArchFoo>| assert!(*v == entity_1)));
@@ -57,11 +57,11 @@ pub fn test_single_entity() {
     assert!(world.arch_foo.remove(entity_3).is_some());
     assert!(world.arch_foo.remove(entity_4).is_some());
 
-    let entity_0b = world.arch_foo.push((ComponentA(0),)).unwrap();
-    let entity_1b = world.arch_foo.push((ComponentA(1),)).unwrap();
-    let entity_2b = world.arch_foo.push((ComponentA(2),)).unwrap();
-    let entity_3b = world.arch_foo.push((ComponentA(3),)).unwrap();
-    let entity_4b = world.arch_foo.push((ComponentA(4),)).unwrap();
+    let entity_0b = world.arch_foo.push((CompA(0),)).unwrap();
+    let entity_1b = world.arch_foo.push((CompA(1),)).unwrap();
+    let entity_2b = world.arch_foo.push((CompA(2),)).unwrap();
+    let entity_3b = world.arch_foo.push((CompA(3),)).unwrap();
+    let entity_4b = world.arch_foo.push((CompA(4),)).unwrap();
 
     assert!(entity_0 != entity_0b);
     assert!(entity_1 != entity_1b);
@@ -87,63 +87,63 @@ pub fn test_single_entity() {
 pub fn test_single_find() {
     let mut world = World::default();
 
-    let entity_0 = world.arch_foo.push((ComponentA(0),)).unwrap();
-    let entity_1 = world.arch_foo.push((ComponentA(1),)).unwrap();
-    let entity_2 = world.arch_foo.push((ComponentA(2),)).unwrap();
-    let entity_3 = world.arch_foo.push((ComponentA(3),)).unwrap();
-    let entity_4 = world.arch_foo.push((ComponentA(4),)).unwrap();
+    let entity_0 = world.arch_foo.push((CompA(0),)).unwrap();
+    let entity_1 = world.arch_foo.push((CompA(1),)).unwrap();
+    let entity_2 = world.arch_foo.push((CompA(2),)).unwrap();
+    let entity_3 = world.arch_foo.push((CompA(3),)).unwrap();
+    let entity_4 = world.arch_foo.push((CompA(4),)).unwrap();
 
-    assert!(ecs_find!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find!(world, entity_2, |v: &ComponentA| assert_eq!(v.0, 2)));
-    assert!(ecs_find!(world, entity_3, |v: &ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find!(world, entity_4, |v: &ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)));
+    assert!(ecs_find!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)));
+    assert!(ecs_find!(world, entity_2, |v: &CompA| assert_eq!(v.0, 2)));
+    assert!(ecs_find!(world, entity_3, |v: &CompA| assert_eq!(v.0, 3)));
+    assert!(ecs_find!(world, entity_4, |v: &CompA| assert_eq!(v.0, 4)));
 
-    assert!(ecs_find_borrow!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_borrow!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_borrow!(world, entity_2, |v: &ComponentA| assert_eq!(v.0, 2)));
-    assert!(ecs_find_borrow!(world, entity_3, |v: &ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_borrow!(world, entity_4, |v: &ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find_borrow!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)));
+    assert!(ecs_find_borrow!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)));
+    assert!(ecs_find_borrow!(world, entity_2, |v: &CompA| assert_eq!(v.0, 2)));
+    assert!(ecs_find_borrow!(world, entity_3, |v: &CompA| assert_eq!(v.0, 3)));
+    assert!(ecs_find_borrow!(world, entity_4, |v: &CompA| assert_eq!(v.0, 4)));
 
-    assert!(ecs_find!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find!(world, entity_2, |v: &mut ComponentA| assert_eq!(v.0, 2)));
-    assert!(ecs_find!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find!(world, entity_4, |v: &mut ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_0, |v: &mut CompA| assert_eq!(v.0, 0)));
+    assert!(ecs_find!(world, entity_1, |v: &mut CompA| assert_eq!(v.0, 1)));
+    assert!(ecs_find!(world, entity_2, |v: &mut CompA| assert_eq!(v.0, 2)));
+    assert!(ecs_find!(world, entity_3, |v: &mut CompA| assert_eq!(v.0, 3)));
+    assert!(ecs_find!(world, entity_4, |v: &mut CompA| assert_eq!(v.0, 4)));
 
-    assert!(ecs_find_borrow!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_borrow!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_borrow!(world, entity_2, |v: &mut ComponentA| assert_eq!(v.0, 2)));
-    assert!(ecs_find_borrow!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_borrow!(world, entity_4, |v: &mut ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find_borrow!(world, entity_0, |v: &mut CompA| assert_eq!(v.0, 0)));
+    assert!(ecs_find_borrow!(world, entity_1, |v: &mut CompA| assert_eq!(v.0, 1)));
+    assert!(ecs_find_borrow!(world, entity_2, |v: &mut CompA| assert_eq!(v.0, 2)));
+    assert!(ecs_find_borrow!(world, entity_3, |v: &mut CompA| assert_eq!(v.0, 3)));
+    assert!(ecs_find_borrow!(world, entity_4, |v: &mut CompA| assert_eq!(v.0, 4)));
 
     world.arch_foo.remove(entity_2).unwrap();
 
-    assert!(ecs_find!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find!(world, entity_3, |v: &ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find!(world, entity_4, |v: &ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)));
+    assert!(ecs_find!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)));
+    assert!(ecs_find!(world, entity_3, |v: &CompA| assert_eq!(v.0, 3)));
+    assert!(ecs_find!(world, entity_4, |v: &CompA| assert_eq!(v.0, 4)));
 
-    assert!(ecs_find_borrow!(world, entity_0, |v: &ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_borrow!(world, entity_1, |v: &ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_borrow!(world, entity_3, |v: &ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_borrow!(world, entity_4, |v: &ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find_borrow!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)));
+    assert!(ecs_find_borrow!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)));
+    assert!(ecs_find_borrow!(world, entity_3, |v: &CompA| assert_eq!(v.0, 3)));
+    assert!(ecs_find_borrow!(world, entity_4, |v: &CompA| assert_eq!(v.0, 4)));
 
-    assert!(ecs_find!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find!(world, entity_4, |v: &mut ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_0, |v: &mut CompA| assert_eq!(v.0, 0)));
+    assert!(ecs_find!(world, entity_1, |v: &mut CompA| assert_eq!(v.0, 1)));
+    assert!(ecs_find!(world, entity_3, |v: &mut CompA| assert_eq!(v.0, 3)));
+    assert!(ecs_find!(world, entity_4, |v: &mut CompA| assert_eq!(v.0, 4)));
 
-    assert!(ecs_find_borrow!(world, entity_0, |v: &mut ComponentA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_borrow!(world, entity_1, |v: &mut ComponentA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_borrow!(world, entity_3, |v: &mut ComponentA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_borrow!(world, entity_4, |v: &mut ComponentA| assert_eq!(v.0, 4)));
+    assert!(ecs_find_borrow!(world, entity_0, |v: &mut CompA| assert_eq!(v.0, 0)));
+    assert!(ecs_find_borrow!(world, entity_1, |v: &mut CompA| assert_eq!(v.0, 1)));
+    assert!(ecs_find_borrow!(world, entity_3, |v: &mut CompA| assert_eq!(v.0, 3)));
+    assert!(ecs_find_borrow!(world, entity_4, |v: &mut CompA| assert_eq!(v.0, 4)));
 
-    assert_eq!(ecs_find!(world, entity_2, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find!(world, entity_2, |_: &mut ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_2, |_: &CompA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_2, |_: &mut CompA| panic!()), false);
 
-    assert_eq!(ecs_find_borrow!(world, entity_2, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_borrow!(world, entity_2, |_: &mut ComponentA| panic!()), false);
+    assert_eq!(ecs_find_borrow!(world, entity_2, |_: &CompA| panic!()), false);
+    assert_eq!(ecs_find_borrow!(world, entity_2, |_: &mut CompA| panic!()), false);
 }
 
 #[test]
@@ -151,44 +151,44 @@ pub fn test_single_find() {
 pub fn test_single_iter() {
     let mut world = World::default();
 
-    let _entity_0 = world.arch_foo.push((ComponentA(0),)).unwrap();
-    let _entity_1 = world.arch_foo.push((ComponentA(1),)).unwrap();
-    let _entity_2 = world.arch_foo.push((ComponentA(2),)).unwrap();
-    let _entity_3 = world.arch_foo.push((ComponentA(3),)).unwrap();
-    let _entity_4 = world.arch_foo.push((ComponentA(4),)).unwrap();
+    let _entity_0 = world.arch_foo.push((CompA(0),)).unwrap();
+    let _entity_1 = world.arch_foo.push((CompA(1),)).unwrap();
+    let _entity_2 = world.arch_foo.push((CompA(2),)).unwrap();
+    let _entity_3 = world.arch_foo.push((CompA(3),)).unwrap();
+    let _entity_4 = world.arch_foo.push((CompA(4),)).unwrap();
 
     let mut sum = 0;
-    ecs_iter!(world, |v: &ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &CompA| sum += v.0);
     assert_eq!(sum, 0+1+2+3+4);
 
     let mut sum = 0;
-    ecs_iter_borrow!(world, |v: &ComponentA| sum += v.0);
+    ecs_iter_borrow!(world, |v: &CompA| sum += v.0);
     assert_eq!(sum, 0+1+2+3+4);
 
     let mut sum = 0;
-    ecs_iter!(world, |v: &mut ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &mut CompA| sum += v.0);
     assert_eq!(sum, 0+1+2+3+4);
 
     let mut sum = 0;
-    ecs_iter_borrow!(world, |v: &mut ComponentA| sum += v.0);
+    ecs_iter_borrow!(world, |v: &mut CompA| sum += v.0);
     assert_eq!(sum, 0+1+2+3+4);
 
     world.arch_foo.remove(_entity_2).unwrap();
 
     let mut sum = 0;
-    ecs_iter!(world, |v: &ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &CompA| sum += v.0);
     assert_eq!(sum, 0+1+3+4);
 
     let mut sum = 0;
-    ecs_iter_borrow!(world, |v: &ComponentA| sum += v.0);
+    ecs_iter_borrow!(world, |v: &CompA| sum += v.0);
     assert_eq!(sum, 0+1+3+4);
 
     let mut sum = 0;
-    ecs_iter!(world, |v: &mut ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &mut CompA| sum += v.0);
     assert_eq!(sum, 0+1+3+4);
 
     let mut sum = 0;
-    ecs_iter_borrow!(world, |v: &mut ComponentA| sum += v.0);
+    ecs_iter_borrow!(world, |v: &mut CompA| sum += v.0);
     assert_eq!(sum, 0+1+3+4);
 }
 
@@ -197,46 +197,46 @@ pub fn test_single_iter() {
 pub fn test_single_iter_write() {
     let mut world = World::default();
 
-    let _entity_0 = world.arch_foo.push((ComponentA(0),)).unwrap();
-    let _entity_1 = world.arch_foo.push((ComponentA(1),)).unwrap();
-    let _entity_2 = world.arch_foo.push((ComponentA(2),)).unwrap();
-    let _entity_3 = world.arch_foo.push((ComponentA(3),)).unwrap();
-    let _entity_4 = world.arch_foo.push((ComponentA(4),)).unwrap();
+    let _entity_0 = world.arch_foo.push((CompA(0),)).unwrap();
+    let _entity_1 = world.arch_foo.push((CompA(1),)).unwrap();
+    let _entity_2 = world.arch_foo.push((CompA(2),)).unwrap();
+    let _entity_3 = world.arch_foo.push((CompA(3),)).unwrap();
+    let _entity_4 = world.arch_foo.push((CompA(4),)).unwrap();
 
-    ecs_iter!(world, |v: &mut ComponentA| v.0 += 100);
+    ecs_iter!(world, |v: &mut CompA| v.0 += 100);
 
     let mut sum = 0;
-    ecs_iter!(world, |v: &ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &CompA| sum += v.0);
     assert_eq!(sum, 100+101+102+103+104);
 
     let mut sum = 0;
-    ecs_iter_borrow!(world, |v: &ComponentA| sum += v.0);
+    ecs_iter_borrow!(world, |v: &CompA| sum += v.0);
     assert_eq!(sum, 100+101+102+103+104);
 
     let mut sum = 0;
-    ecs_iter!(world, |v: &mut ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &mut CompA| sum += v.0);
     assert_eq!(sum, 100+101+102+103+104);
 
     let mut sum = 0;
-    ecs_iter_borrow!(world, |v: &mut ComponentA| sum += v.0);
+    ecs_iter_borrow!(world, |v: &mut CompA| sum += v.0);
     assert_eq!(sum, 100+101+102+103+104);
 
     world.arch_foo.remove(_entity_2).unwrap();
 
     let mut sum = 0;
-    ecs_iter!(world, |v: &ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &CompA| sum += v.0);
     assert_eq!(sum, 100+101+103+104);
 
     let mut sum = 0;
-    ecs_iter_borrow!(world, |v: &ComponentA| sum += v.0);
+    ecs_iter_borrow!(world, |v: &CompA| sum += v.0);
     assert_eq!(sum, 100+101+103+104);
 
     let mut sum = 0;
-    ecs_iter!(world, |v: &mut ComponentA| sum += v.0);
+    ecs_iter!(world, |v: &mut CompA| sum += v.0);
     assert_eq!(sum, 100+101+103+104);
 
     let mut sum = 0;
-    ecs_iter_borrow!(world, |v: &mut ComponentA| sum += v.0);
+    ecs_iter_borrow!(world, |v: &mut CompA| sum += v.0);
     assert_eq!(sum, 100+101+103+104);
 }
 
@@ -245,11 +245,11 @@ pub fn test_single_iter_write() {
 pub fn test_single_remove_replace() {
     let mut world = World::default();
 
-    let entity_0 = world.arch_foo.push((ComponentA(0),)).unwrap();
-    let entity_1 = world.arch_foo.push((ComponentA(1),)).unwrap();
-    let entity_2 = world.arch_foo.push((ComponentA(2),)).unwrap();
-    let entity_3 = world.arch_foo.push((ComponentA(3),)).unwrap();
-    let entity_4 = world.arch_foo.push((ComponentA(4),)).unwrap();
+    let entity_0 = world.arch_foo.push((CompA(0),)).unwrap();
+    let entity_1 = world.arch_foo.push((CompA(1),)).unwrap();
+    let entity_2 = world.arch_foo.push((CompA(2),)).unwrap();
+    let entity_3 = world.arch_foo.push((CompA(3),)).unwrap();
+    let entity_4 = world.arch_foo.push((CompA(4),)).unwrap();
 
     assert_eq!(world.arch_foo.len(), 5);
 
@@ -268,17 +268,17 @@ pub fn test_single_remove_replace() {
     assert_eq!(world.arch_foo.remove(entity_0).unwrap().0.0, 0);
     assert_eq!(world.arch_foo.len(), 0);
 
-    assert_eq!(ecs_find!(world, entity_0, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find!(world, entity_1, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find!(world, entity_2, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find!(world, entity_3, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find!(world, entity_4, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_0, |_: &CompA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_1, |_: &CompA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_2, |_: &CompA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_3, |_: &CompA| panic!()), false);
+    assert_eq!(ecs_find!(world, entity_4, |_: &CompA| panic!()), false);
 
-    assert_eq!(ecs_find_borrow!(world, entity_0, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_borrow!(world, entity_1, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_borrow!(world, entity_2, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_borrow!(world, entity_3, |_: &ComponentA| panic!()), false);
-    assert_eq!(ecs_find_borrow!(world, entity_4, |_: &ComponentA| panic!()), false);
+    assert_eq!(ecs_find_borrow!(world, entity_0, |_: &CompA| panic!()), false);
+    assert_eq!(ecs_find_borrow!(world, entity_1, |_: &CompA| panic!()), false);
+    assert_eq!(ecs_find_borrow!(world, entity_2, |_: &CompA| panic!()), false);
+    assert_eq!(ecs_find_borrow!(world, entity_3, |_: &CompA| panic!()), false);
+    assert_eq!(ecs_find_borrow!(world, entity_4, |_: &CompA| panic!()), false);
 
     assert!(world.arch_foo.remove(entity_0).is_none());
     assert!(world.arch_foo.remove(entity_1).is_none());
@@ -286,21 +286,21 @@ pub fn test_single_remove_replace() {
     assert!(world.arch_foo.remove(entity_3).is_none());
     assert!(world.arch_foo.remove(entity_4).is_none());
 
-    let entity_0b = world.arch_foo.push((ComponentA(1000),)).unwrap();
-    let entity_1b = world.arch_foo.push((ComponentA(1001),)).unwrap();
-    let entity_2b = world.arch_foo.push((ComponentA(1002),)).unwrap();
-    let entity_3b = world.arch_foo.push((ComponentA(1003),)).unwrap();
-    let entity_4b = world.arch_foo.push((ComponentA(1004),)).unwrap();
+    let entity_0b = world.arch_foo.push((CompA(1000),)).unwrap();
+    let entity_1b = world.arch_foo.push((CompA(1001),)).unwrap();
+    let entity_2b = world.arch_foo.push((CompA(1002),)).unwrap();
+    let entity_3b = world.arch_foo.push((CompA(1003),)).unwrap();
+    let entity_4b = world.arch_foo.push((CompA(1004),)).unwrap();
 
-    assert!(ecs_find!(world, entity_0b, |v: &ComponentA| assert_eq!(v.0, 1000)));
-    assert!(ecs_find!(world, entity_1b, |v: &ComponentA| assert_eq!(v.0, 1001)));
-    assert!(ecs_find!(world, entity_2b, |v: &ComponentA| assert_eq!(v.0, 1002)));
-    assert!(ecs_find!(world, entity_3b, |v: &ComponentA| assert_eq!(v.0, 1003)));
-    assert!(ecs_find!(world, entity_4b, |v: &ComponentA| assert_eq!(v.0, 1004)));
+    assert!(ecs_find!(world, entity_0b, |v: &CompA| assert_eq!(v.0, 1000)));
+    assert!(ecs_find!(world, entity_1b, |v: &CompA| assert_eq!(v.0, 1001)));
+    assert!(ecs_find!(world, entity_2b, |v: &CompA| assert_eq!(v.0, 1002)));
+    assert!(ecs_find!(world, entity_3b, |v: &CompA| assert_eq!(v.0, 1003)));
+    assert!(ecs_find!(world, entity_4b, |v: &CompA| assert_eq!(v.0, 1004)));
 
-    assert!(ecs_find_borrow!(world, entity_0b, |v: &ComponentA| assert_eq!(v.0, 1000)));
-    assert!(ecs_find_borrow!(world, entity_1b, |v: &ComponentA| assert_eq!(v.0, 1001)));
-    assert!(ecs_find_borrow!(world, entity_2b, |v: &ComponentA| assert_eq!(v.0, 1002)));
-    assert!(ecs_find_borrow!(world, entity_3b, |v: &ComponentA| assert_eq!(v.0, 1003)));
-    assert!(ecs_find_borrow!(world, entity_4b, |v: &ComponentA| assert_eq!(v.0, 1004)));
+    assert!(ecs_find_borrow!(world, entity_0b, |v: &CompA| assert_eq!(v.0, 1000)));
+    assert!(ecs_find_borrow!(world, entity_1b, |v: &CompA| assert_eq!(v.0, 1001)));
+    assert!(ecs_find_borrow!(world, entity_2b, |v: &CompA| assert_eq!(v.0, 1002)));
+    assert!(ecs_find_borrow!(world, entity_3b, |v: &CompA| assert_eq!(v.0, 1003)));
+    assert!(ecs_find_borrow!(world, entity_4b, |v: &CompA| assert_eq!(v.0, 1004)));
 }
