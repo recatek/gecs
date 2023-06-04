@@ -10,15 +10,15 @@
 //! no upfront cost or caching overhead. Queries in gecs can be inspected and checked at
 //! compile-time in order to catch what would otherwise be bugs presenting only in tests
 //! or execution. However, this comes at the cost of requiring all archetypes to be known
-//! and declared at compile-time, so that adding or removing components to entities at
-//! runtime isn't currently possible -- hybrid approaches could fix this in the future.
+//! and declared at compile-time, so that adding or removing components from entities at
+//! runtime isn't currently possible -- hybrid approaches could solve this in the future.
 //!
 //! Archetypes in gecs can be set to contain a fixed capacity of entities. If all of the
 //! archetypes in your ECS world declaration are configured in this way, gecs will perform
 //! zero allocations after startup. This guarantees that your ECS world will adhere to a
 //! known and predictable memory overhead for constrained environments (e.g. servers on
 //! cloud instances). Attempting to create a new entity in a full archetype will return
-//! `None` (no panics). Support for dynamically-sized archetypes with `Vec`-like storage
+//! `None` (no panic). Support for dynamically-sized archetypes with `Vec`-like storage
 //! behavior is planned for support at a later date but is not currently implemented.
 //!
 //! The goals for gecs are (in descending priority order):
@@ -62,7 +62,7 @@ mod macros {
     ///
     /// Note that irrespective of capacity configuration, a single ECS archetype can hold at
     /// most `16,777,216` entities due to the encoding structure of the `Entity` type. For
-    /// similar reasons, an ECS world can have only `254` distinct archetypes.
+    /// similar reasons, an ECS world can have only `255` distinct archetypes.
     ///
     /// The `ecs_world!` macro has several inner pseudo-macros used for declaring archetypes
     /// or performing other tasks such as naming the ECS world's data type. These are not true
@@ -73,21 +73,24 @@ mod macros {
     /// ```ignore
     /// ecs_name!(Name);
     /// ```
-    /// The `ecs_name!` inner pseudo-macro is used for setting the name of the ECS world struct.
-    /// A declared ECS world without this assignment will default to the name `World`.
+    /// The `ecs_name!` inner pseudo-macro is used for setting the name (in PascalCase) of the
+    /// ECS world struct. Without this declaration, the world's name will default to `World`.
     ///
     /// ## ecs_archetype!
     ///
     /// ```ignore
-    /// ecs_archetype!(Name, CAPACITY, Component, ...);
+    /// ecs_archetype!(Name, capacity, Component, ...);
     /// ```
     /// The `ecs_archetype!` inner pseudo-macro is used for declaring an archetype in an ECS
     /// world. It takes the following arguments:
     ///
     /// - `Name`: The name (in PascalCase) of the archetype Rust type.
-    /// - `CAPACITY`: The fixed capacity of the archetype either a `usize` integer literal or
-    ///   constant. A archetype may never grow beyond this size, and attempting to create an
-    ///   entity within a full archetype will report failure (without a panic).
+    /// - `capacity`: The capacity of the archetype, specified in one of the following ways:
+    ///     - A constant expression (e.g. `200`, or `config::ARCH_CAPACITY + 4`). This will
+    ///       create a fixed-size archetype that can contain only that number of entities.
+    ///       Attempting to add an entity to a full archetype will return `None` (no panic).
+    ///     - The `dyn` keyword here is currently reserved for near-future work implementing
+    ///       dynamically sized archetypes. It is not supported in this version of the library.
     /// - `Component, ...`: One or more component types to include in this archetype. Because
     ///   generated archetypes are `pub` with `pub` members, all components must be `pub` too.
     ///

@@ -40,6 +40,8 @@ pub fn generate_query_find(mode: FetchMode, query: &ParseQueryFind) -> syn::Resu
 
     let mut queries = Vec::<TokenStream>::new();
     for archetype in world_data.archetypes {
+        debug_assert!(archetype.build_data.is_none());
+
         if archetype_matches(&archetype, &query.params) {
             // Types and traits
             let Archetype = format_ident!("{}", archetype.name);
@@ -94,6 +96,8 @@ pub fn generate_query_iter(mode: FetchMode, query: &ParseQueryIter) -> syn::Resu
 
     let mut queries = Vec::<TokenStream>::new();
     for archetype in world_data.archetypes {
+        debug_assert!(archetype.build_data.is_none());
+
         if archetype_matches(&archetype, &query.params) {
             // Types and traits
             let Archetype = format_ident!("{}", archetype.name);

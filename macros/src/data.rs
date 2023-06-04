@@ -3,6 +3,7 @@ use std::num::NonZeroU8;
 
 use base64::Engine as _;
 use speedy::{Readable, Writable};
+use syn::Expr;
 
 use crate::parse::{ParseArchetype, ParseAttributeCfg, ParseCapacity, ParseFinalize};
 
@@ -16,8 +17,11 @@ pub struct DataWorld {
 pub struct DataArchetype {
     pub id: NonZeroU8,
     pub name: String,
-    pub capacity: DataCapacity,
     pub components: Vec<DataComponent>,
+
+    // This data is only used for building the world and is not needed in queries
+    #[speedy(skip)]
+    pub build_data: Option<DataArchetypeBuildOnly>,
 }
 
 #[derive(Debug, Readable, Writable)]
@@ -25,11 +29,14 @@ pub struct DataComponent {
     pub name: String,
 }
 
-#[derive(Debug, Readable, Writable)]
-#[speedy(tag_type = u8)]
+#[derive(Debug)]
+pub struct DataArchetypeBuildOnly {
+    pub capacity: DataCapacity,
+}
+
+#[derive(Debug)]
 pub enum DataCapacity {
-    Literal(usize),
-    Constant(String),
+    Expression(Expr),
     Dynamic,
 }
 
@@ -64,11 +71,15 @@ impl DataWorld {
                 });
             }
 
+            let build_data = DataArchetypeBuildOnly {
+                capacity: convert_capacity(archetype.capacity),
+            };
+
             archetypes.push(DataArchetype {
                 id: last_archetype_id.unwrap(),
                 name: archetype.name.to_string(),
-                capacity: convert_capacity(archetype.capacity),
                 components,
+                build_data: Some(build_data),
             })
         }
 
@@ -95,8 +106,7 @@ impl DataWorld {
 
 fn convert_capacity(capacity: ParseCapacity) -> DataCapacity {
     match capacity {
-        ParseCapacity::Literal(lit) => DataCapacity::Literal(lit.base10_parse::<usize>().unwrap()),
-        ParseCapacity::Constant(ident) => DataCapacity::Constant(ident.to_string()),
+        ParseCapacity::Expression(expr) => DataCapacity::Expression(expr),
         ParseCapacity::Dynamic => DataCapacity::Dynamic,
     }
 }

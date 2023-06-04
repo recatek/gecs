@@ -6,7 +6,7 @@ use quote::format_ident;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::token::{Comma, Dyn, Semi};
-use syn::{braced, bracketed, parenthesized, Ident, LitBool, LitInt, Token};
+use syn::{braced, bracketed, parenthesized, Expr, Ident, LitBool, LitInt, Token};
 
 use super::*;
 
@@ -81,9 +81,8 @@ pub enum ParseAttributeData {
 
 #[derive(Debug)]
 pub enum ParseCapacity {
-    Literal(LitInt),
-    Constant(Ident),
     Dynamic,
+    Expression(Expr),
 }
 
 impl ParseWorld {
@@ -325,15 +324,11 @@ impl Parse for ParseAttribute {
 impl Parse for ParseCapacity {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
-        if lookahead.peek(LitInt) {
-            input.parse().map(ParseCapacity::Literal)
-        } else if lookahead.peek(Ident) {
-            input.parse().map(ParseCapacity::Constant)
-        } else if lookahead.peek(Dyn) {
+        if lookahead.peek(Dyn) {
             input.parse::<Dyn>()?;
             Ok(ParseCapacity::Dynamic)
         } else {
-            Err(lookahead.error())
+            input.parse().map(ParseCapacity::Expression)
         }
     }
 }

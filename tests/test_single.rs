@@ -1,13 +1,15 @@
 use gecs::prelude::*;
 
-const TEST_CAPACITY: usize = 5;
+mod inner {
+    pub(crate) const TEST_CAPACITY: usize = 4;
+}
 
 pub struct CompA(pub u32);
 
 ecs_world! {
     ecs_archetype!(
         ArchFoo,
-        TEST_CAPACITY,
+        inner::TEST_CAPACITY + 1, // Should be 5 total for tests
         CompA,
     );
 }

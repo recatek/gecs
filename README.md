@@ -11,8 +11,8 @@ definition from code and precompiles all queries to achieve better performance w
 no upfront cost or caching overhead. Queries in gecs can be inspected and checked at
 compile-time in order to catch what would otherwise be bugs presenting only in tests
 or execution. However, this comes at the cost of requiring all archetypes to be known
-and declared at compile-time, so that adding or removing components to entities at
-runtime isn't currently possible -- hybrid approaches could fix this in the future.
+and declared at compile-time, so that adding or removing components from entities at
+runtime isn't currently possible -- hybrid approaches could solve this in the future.
 
 Archetypes in gecs can be set to contain a fixed capacity of entities. If all of the
 archetypes in your ECS world declaration are configured in this way, gecs will perform

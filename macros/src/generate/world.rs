@@ -239,17 +239,12 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let ArchetypeSlicesType = format_ident!("Slices{}", count_str);
     let ArchetypeSlicesArgs = quote!(#Archetype, #(#Component),*);
 
-    let (StorageType, StorageArgs) = match &archetype_data.capacity {
-        DataCapacity::Literal(lit) => {
+    let (StorageType, StorageArgs) = match &archetype_data.build_data.as_ref().unwrap().capacity {
+        DataCapacity::Expression(expr) => {
             let StorageFixed = format_ident!("StorageFixed{}", count_str);
-            (StorageFixed, quote!(Self, #(#Component,)* #lit))
+            (StorageFixed, quote!(Self, #(#Component,)* { #expr }))
         }
-        DataCapacity::Constant(name) => {
-            let StorageFixed = format_ident!("StorageFixed{}", count_str);
-            let CAPACITY = format_ident!("{}", name);
-            (StorageFixed, quote!(Self, #(#Component,)* #CAPACITY))
-        }
-        DataCapacity::Dynamic => todo!("dynamic archetype capacity not yet supported"),
+        DataCapacity::Dynamic => todo!("dynamic archetype capacity is not yet supported"),
     };
 
     // Function names
