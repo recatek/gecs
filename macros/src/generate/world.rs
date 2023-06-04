@@ -164,9 +164,9 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             impl From<EntityAny> for #EntityWorld {
                 #[inline(always)]
                 fn from(entity: EntityAny) -> Self {
-                    match entity.type_id() {
+                    match entity.archetype_id() {
                         #(
-                            #Archetype::TYPE_ID => {
+                            #Archetype::ARCHETYPE_ID => {
                                 #EntityWorld::#Archetype(Entity::from_any(entity))
                             },
                         )*
@@ -366,7 +366,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         impl Archetype for #Archetype {
             // See https://stackoverflow.com/questions/66838439 for info on this hack
             #[allow(unconditional_panic)]
-            const TYPE_ID: std::num::NonZeroU8 = match std::num::NonZeroU8::new(#ARCHETYPE_ID) {
+            const ARCHETYPE_ID: std::num::NonZeroU8 = match std::num::NonZeroU8::new(#ARCHETYPE_ID) {
                 Some(v) => v,
                 None => [][0],
             };

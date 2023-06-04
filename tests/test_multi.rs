@@ -29,8 +29,8 @@ ecs_world! {
 #[test]
 #[rustfmt::skip]
 pub fn test_archetype_id() {
-    assert_eq!(ArchFoo::TYPE_ID.get(), 3);
-    assert_eq!(ArchBar::TYPE_ID.get(), 4); // Implicit
+    assert_eq!(ArchFoo::ARCHETYPE_ID.get(), 3);
+    assert_eq!(ArchBar::ARCHETYPE_ID.get(), 4); // Implicit
 }
 
 #[test]

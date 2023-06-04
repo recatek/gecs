@@ -86,7 +86,7 @@ mod macros {
     ///
     /// - `Name`: The name (in PascalCase) of the archetype Rust type.
     /// - `capacity`: The capacity of the archetype, specified in one of the following ways:
-    ///     - A constant expression (e.g. `200`, or `config::ARCH_CAPACITY + 4`). This will
+    ///     - A constant expression (e.g. `200` or `config::ARCH_CAPACITY + 4`). This will
     ///       create a fixed-size archetype that can contain only that number of entities.
     ///       Attempting to add an entity to a full archetype will return `None` (no panic).
     ///     - The `dyn` keyword here is currently reserved for near-future work implementing
@@ -98,10 +98,10 @@ mod macros {
     ///
     /// - `#[cfg]` attributes can be used both on the `ecs_archetype!` itself, and on
     ///   individual component parameters.
-    /// - `#[archetype_id(N)]` can be used to override an archetype's `TYPE_ID` value to `N`
-    ///   (which must be between `1` and `255`). By default, archetype IDs start at 1 and count
-    ///   up sequentially from the last value, similar to enum discriminants. No two archetypes
-    ///   may have the same archetype ID (this is compiler-enforced).
+    /// - `#[archetype_id(N)]` can be used to override this archetype's `ARCHETYPE_ID` to `N`
+    ///   (which must be between `1` and `255`). By default, archetype IDs start at `1` and
+    ///   count up sequentially from the last value, similar to enum discriminants. No two
+    ///   archetypes may have the same archetype ID (this is compiler-enforced).
     ///
     /// # Example
     ///
@@ -168,9 +168,9 @@ mod macros {
     ///     world.push::<ArchBaz>((CompA(5), CompB(6), #[cfg(feature = "some_feature")] CompC(7)));
     ///
     ///     // Use of #[archetype_id(N)] assignment
-    ///     assert_eq!(ArchFoo::TYPE_ID.get(), 1);
-    ///     assert_eq!(ArchBaz::TYPE_ID.get(), 6);
-    ///     #[cfg(feature = "some_feature")] assert_eq!(ArchBar::TYPE_ID.get(), 2);
+    ///     assert_eq!(ArchFoo::ARCHETYPE_ID.get(), 1);
+    ///     assert_eq!(ArchBaz::ARCHETYPE_ID.get(), 6);
+    ///     #[cfg(feature = "some_feature")] assert_eq!(ArchBar::ARCHETYPE_ID.get(), 2);
     /// }
     /// ```
     #[macro_export]

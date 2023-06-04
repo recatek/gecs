@@ -11,7 +11,7 @@ use crate::entity::Entity;
 /// it is not intended to be manually implemented by any user data structures.
 pub trait Archetype: Sized {
     /// A unique type ID assigned to this archetype in generation.
-    const TYPE_ID: NonZeroU8;
+    const ARCHETYPE_ID: NonZeroU8;
 
     /// A tuple of the components in this archetype.
     type Components;
