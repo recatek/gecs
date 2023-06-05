@@ -232,7 +232,12 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let count_str = count.to_string();
 
     // Constants and literals
-    let ARCHETYPE_ID = archetype_data.id.get();
+    let ARCHETYPE_ID = archetype_data.id;
+    let COMPONENT_ID = archetype_data
+        .components
+        .iter()
+        .map(|component| component.id)
+        .collect::<Vec<_>>();
 
     // Types and traits
     let Archetype = format_ident!("{}", archetype_data.name);
@@ -267,6 +272,11 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let borrow_slice_mut = (0..count)
         .into_iter()
         .map(|idx| format_ident!("borrow_slice_mut_{}", idx.to_string()));
+    let get_id = archetype_data
+        .components
+        .iter()
+        .map(|component| format_ident!("__get_id_{}", component.name))
+        .collect::<Vec<_>>();
 
     // Variables/fields
     let component = archetype_data
@@ -354,6 +364,15 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             pub fn get_all_slices(&mut self) -> #ArchetypeSlices {
                 self.data.get_all_slices()
             }
+
+            #(
+                /// Helper function for getting the compile-time ID for the given component.
+                /// This can't be done via generics because traits can't have const fn yet.
+                #[doc(hidden)]
+                pub const fn #get_id() -> u8 {
+                    #COMPONENT_ID
+                }
+            )*
         }
 
         impl ComponentContainer for #Archetype { }
@@ -383,12 +402,8 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         )*
 
         impl Archetype for #Archetype {
-            // See https://stackoverflow.com/questions/66838439 for info on this hack
             #[allow(unconditional_panic)]
-            const ARCHETYPE_ID: std::num::NonZeroU8 = match std::num::NonZeroU8::new(#ARCHETYPE_ID) {
-                Some(v) => v,
-                None => [][0],
-            };
+            const ARCHETYPE_ID: u8 = #ARCHETYPE_ID;
 
             type Components = (#(#Component,)*);
 

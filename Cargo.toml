@@ -1,6 +1,6 @@
 [package]
 name = "gecs"
-version = "0.0.8"
+version = "0.0.9"
 authors = ["recatek"]
 description = "A generated entity component system."
 edition = "2021"
@@ -11,6 +11,6 @@ keywords = ["ecs", "entity"]
 categories = ["data-structures", "game-engines"]
 
 [dependencies]
-gecs_macros = { version = "0.0.8", path = "macros" }
+gecs_macros = { version = "0.0.9", path = "macros" }
 
 paste = { version = "1.0" }

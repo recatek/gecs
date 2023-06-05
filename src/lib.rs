@@ -1,6 +1,7 @@
 #![allow(clippy::bool_comparison)]
 #![allow(clippy::type_complexity)] // lol
 #![allow(clippy::too_many_arguments)] // lmao
+#![allow(clippy::needless_doctest_main)] // this has false positives with gecs's macros
 
 //! A generated entity component system 🦎
 //!
@@ -220,13 +221,98 @@ mod macros {
     ///     world.push::<ArchBaz>((CompA(5), CompB(6), #[cfg(feature = "some_feature")] CompC(7)));
     ///
     ///     // Use of #[archetype_id(N)] assignment
-    ///     assert_eq!(ArchFoo::ARCHETYPE_ID.get(), 1);
-    ///     assert_eq!(ArchBaz::ARCHETYPE_ID.get(), 6);
-    ///     #[cfg(feature = "some_feature")] assert_eq!(ArchBar::ARCHETYPE_ID.get(), 2);
+    ///     assert_eq!(ArchFoo::ARCHETYPE_ID, 0);
+    ///     assert_eq!(ArchBaz::ARCHETYPE_ID, 6);
+    ///     #[cfg(feature = "some_feature")] assert_eq!(ArchBar::ARCHETYPE_ID, 1);
     /// }
     /// ```
     #[macro_export]
     macro_rules! ecs_world {
+        {...} => {};
+    }
+
+    /// Returns the compile-time ID of a given component in its archetype.
+    ///
+    /// ```ignore
+    /// ecs_component_id!(Component);            // Can be used in a query body
+    /// ecs_component_id!(Component, Archetype); // If used outside of a query
+    /// ```
+    ///
+    /// The `ecs_component_id!` returns the compile-time ID (as a `u8`) of a given component in
+    /// an archetype. If used in a query, the archetype parameter defaults to `MatchedArchetype`,
+    /// which is the type alias automatically set for each query referencing the current matched
+    /// archetype for the current execution of the query body.
+    ///
+    /// This is a const operation, and can be used to parameterize const generics.
+    ///
+    /// By default, component IDs are assigned sequentially starting at `0`, with a maximum of
+    /// `255`. Component IDs can also be manually set using the `#[component_id(N)]` attribute
+    /// on elements of the component list in an `ecs_archetype!` declaration within `ecs_world!`.
+    /// Like enum discriminants, components without this attribute will count up from the last
+    /// manually set ID.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gecs::prelude::*;
+    ///
+    /// pub struct CompA;
+    /// pub struct CompB;
+    /// pub struct CompC;
+    ///
+    /// ecs_world! {
+    ///     ecs_archetype!(
+    ///         ArchFoo,
+    ///         5,
+    ///         CompA, // = 0
+    ///         CompC, // = 1
+    ///     );
+    ///
+    ///     ecs_archetype!(
+    ///         ArchBar,
+    ///         5,
+    ///         #[component_id(6)]
+    ///         CompA, // = 6
+    ///         CompB, // = 7 (Implicit)
+    ///         CompC, // = 8 (Implicit)
+    ///     );
+    ///
+    ///     ecs_archetype!(
+    ///         ArchBaz,
+    ///         5,
+    ///         CompA, // = 0 (Implicit)
+    ///         CompB, // = 1 (Implicit)
+    ///         #[component_id(200)]
+    ///         CompC, // = 200
+    ///     );
+    /// }
+    ///
+    /// fn main() {
+    ///     let mut world = World::default();
+    ///
+    ///     let entity_a = world.archetype_mut::<ArchFoo>().push((CompA, CompC));
+    ///     let entity_b = world.archetype_mut::<ArchBar>().push((CompA, CompB, CompC));
+    ///     let entity_c = world.archetype_mut::<ArchBaz>().push((CompA, CompB, CompC));
+    ///
+    ///     ecs_find!(world, entity_a, |_: &CompC| {
+    ///         assert_eq!(ecs_component_id!(CompC), 1);
+    ///     });
+    ///
+    ///     ecs_find!(world, entity_b, |_: &CompC| {
+    ///         assert_eq!(ecs_component_id!(CompC), 8);
+    ///     });
+    ///
+    ///     ecs_find!(world, entity_c, |_: &CompC| {
+    ///         assert_eq!(ecs_component_id!(CompC), 200);
+    ///     });
+    ///
+    ///     assert_eq!(ecs_component_id!(CompC, ArchFoo), 1);
+    ///     assert_eq!(ecs_component_id!(CompC, ArchBar), 8);
+    ///     assert_eq!(ecs_component_id!(CompC, ArchBaz), 200);
+    /// }
+    /// ```
+    #[macro_export]
+    macro_rules! ecs_component_id {
         {...} => {};
     }
 
@@ -258,6 +344,10 @@ mod macros {
     ///   This is somewhat redundant for `ecs_find!` queries, but useful for `ecs_iter!` loops.
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
     /// - `&OneOf<A, B, ...>` or `&mut OneOf<A, B, ...>`: See [`OneOf`](crate::OneOf).
+    ///
+    /// In query closures, a special `MatchedArchetype` type alias is set to the currently
+    /// matched archetype being accessed during this execution of the closure. This can be used
+    /// for generic operations.
     ///
     /// # Example
     ///
@@ -383,6 +473,10 @@ mod macros {
     ///   This is somewhat redundant for `ecs_find!` queries, but useful for `ecs_iter!` loops.
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
     /// - `&OneOf<A, B, ...>` or `&mut OneOf<A, B, ...>`: See [`OneOf`](crate::OneOf).
+    ///
+    /// In query closures, a special `MatchedArchetype` type alias is set to the currently
+    /// matched archetype being accessed during this execution of the closure. This can be used
+    /// for generic operations.
     ///
     /// # Example
     ///
@@ -526,15 +620,14 @@ pub struct OneOf {
 
 #[cfg(not(doc))]
 pub mod macros {
-    pub use gecs_macros::ecs_world;
+    pub use gecs_macros::{ecs_component_id, ecs_world};
 }
 
 /// `use gecs::prelude::*;` to import common macros, traits, and types.
 pub mod prelude {
     use super::*;
 
-    #[doc(hidden)]
-    pub use gecs_macros::ecs_world;
+    pub use gecs_macros::{ecs_component_id, ecs_world};
 
     pub use entity::{Entity, EntityAny};
     pub use traits::Archetype;

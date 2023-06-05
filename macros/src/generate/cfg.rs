@@ -1,9 +1,9 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use crate::parse::ParseWorld;
+use crate::parse::ParseEcsWorld;
 
-pub fn generate_cfg_checks(world: &ParseWorld, raw: TokenStream) -> TokenStream {
+pub fn generate_cfg_checks(world: &ParseEcsWorld, raw: TokenStream) -> TokenStream {
     let predicates = world.collect_all_cfg_predicates();
     let mut macros = Vec::<TokenStream>::with_capacity(predicates.len());
 

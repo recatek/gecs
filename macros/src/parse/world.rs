@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::num::NonZeroU8;
 
 use proc_macro2::{Span, TokenStream};
 use quote::format_ident;
@@ -14,19 +13,25 @@ mod kw {
     syn::custom_keyword!(cfg);
 
     syn::custom_keyword!(archetype_id);
+    syn::custom_keyword!(component_id);
 
     syn::custom_keyword!(ecs_archetype);
     syn::custom_keyword!(ecs_name);
 }
 
-#[derive(Debug)]
-pub struct ParseFinalize {
-    pub cfg_lookup: HashMap<String, bool>,
-    pub world: ParseWorld,
+pub trait HasAttributeId {
+    fn name(&self) -> &Ident;
+    fn id(&self) -> Option<u8>;
 }
 
 #[derive(Debug)]
-pub struct ParseWorld {
+pub struct ParseEcsFinalize {
+    pub cfg_lookup: HashMap<String, bool>,
+    pub world: ParseEcsWorld,
+}
+
+#[derive(Debug)]
+pub struct ParseEcsWorld {
     pub name: Ident,
     pub archetypes: Vec<ParseArchetype>,
 }
@@ -45,7 +50,7 @@ pub struct ParseName {
 #[derive(Debug)]
 pub struct ParseArchetype {
     pub cfgs: Vec<ParseAttributeCfg>,
-    pub id: Option<NonZeroU8>,
+    pub id: Option<u8>,
     pub name: Ident,
     pub capacity: ParseCapacity,
     pub components: Vec<ParseComponent>,
@@ -54,6 +59,7 @@ pub struct ParseArchetype {
 #[derive(Debug)]
 pub struct ParseComponent {
     pub cfgs: Vec<ParseAttributeCfg>,
+    pub id: Option<u8>,
     pub name: Ident,
 }
 
@@ -63,8 +69,8 @@ pub struct ParseAttributeCfg {
 }
 
 #[derive(Debug)]
-pub struct ParseAttributeArchetypeId {
-    pub value: NonZeroU8,
+pub struct ParseAttributeId {
+    pub value: u8,
 }
 
 #[derive(Debug)]
@@ -76,7 +82,8 @@ pub struct ParseAttribute {
 #[derive(Debug)]
 pub enum ParseAttributeData {
     Cfg(ParseAttributeCfg),
-    ArchetypeId(ParseAttributeArchetypeId),
+    ArchetypeId(ParseAttributeId),
+    ComponentId(ParseAttributeId),
 }
 
 #[derive(Debug)]
@@ -85,7 +92,7 @@ pub enum ParseCapacity {
     Expression(Expr),
 }
 
-impl ParseWorld {
+impl ParseEcsWorld {
     pub fn collect_all_cfg_predicates(&self) -> Vec<TokenStream> {
         let mut filter = HashSet::new();
         let mut result = Vec::new();
@@ -117,7 +124,7 @@ impl ParseWorld {
     }
 }
 
-impl Parse for ParseFinalize {
+impl Parse for ParseEcsFinalize {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         // Parse the deduced states for each cfg in the world definition
         let states;
@@ -131,7 +138,7 @@ impl Parse for ParseFinalize {
         // Re-parse the world itself (TODO: This is wasteful!)
         let world;
         braced!(world in input);
-        let world = world.parse::<ParseWorld>()?;
+        let world = world.parse::<ParseEcsWorld>()?;
 
         // Create a map of each cfg to its deduced state
         let mut predicates = world.collect_all_cfg_predicates();
@@ -146,7 +153,7 @@ impl Parse for ParseFinalize {
     }
 }
 
-impl Parse for ParseWorld {
+impl Parse for ParseEcsWorld {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let items = Punctuated::<ParseItem, Semi>::parse_terminated(input)?
             .into_iter()
@@ -257,9 +264,21 @@ impl Parse for ParseComponent {
             return Err(syn::Error::new_spanned(name, "illegal component name"));
         }
 
+        // See if we have a manually-assigned component ID
+        let mut component_id = None;
+
         for attribute in attributes.into_iter() {
             match attribute.data {
                 ParseAttributeData::Cfg(cfg) => cfgs.push(cfg),
+                ParseAttributeData::ComponentId(id) => {
+                    if component_id.is_some() {
+                        return Err(syn::Error::new(
+                            attribute.span,
+                            "duplicate component id assignments",
+                        ));
+                    }
+                    component_id = Some(id.value);
+                }
                 _ => {
                     return Err(syn::Error::new(
                         attribute.span,
@@ -269,35 +288,35 @@ impl Parse for ParseComponent {
             }
         }
 
-        Ok(Self { cfgs, name })
+        Ok(Self {
+            cfgs,
+            id: component_id,
+            name,
+        })
     }
 }
 
 impl Parse for ParseAttributeCfg {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        input.parse::<kw::cfg>()?;
-
         let args;
         parenthesized!(args in input);
 
         // Don't care about parsing the predicate contents
         let predicate = args.parse::<TokenStream>()?;
 
-        Ok(ParseAttributeCfg { predicate })
+        Ok(Self { predicate })
     }
 }
 
-impl Parse for ParseAttributeArchetypeId {
+impl Parse for ParseAttributeId {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        input.parse::<kw::archetype_id>()?;
-
         let args;
         parenthesized!(args in input);
 
-        // Grab the int literal and make sure it's a NonZeroU8
-        let id = args.parse::<LitInt>()?.base10_parse()?;
+        // Grab the int literal and make sure it's the right type
+        let value = args.parse::<LitInt>()?.base10_parse()?;
 
-        Ok(ParseAttributeArchetypeId { value: id })
+        Ok(Self { value })
     }
 }
 
@@ -310,9 +329,14 @@ impl Parse for ParseAttribute {
         let span = content.span();
         let lookahead = content.lookahead1();
         let data = if lookahead.peek(kw::cfg) {
+            content.parse::<kw::cfg>()?;
             ParseAttributeData::Cfg(content.parse()?)
         } else if lookahead.peek(kw::archetype_id) {
+            content.parse::<kw::archetype_id>()?;
             ParseAttributeData::ArchetypeId(content.parse()?)
+        } else if lookahead.peek(kw::component_id) {
+            content.parse::<kw::component_id>()?;
+            ParseAttributeData::ComponentId(content.parse()?)
         } else {
             return Err(lookahead.error());
         };
@@ -330,6 +354,26 @@ impl Parse for ParseCapacity {
         } else {
             input.parse().map(ParseCapacity::Expression)
         }
+    }
+}
+
+impl HasAttributeId for ParseArchetype {
+    fn name(&self) -> &Ident {
+        &self.name
+    }
+
+    fn id(&self) -> Option<u8> {
+        self.id
+    }
+}
+
+impl HasAttributeId for ParseComponent {
+    fn name(&self) -> &Ident {
+        &self.name
+    }
+
+    fn id(&self) -> Option<u8> {
+        self.id
     }
 }
 
@@ -362,6 +406,12 @@ fn parse_item_archetype(
                 }
                 archetype.id = Some(id.value);
             }
+            _ => {
+                return Err(syn::Error::new(
+                    attribute.span,
+                    "this attribute is not supported here",
+                ));
+            }
         }
     }
 
@@ -375,7 +425,7 @@ fn parse_item_name(
     if attributes.is_empty() == false {
         return Err(syn::Error::new(
             attributes[0].span,
-            "attributes unsupported on name declaration",
+            "this attribute is not supported here",
         ));
     }
 

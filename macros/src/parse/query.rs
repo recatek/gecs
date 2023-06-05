@@ -1,4 +1,3 @@
-use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::token::{Colon, Comma, Gt, Lt, Mut};
 use syn::{Expr, Ident, LitStr, Token};
@@ -18,7 +17,7 @@ pub struct ParseQueryFind {
     pub world: Expr,
     pub entity: Expr,
     pub params: Vec<ParseQueryParam>,
-    pub body: TokenStream,
+    pub body: Expr,
 }
 
 #[derive(Debug)]
@@ -26,7 +25,7 @@ pub struct ParseQueryIter {
     pub world_data: String,
     pub world: Expr,
     pub params: Vec<ParseQueryParam>,
-    pub body: TokenStream,
+    pub body: Expr,
 }
 
 #[derive(Clone, Debug)]
@@ -62,7 +61,7 @@ impl Parse for ParseQueryFind {
         input.parse::<Token![|]>()?;
 
         // Parse the rest of the body, including the braces (if any)
-        let body = input.parse::<TokenStream>()?;
+        let body = input.parse::<Expr>()?;
 
         Ok(Self {
             world_data: world_data.value(),
@@ -90,7 +89,7 @@ impl Parse for ParseQueryIter {
         input.parse::<Token![|]>()?;
 
         // Parse the rest of the body, including the braces (if any)
-        let body = input.parse::<TokenStream>()?;
+        let body = input.parse::<Expr>()?;
 
         Ok(Self {
             world_data: world_data.value(),

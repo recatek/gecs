@@ -1,6 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::num::{NonZeroU32, NonZeroU8};
+use std::num::NonZeroU32;
 
 use crate::error::EcsError;
 use crate::traits::Archetype;
@@ -34,7 +34,7 @@ pub struct Entity<A: Archetype> {
 /// an enum with each possible archetype outcome.
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct EntityAny {
-    data: u32, // [ index (u24) | archetype_id (NonZeroU8) ]
+    data: u32, // [ index (u24) | archetype_id (u8) ]
     version: NonZeroU32,
 }
 
@@ -85,7 +85,7 @@ impl<A: Archetype> Entity<A> {
     ///
     /// This is the same `ARCHETYPE_ID` as the archetype this entity belongs to.
     #[inline(always)]
-    pub const fn archetype_id(self) -> NonZeroU8 {
+    pub const fn archetype_id(self) -> u8 {
         A::ARCHETYPE_ID
     }
 }
@@ -94,10 +94,10 @@ impl EntityAny {
     #[inline(always)]
     pub(crate) fn new(
         index: EntityIndex, // This enforces bounds
-        archetype_id: NonZeroU8,
+        archetype_id: u8,
         version: NonZeroU32,
     ) -> Self {
-        let archetype_id: u32 = archetype_id.get().into();
+        let archetype_id: u32 = archetype_id.into();
         let data = (index.get() << TYPE_BITS) | archetype_id;
         Self { data, version }
     }
@@ -116,10 +116,9 @@ impl EntityAny {
     ///
     /// This is the same `ARCHETYPE_ID` as the archetype this entity belongs to.
     #[inline(always)]
-    pub fn archetype_id(self) -> NonZeroU8 {
+    pub fn archetype_id(self) -> u8 {
         debug_assert!(self.data as u8 != 0, "invalid archetype_id");
-        // SAFETY: We can only be created with a NonZeroU8 archetype_id
-        unsafe { NonZeroU8::new_unchecked(self.data as u8) }
+        self.data as u8 // Trim off the bottom byte to get the ID
     }
 }
 

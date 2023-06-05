@@ -28,6 +28,8 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
     // bound_params for the given archetype. Note that it's faster to use query.params
     // where available, since it avoids redundant computation for each archetype.
 
+    // TODO PERF: We could avoid binding entirely if we know that the params have no AnyOf.
+
     // Types and traits
     let EntityWorld = format_ident!("Entity{}", world_data.name);
 
@@ -61,6 +63,8 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
 
             queries.push(quote_spanned!(Span::mixed_site() =>
                 #EntityWorld::#Archetype(entity) => {
+                    // Alias the current archetype for use in the closure
+                    type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types
                     let mut closure = |#(#arg: &#maybe_mut #Type),*| #body;
                     let archetype = #world.#archetype_access::<#Archetype>();
@@ -97,6 +101,8 @@ pub fn generate_query_iter(mode: FetchMode, query: ParseQueryIter) -> syn::Resul
     // bound_params for the given archetype. Note that it's faster to use query.params
     // where available, since it avoids redundant computation for each archetype.
 
+    // TODO PERF: We could avoid binding entirely if we know that the params have no AnyOf.
+
     // Variables and fields
     let world = &query.world;
     let body = &query.body;
@@ -126,6 +132,8 @@ pub fn generate_query_iter(mode: FetchMode, query: ParseQueryIter) -> syn::Resul
 
             queries.push(quote_spanned!(Span::mixed_site() =>
                 {
+                    // Alias the current archetype for use in the closure
+                    type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types
                     let mut closure = |#(#arg: &#maybe_mut #Type),*| #body;
                     let archetype = #world.#archetype_access::<#Archetype>();

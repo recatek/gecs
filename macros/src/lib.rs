@@ -10,11 +10,19 @@ use generate::FetchMode;
 
 use parse::*;
 
+/// See `ecs_world!` in the `gecs` docs for more info.
 #[proc_macro]
 pub fn ecs_world(args: TokenStream) -> TokenStream {
     let raw = args.clone().into(); // We'll need to parse twice
-    let world_parse = parse_macro_input!(args as ParseWorld);
+    let world_parse = parse_macro_input!(args as ParseEcsWorld);
     generate::generate_cfg_checks(&world_parse, raw).into()
+}
+
+/// See `ecs_component_id!` in the `gecs` docs for more info.
+#[proc_macro]
+pub fn ecs_component_id(args: TokenStream) -> TokenStream {
+    let util = parse_macro_input!(args as ParseEcsComponentId);
+    generate::generate_ecs_component_id(util).into()
 }
 
 #[proc_macro]
@@ -22,7 +30,7 @@ pub fn ecs_world(args: TokenStream) -> TokenStream {
 pub fn __ecs_finalize(args: TokenStream) -> TokenStream {
     let raw_input = args.to_string();
 
-    match DataWorld::new(parse_macro_input!(args as ParseFinalize)) {
+    match DataWorld::new(parse_macro_input!(args as ParseEcsFinalize)) {
         Ok(world_data) => generate::generate_world(&world_data, &raw_input).into(),
         Err(err) => err.into_compile_error().into(),
     }
