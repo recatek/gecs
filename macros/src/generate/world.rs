@@ -104,10 +104,17 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                     }
 
                     #[inline(always)]
-                    fn resolve_push(&mut self, components: <#Archetype as Archetype>::Components)
+                    fn resolve_push(&mut self, data: <#Archetype as Archetype>::Components)
+                        -> Entity<#Archetype>
+                    {
+                        self.#archetype.push(data)
+                    }
+
+                    #[inline(always)]
+                    fn resolve_try_push(&mut self, data: <#Archetype as Archetype>::Components)
                         -> Option<Entity<#Archetype>>
                     {
-                        self.#archetype.push(components)
+                        self.#archetype.try_push(data)
                     }
 
                     #[inline(always)]
@@ -308,12 +315,24 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 self.data.is_empty()
             }
 
-            /// Adds a new entity with the given components to the archetype, if there's space.
+            /// Adds a new entity with the given component data to the archetype, if there's room.
+            ///
+            /// Returns a handle for accessing the new entity.
+            ///
+            /// # Panics
+            ///
+            /// Panics if the archetype is full. For a panic-free version, use `try_push` instead.
+            #[inline(always)]
+            pub fn push(&mut self, data: (#(#Component,)*)) -> Entity<#Archetype> {
+                self.data.try_push(data).expect("failed to push to full archetype")
+            }
+
+            /// Adds a new entity with the given component data to the archetype, if there's room.
             ///
             /// Returns a handle for accessing the new entity, or `None` if the archetype is full.
             #[inline(always)]
-            pub fn push(&mut self, components: (#(#Component,)*)) -> Option<Entity<#Archetype>> {
-                self.data.push(components)
+            pub fn try_push(&mut self, data: (#(#Component,)*)) -> Option<Entity<#Archetype>> {
+                self.data.try_push(data)
             }
 
             /// If the entity exists in the archetype, this returns its dense data slice index.

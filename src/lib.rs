@@ -17,9 +17,10 @@
 //! archetypes in your ECS world declaration are configured in this way, gecs will perform
 //! zero allocations after startup. This guarantees that your ECS world will adhere to a
 //! known and predictable memory overhead for constrained environments (e.g. servers on
-//! cloud instances). Attempting to create a new entity in a full archetype will return
-//! `None` (no panic). Support for dynamically-sized archetypes with `Vec`-like storage
-//! behavior is planned for support at a later date but is not currently implemented.
+//! cloud instances). Attempting to add an entity to a full archetype can either report
+//! failure or panic depending on the method you call to do so. Support for dynamically-
+//! sized archetypes with `Vec`-like storage behavior is planned for support at a later
+//! date but is not currently implemented.
 //!
 //! The goals for gecs are (in descending priority order):
 //! - Fast iteration and find queries
@@ -56,8 +57,8 @@
 //!     let mut world = World::default(); // Initialize a new ECS world
 //!
 //!     // Note: Push returns an Option<Entity<A>>, so we must unwrap
-//!     let entity_a = world.push::<ArchFoo>((CompA(1), CompB(20))).unwrap();
-//!     let entity_b = world.push::<ArchBar>((CompA(3), CompC(40))).unwrap();
+//!     let entity_a = world.push::<ArchFoo>((CompA(1), CompB(20)));
+//!     let entity_b = world.push::<ArchBar>((CompA(3), CompC(40)));
 //!
 //!     // Each archetype has one entity
 //!     assert_eq!(world.len::<ArchFoo>(), 1);
@@ -139,8 +140,7 @@ mod macros {
     /// - `Name`: The name (in PascalCase) of the archetype Rust type.
     /// - `capacity`: The capacity of the archetype, specified in one of the following ways:
     ///     - A constant expression (e.g. `200` or `config::ARCH_CAPACITY + 4`). This will
-    ///       create a fixed-size archetype that can contain only that number of entities.
-    ///       Attempting to add an entity to a full archetype will return `None` (no panic).
+    ///       create a fixed-size archetype that can contain at most that number of entities.
     ///     - The `dyn` keyword here is currently reserved for near-future work implementing
     ///       dynamically sized archetypes. It is not supported in this version of the library.
     /// - `Component, ...`: One or more component types to include in this archetype. Because
@@ -204,7 +204,7 @@ mod macros {
     ///     let mut world = MyWorld::default();
     ///
     ///     // Push an ArchFoo entity into the world and unwrap Option<Entity<ArchFoo>> result
-    ///     let entity_a = world.push::<ArchFoo>((CompA(0), CompB(1))).unwrap();
+    ///     let entity_a = world.push::<ArchFoo>((CompA(0), CompB(1)));
     ///
     ///     // The length of the archetype should now be 1
     ///     assert_eq!(world.len::<ArchFoo>(), 1);
@@ -288,8 +288,8 @@ mod macros {
     ///     let mut world = World::default();
     ///
     ///     // Note: Push returns an Option<Entity<A>>, so we must unwrap
-    ///     let entity_a = world.push::<ArchFoo>((CompA(0), CompB(0))).unwrap();
-    ///     let entity_b = world.push::<ArchBar>((CompA(0), CompC(0))).unwrap();
+    ///     let entity_a = world.push::<ArchFoo>((CompA(0), CompB(0)));
+    ///     let entity_b = world.push::<ArchBar>((CompA(0), CompC(0)));
     ///
     ///     assert!(ecs_find!(world, entity_a, |c: &CompA| assert_eq!(c.0, 0)));
     ///     assert!(ecs_find!(world, entity_b, |c: &CompA| assert_eq!(c.0, 0)));
@@ -333,8 +333,8 @@ mod macros {
     /// fn main() {
     ///     let mut world = World::default();
     ///
-    ///     let parent = world.push::<ArchFoo>((CompA(0), CompB(0), Parent(None))).unwrap();
-    ///     let child = world.push::<ArchFoo>((CompA(1), CompB(0), Parent(Some(parent)))).unwrap();
+    ///     let parent = world.push::<ArchFoo>((CompA(0), CompB(0), Parent(None)));
+    ///     let child = world.push::<ArchFoo>((CompA(1), CompB(0), Parent(Some(parent))));
     ///
     ///     // Assert that we found the parent, and that its CompB value is 0
     ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 0)));
@@ -405,8 +405,8 @@ mod macros {
     ///     let mut vec_b = Vec::<EntityAny>::new();
     ///     let mut vec_c = Vec::<EntityAny>::new();
     ///
-    ///     let entity_a = world.push::<ArchFoo>((CompA(0), CompB(0))).unwrap();
-    ///     let entity_b = world.push::<ArchBar>((CompA(0), CompC(0))).unwrap();
+    ///     let entity_a = world.push::<ArchFoo>((CompA(0), CompB(0)));
+    ///     let entity_b = world.push::<ArchBar>((CompA(0), CompC(0)));
     ///
     ///     // Iterates both ArchFoo and ArchBar since both have a CompA
     ///     ecs_iter!(world, |entity: &EntityAny, a: &mut CompA| {
@@ -496,8 +496,8 @@ mod macros {
 /// fn main() {
 ///     let mut world = World::default();
 ///
-///     let entity_a = world.archetype_mut::<ArchFoo>().push((CompA(1), CompB(10))).unwrap();
-///     let entity_b = world.archetype_mut::<ArchBar>().push((CompA(1), CompC(10))).unwrap();
+///     let entity_a = world.archetype_mut::<ArchFoo>().push((CompA(1), CompB(10)));
+///     let entity_b = world.archetype_mut::<ArchBar>().push((CompA(1), CompC(10)));
 ///
 ///     let mut sum_a = 0;
 ///     let mut sum_b = 0;

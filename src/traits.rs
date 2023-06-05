@@ -47,14 +47,28 @@ pub trait ArchetypeContainer: Sized {
         <Self as HasArchetype<A>>::resolve_is_empty(self)
     }
 
-    /// Adds a new entity with the given components to the archetype, if there's space.
+    /// Adds a new entity with the given component data to the archetype, if there's room.
     ///
-    /// Returns a handle for accessing the new entity, or `None` if the archetype is full.
-    fn push<A: Archetype>(&mut self, components: A::Components) -> Option<Entity<A>>
+    /// Returns a handle for accessing the new entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the archetype is full. For a panic-free version, use `try_push` instead.
+    fn push<A: Archetype>(&mut self, components: A::Components) -> Entity<A>
     where
         Self: HasArchetype<A>,
     {
         <Self as HasArchetype<A>>::resolve_push(self, components)
+    }
+
+    /// Adds a new entity with the given component data to the archetype, if there's room.
+    ///
+    /// Returns a handle for accessing the new entity, or `None` if the archetype is full.
+    fn try_push<A: Archetype>(&mut self, components: A::Components) -> Option<Entity<A>>
+    where
+        Self: HasArchetype<A>,
+    {
+        <Self as HasArchetype<A>>::resolve_try_push(self, components)
     }
 
     /// If the entity exists in the archetype, this removes it and returns its components.
@@ -171,7 +185,9 @@ pub trait HasArchetype<A: Archetype>: ArchetypeContainer {
     #[doc(hidden)]
     fn resolve_is_empty(&self) -> bool;
     #[doc(hidden)]
-    fn resolve_push(&mut self, components: A::Components) -> Option<Entity<A>>;
+    fn resolve_push(&mut self, data: A::Components) -> Entity<A>;
+    #[doc(hidden)]
+    fn resolve_try_push(&mut self, data: A::Components) -> Option<Entity<A>>;
     #[doc(hidden)]
     fn resolve_remove(&mut self, entity: Entity<A>) -> Option<A::Components>;
     #[doc(hidden)]

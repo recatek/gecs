@@ -7,9 +7,9 @@ use paste::paste;
 
 use crate::archetype::slices::*;
 use crate::archetype::slot::Slot;
-use crate::entity::{Entity, MAX_ARCHETYPE_CAPACITY};
+use crate::entity::{Entity, EntityIndex, MAX_ARCHETYPE_CAPACITY};
 use crate::traits::Archetype;
-use crate::util::{debug_checked_assume, num_assert_leq};
+use crate::util::{debug_checked_assume, num_assert_leq, num_assert_lt};
 
 macro_rules! declare_dense_fixed_n {
     ($n:literal, $($i:literal),+) => {
@@ -27,8 +27,12 @@ macro_rules! declare_dense_fixed_n {
             {
                 #[inline(always)]
                 pub fn new() -> Self {
-                    num_assert_leq!(N, u32::MAX as usize);
-                    num_assert_leq!(N, MAX_ARCHETYPE_CAPACITY);
+                    // We assume in a lot of places that u32 can trivially convert to usize
+                    num_assert_leq!(std::mem::size_of::<u32>(), std::mem::size_of::<usize>());
+                    // N must be less than or equal to MAX_ARCHETYPE_CAPACITY to fit in entities
+                    num_assert_leq!(N, MAX_ARCHETYPE_CAPACITY as usize);
+                    // N must be strictly less than u32::MAX because of the last free list index
+                    num_assert_lt!(N, u32::MAX as usize);
 
                     Self {
                         len: 0,
@@ -57,39 +61,47 @@ macro_rules! declare_dense_fixed_n {
                 /// Reserves a slot in the map pointing to the given dense index.
                 /// Returns an entity handle if successful, or None if we're full.
                 #[inline(always)]
-                pub fn push(&mut self, data: ($([<T$i>],)+)) -> Option<Entity<A>> {
+                pub fn try_push(&mut self, data: ($([<T$i>],)+)) -> Option<Entity<A>> {
                     if self.len >= N {
                         return None;
                     }
 
-                    let dense_index: u32 = self.len.try_into().unwrap();
-                    let slot_index: usize = self.free_head.try_into().unwrap();
-                    debug_assert!(slot_index < N);
+                    // We know that self.len < N, and N <= u32::MAX
+                    let dense_index: u32 = self.len as u32;
+                    let slot_index: u32 = self.free_head;
 
-                    // SAFETY: We guarantee that the free list head never points out of bounds.
-                    // NOTE: This changes if/when we decide to orphan slots with version overflow!
-                    let slot = unsafe { self.slots.get_unchecked_mut(slot_index) };
+                    // This means we're at the end of the free list
+                    if (slot_index as usize) >= N {
+                        return None;
+                    }
 
-                    // NOTE: Do not change the following order of operations!
-                    debug_assert!(slot.is_free());
-                    self.free_head = slot.index();
-                    slot.assign(dense_index);
-                    // SAFETY: We know slot_index fits in a usize because N <= u32::MAX.
-                    let entity = Entity::new(slot_index as u32, slot.version());
-                    let index = self.len;
-                    self.len += 1;
-
-                    // Store the entity and data
                     unsafe {
+                        debug_assert!((slot_index as usize) < N);
+                        debug_assert!(slot_index < MAX_ARCHETYPE_CAPACITY);
+
+                        // SAFETY: We know that slot_index < N
+                        let slot = self.slots.get_unchecked_mut(slot_index as usize);
+                        // SAFETY: We know that slot_index < MAX_ARCHETYPE_CAPACITY
+                        let entity_index = EntityIndex::new_unchecked(slot_index);
+
+                        // NOTE: Do not change the following order of operations!
+                        debug_assert!(slot.is_free());
+                        self.free_head = slot.index();
+                        slot.assign(dense_index);
+                        // SAFETY: We know slot_index fits in a usize because N <= u32::MAX.
+                        let entity = Entity::new(entity_index, slot.version());
+                        let index = self.len;
+                        self.len += 1;
+
                         // SAFETY: We can't overflow because self.len < N.
                         debug_checked_assume!(index < self.len);
 
                         // SAFETY: We know that index < N and points to an empty cell.
                         self.entities.slice_mut(self.len)[index] = entity;
                         $(self.[<d$i>].get_mut().slice_mut(self.len)[index] = data.$i;)+
-                    }
 
-                    Some(entity)
+                        Some(entity)
+                    }
                 }
 
                 /// Resolves an entity to an index in the storage data slices.
@@ -306,13 +318,15 @@ declare_dense_fixed_n!(16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
 
 #[inline(always)]
 fn new_free_list_slot_array<const N: usize>() -> Box<[Slot; N]> {
+    num_assert_lt!(N, u32::MAX as usize); // Prevent overflow
+
     // NOTE: The last slot will point off the end of the free list.
     // In practice, we should never read this value anyway, since
     // we'd only ask to reserve when the dense list has room. However,
     // we may still want to check in the future if we decide to orphan
     // slots with overflowed versions (since we'd then have fewer slots
     // than dense list space). We'll need to revisit this logic if so.
-    Box::new(array::from_fn(|i| Slot::new((i + 1).try_into().unwrap())))
+    Box::new(array::from_fn(|i| Slot::new((i as u32) + 1)))
 }
 
 struct MaybeUninitArray<T, const N: usize>([MaybeUninit<T>; N]);

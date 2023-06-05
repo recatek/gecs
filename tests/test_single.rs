@@ -25,15 +25,15 @@ pub fn test_archetype_id() {
 pub fn test_single_push() {
     let mut world = World::default();
 
-    world.arch_foo.push((CompA(0),)).unwrap();
-    world.arch_foo.push((CompA(1),)).unwrap();
-    world.arch_foo.push((CompA(2),)).unwrap();
-    world.arch_foo.push((CompA(3),)).unwrap();
-    world.arch_foo.push((CompA(4),)).unwrap();
+    world.arch_foo.push((CompA(0),));
+    world.arch_foo.push((CompA(1),));
+    world.arch_foo.push((CompA(2),));
+    world.arch_foo.push((CompA(3),));
+    world.arch_foo.push((CompA(4),));
 
     assert_eq!(world.arch_foo.len(), 5);
 
-    assert!(world.arch_foo.push((CompA(6),)).is_none());
+    assert!(world.arch_foo.try_push((CompA(6),)).is_none());
 }
 
 #[test]
@@ -41,11 +41,11 @@ pub fn test_single_push() {
 pub fn test_single_entity() {
     let mut world = World::default();
 
-    let entity_0 = world.arch_foo.push((CompA(0),)).unwrap();
-    let entity_1 = world.arch_foo.push((CompA(1),)).unwrap();
-    let entity_2 = world.arch_foo.push((CompA(2),)).unwrap();
-    let entity_3 = world.arch_foo.push((CompA(3),)).unwrap();
-    let entity_4 = world.arch_foo.push((CompA(4),)).unwrap();
+    let entity_0 = world.arch_foo.push((CompA(0),));
+    let entity_1 = world.arch_foo.push((CompA(1),));
+    let entity_2 = world.arch_foo.push((CompA(2),));
+    let entity_3 = world.arch_foo.push((CompA(3),));
+    let entity_4 = world.arch_foo.push((CompA(4),));
 
     assert!(ecs_find!(world, entity_0, |v: &Entity<ArchFoo>| assert!(*v == entity_0)));
     assert!(ecs_find!(world, entity_1, |v: &Entity<ArchFoo>| assert!(*v == entity_1)));
@@ -65,11 +65,11 @@ pub fn test_single_entity() {
     assert!(world.arch_foo.remove(entity_3).is_some());
     assert!(world.arch_foo.remove(entity_4).is_some());
 
-    let entity_0b = world.arch_foo.push((CompA(0),)).unwrap();
-    let entity_1b = world.arch_foo.push((CompA(1),)).unwrap();
-    let entity_2b = world.arch_foo.push((CompA(2),)).unwrap();
-    let entity_3b = world.arch_foo.push((CompA(3),)).unwrap();
-    let entity_4b = world.arch_foo.push((CompA(4),)).unwrap();
+    let entity_0b = world.arch_foo.push((CompA(0),));
+    let entity_1b = world.arch_foo.push((CompA(1),));
+    let entity_2b = world.arch_foo.push((CompA(2),));
+    let entity_3b = world.arch_foo.push((CompA(3),));
+    let entity_4b = world.arch_foo.push((CompA(4),));
 
     assert!(entity_0 != entity_0b);
     assert!(entity_1 != entity_1b);
@@ -95,11 +95,11 @@ pub fn test_single_entity() {
 pub fn test_single_find() {
     let mut world = World::default();
 
-    let entity_0 = world.arch_foo.push((CompA(0),)).unwrap();
-    let entity_1 = world.arch_foo.push((CompA(1),)).unwrap();
-    let entity_2 = world.arch_foo.push((CompA(2),)).unwrap();
-    let entity_3 = world.arch_foo.push((CompA(3),)).unwrap();
-    let entity_4 = world.arch_foo.push((CompA(4),)).unwrap();
+    let entity_0 = world.arch_foo.push((CompA(0),));
+    let entity_1 = world.arch_foo.push((CompA(1),));
+    let entity_2 = world.arch_foo.push((CompA(2),));
+    let entity_3 = world.arch_foo.push((CompA(3),));
+    let entity_4 = world.arch_foo.push((CompA(4),));
 
     assert!(ecs_find!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)));
     assert!(ecs_find!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)));
@@ -159,11 +159,11 @@ pub fn test_single_find() {
 pub fn test_single_iter() {
     let mut world = World::default();
 
-    let _entity_0 = world.arch_foo.push((CompA(0),)).unwrap();
-    let _entity_1 = world.arch_foo.push((CompA(1),)).unwrap();
-    let _entity_2 = world.arch_foo.push((CompA(2),)).unwrap();
-    let _entity_3 = world.arch_foo.push((CompA(3),)).unwrap();
-    let _entity_4 = world.arch_foo.push((CompA(4),)).unwrap();
+    let _entity_0 = world.arch_foo.push((CompA(0),));
+    let _entity_1 = world.arch_foo.push((CompA(1),));
+    let _entity_2 = world.arch_foo.push((CompA(2),));
+    let _entity_3 = world.arch_foo.push((CompA(3),));
+    let _entity_4 = world.arch_foo.push((CompA(4),));
 
     let mut sum = 0;
     ecs_iter!(world, |v: &CompA| sum += v.0);
@@ -205,11 +205,11 @@ pub fn test_single_iter() {
 pub fn test_single_iter_write() {
     let mut world = World::default();
 
-    let _entity_0 = world.arch_foo.push((CompA(0),)).unwrap();
-    let _entity_1 = world.arch_foo.push((CompA(1),)).unwrap();
-    let _entity_2 = world.arch_foo.push((CompA(2),)).unwrap();
-    let _entity_3 = world.arch_foo.push((CompA(3),)).unwrap();
-    let _entity_4 = world.arch_foo.push((CompA(4),)).unwrap();
+    let _entity_0 = world.arch_foo.push((CompA(0),));
+    let _entity_1 = world.arch_foo.push((CompA(1),));
+    let _entity_2 = world.arch_foo.push((CompA(2),));
+    let _entity_3 = world.arch_foo.push((CompA(3),));
+    let _entity_4 = world.arch_foo.push((CompA(4),));
 
     ecs_iter!(world, |v: &mut CompA| v.0 += 100);
 
@@ -253,11 +253,11 @@ pub fn test_single_iter_write() {
 pub fn test_single_remove_replace() {
     let mut world = World::default();
 
-    let entity_0 = world.arch_foo.push((CompA(0),)).unwrap();
-    let entity_1 = world.arch_foo.push((CompA(1),)).unwrap();
-    let entity_2 = world.arch_foo.push((CompA(2),)).unwrap();
-    let entity_3 = world.arch_foo.push((CompA(3),)).unwrap();
-    let entity_4 = world.arch_foo.push((CompA(4),)).unwrap();
+    let entity_0 = world.arch_foo.push((CompA(0),));
+    let entity_1 = world.arch_foo.push((CompA(1),));
+    let entity_2 = world.arch_foo.push((CompA(2),));
+    let entity_3 = world.arch_foo.push((CompA(3),));
+    let entity_4 = world.arch_foo.push((CompA(4),));
 
     assert_eq!(world.arch_foo.len(), 5);
 
@@ -294,11 +294,11 @@ pub fn test_single_remove_replace() {
     assert!(world.arch_foo.remove(entity_3).is_none());
     assert!(world.arch_foo.remove(entity_4).is_none());
 
-    let entity_0b = world.arch_foo.push((CompA(1000),)).unwrap();
-    let entity_1b = world.arch_foo.push((CompA(1001),)).unwrap();
-    let entity_2b = world.arch_foo.push((CompA(1002),)).unwrap();
-    let entity_3b = world.arch_foo.push((CompA(1003),)).unwrap();
-    let entity_4b = world.arch_foo.push((CompA(1004),)).unwrap();
+    let entity_0b = world.arch_foo.push((CompA(1000),));
+    let entity_1b = world.arch_foo.push((CompA(1001),));
+    let entity_2b = world.arch_foo.push((CompA(1002),));
+    let entity_3b = world.arch_foo.push((CompA(1003),));
+    let entity_4b = world.arch_foo.push((CompA(1004),));
 
     assert!(ecs_find!(world, entity_0b, |v: &CompA| assert_eq!(v.0, 1000)));
     assert!(ecs_find!(world, entity_1b, |v: &CompA| assert_eq!(v.0, 1001)));

@@ -38,17 +38,17 @@ pub fn test_archetype_id() {
 pub fn test_multi_push_direct() {
     let mut world = World::default();
 
-    world.archetype_mut::<ArchFoo>().push((CompA(0), CompB(10))).unwrap();
-    world.archetype_mut::<ArchFoo>().push((CompA(1), CompB(11))).unwrap();
-    world.archetype_mut::<ArchFoo>().push((CompA(2), CompB(12))).unwrap();
-    world.archetype_mut::<ArchFoo>().push((CompA(3), CompB(13))).unwrap();
-    world.archetype_mut::<ArchFoo>().push((CompA(4), CompB(14))).unwrap();
+    world.archetype_mut::<ArchFoo>().push((CompA(0), CompB(10)));
+    world.archetype_mut::<ArchFoo>().push((CompA(1), CompB(11)));
+    world.archetype_mut::<ArchFoo>().push((CompA(2), CompB(12)));
+    world.archetype_mut::<ArchFoo>().push((CompA(3), CompB(13)));
+    world.archetype_mut::<ArchFoo>().push((CompA(4), CompB(14)));
 
-    world.archetype_mut::<ArchBar>().push((CompA(5), CompC(15))).unwrap();
-    world.archetype_mut::<ArchBar>().push((CompA(6), CompC(16))).unwrap();
-    world.archetype_mut::<ArchBar>().push((CompA(7), CompC(17))).unwrap();
-    world.archetype_mut::<ArchBar>().push((CompA(8), CompC(18))).unwrap();
-    world.archetype_mut::<ArchBar>().push((CompA(9), CompC(19))).unwrap();
+    world.archetype_mut::<ArchBar>().try_push((CompA(5), CompC(15))).unwrap();
+    world.archetype_mut::<ArchBar>().try_push((CompA(6), CompC(16))).unwrap();
+    world.archetype_mut::<ArchBar>().try_push((CompA(7), CompC(17))).unwrap();
+    world.archetype_mut::<ArchBar>().try_push((CompA(8), CompC(18))).unwrap();
+    world.archetype_mut::<ArchBar>().try_push((CompA(9), CompC(19))).unwrap();
 
     assert_eq!(world.len::<ArchFoo>(), 5);
     assert_eq!(world.len::<ArchBar>(), 5);
@@ -59,17 +59,17 @@ pub fn test_multi_push_direct() {
 pub fn test_multi_push_indirect() {
     let mut world = World::default();
 
-    world.push::<ArchFoo>((CompA(0), CompB(10))).unwrap();
-    world.push::<ArchFoo>((CompA(1), CompB(11))).unwrap();
-    world.push::<ArchFoo>((CompA(2), CompB(12))).unwrap();
-    world.push::<ArchFoo>((CompA(3), CompB(13))).unwrap();
-    world.push::<ArchFoo>((CompA(4), CompB(14))).unwrap();
+    world.push::<ArchFoo>((CompA(0), CompB(10)));
+    world.push::<ArchFoo>((CompA(1), CompB(11)));
+    world.push::<ArchFoo>((CompA(2), CompB(12)));
+    world.push::<ArchFoo>((CompA(3), CompB(13)));
+    world.push::<ArchFoo>((CompA(4), CompB(14)));
 
-    world.push::<ArchBar>((CompA(5), CompC(15))).unwrap();
-    world.push::<ArchBar>((CompA(6), CompC(16))).unwrap();
-    world.push::<ArchBar>((CompA(7), CompC(17))).unwrap();
-    world.push::<ArchBar>((CompA(8), CompC(18))).unwrap();
-    world.push::<ArchBar>((CompA(9), CompC(19))).unwrap();
+    world.try_push::<ArchBar>((CompA(5), CompC(15))).unwrap();
+    world.try_push::<ArchBar>((CompA(6), CompC(16))).unwrap();
+    world.try_push::<ArchBar>((CompA(7), CompC(17))).unwrap();
+    world.try_push::<ArchBar>((CompA(8), CompC(18))).unwrap();
+    world.try_push::<ArchBar>((CompA(9), CompC(19))).unwrap();
 
     assert_eq!(world.len::<ArchFoo>(), 5);
     assert_eq!(world.len::<ArchBar>(), 5);
@@ -80,17 +80,17 @@ pub fn test_multi_push_indirect() {
 pub fn test_multi_find() {
     let mut world = World::default();
 
-    let entity_0 = world.push::<ArchFoo>((CompA(0), CompB(10))).unwrap();
-    let entity_1 = world.push::<ArchFoo>((CompA(1), CompB(11))).unwrap();
-    let entity_2 = world.push::<ArchFoo>((CompA(2), CompB(12))).unwrap();
-    let entity_3 = world.push::<ArchFoo>((CompA(3), CompB(13))).unwrap();
-    let entity_4 = world.push::<ArchFoo>((CompA(4), CompB(14))).unwrap();
+    let entity_0 = world.push::<ArchFoo>((CompA(0), CompB(10)));
+    let entity_1 = world.push::<ArchFoo>((CompA(1), CompB(11)));
+    let entity_2 = world.push::<ArchFoo>((CompA(2), CompB(12)));
+    let entity_3 = world.push::<ArchFoo>((CompA(3), CompB(13)));
+    let entity_4 = world.push::<ArchFoo>((CompA(4), CompB(14)));
 
-    let entity_5 = world.push::<ArchBar>((CompA(5), CompC(15))).unwrap();
-    let entity_6 = world.push::<ArchBar>((CompA(6), CompC(16))).unwrap();
-    let entity_7 = world.push::<ArchBar>((CompA(7), CompC(17))).unwrap();
-    let entity_8 = world.push::<ArchBar>((CompA(8), CompC(18))).unwrap();
-    let entity_9 = world.push::<ArchBar>((CompA(9), CompC(19))).unwrap();
+    let entity_5 = world.try_push::<ArchBar>((CompA(5), CompC(15))).unwrap();
+    let entity_6 = world.try_push::<ArchBar>((CompA(6), CompC(16))).unwrap();
+    let entity_7 = world.try_push::<ArchBar>((CompA(7), CompC(17))).unwrap();
+    let entity_8 = world.try_push::<ArchBar>((CompA(8), CompC(18))).unwrap();
+    let entity_9 = world.try_push::<ArchBar>((CompA(9), CompC(19))).unwrap();
 
     assert!(ecs_find!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)));
     assert!(ecs_find!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)));
@@ -455,17 +455,17 @@ pub fn test_multi_find() {
 pub fn test_multi_iter() {
     let mut world = World::default();
 
-    let _entity_0 = world.push::<ArchFoo>((CompA(0), CompB(10))).unwrap();
-    let _entity_1 = world.push::<ArchFoo>((CompA(1), CompB(11))).unwrap();
-    let _entity_2 = world.push::<ArchFoo>((CompA(2), CompB(12))).unwrap();
-    let _entity_3 = world.push::<ArchFoo>((CompA(3), CompB(13))).unwrap();
-    let _entity_4 = world.push::<ArchFoo>((CompA(4), CompB(14))).unwrap();
+    let _entity_0 = world.push::<ArchFoo>((CompA(0), CompB(10)));
+    let _entity_1 = world.push::<ArchFoo>((CompA(1), CompB(11)));
+    let _entity_2 = world.push::<ArchFoo>((CompA(2), CompB(12)));
+    let _entity_3 = world.push::<ArchFoo>((CompA(3), CompB(13)));
+    let _entity_4 = world.push::<ArchFoo>((CompA(4), CompB(14)));
 
-    let _entity_5 = world.push::<ArchBar>((CompA(5), CompC(15))).unwrap();
-    let _entity_6 = world.push::<ArchBar>((CompA(6), CompC(16))).unwrap();
-    let _entity_7 = world.push::<ArchBar>((CompA(7), CompC(17))).unwrap();
-    let _entity_8 = world.push::<ArchBar>((CompA(8), CompC(18))).unwrap();
-    let _entity_9 = world.push::<ArchBar>((CompA(9), CompC(19))).unwrap();
+    let _entity_5 = world.try_push::<ArchBar>((CompA(5), CompC(15))).unwrap();
+    let _entity_6 = world.try_push::<ArchBar>((CompA(6), CompC(16))).unwrap();
+    let _entity_7 = world.try_push::<ArchBar>((CompA(7), CompC(17))).unwrap();
+    let _entity_8 = world.try_push::<ArchBar>((CompA(8), CompC(18))).unwrap();
+    let _entity_9 = world.try_push::<ArchBar>((CompA(9), CompC(19))).unwrap();
 
     let mut sum = 0;
     ecs_iter!(world, |v: &CompA| sum += v.0);
@@ -556,17 +556,17 @@ pub fn test_multi_iter() {
 pub fn test_multi_iter_write() {
     let mut world = World::default();
 
-    let _entity_0 = world.push::<ArchFoo>((CompA(0), CompB(10))).unwrap();
-    let _entity_1 = world.push::<ArchFoo>((CompA(1), CompB(11))).unwrap();
-    let _entity_2 = world.push::<ArchFoo>((CompA(2), CompB(12))).unwrap();
-    let _entity_3 = world.push::<ArchFoo>((CompA(3), CompB(13))).unwrap();
-    let _entity_4 = world.push::<ArchFoo>((CompA(4), CompB(14))).unwrap();
+    let _entity_0 = world.push::<ArchFoo>((CompA(0), CompB(10)));
+    let _entity_1 = world.push::<ArchFoo>((CompA(1), CompB(11)));
+    let _entity_2 = world.push::<ArchFoo>((CompA(2), CompB(12)));
+    let _entity_3 = world.push::<ArchFoo>((CompA(3), CompB(13)));
+    let _entity_4 = world.push::<ArchFoo>((CompA(4), CompB(14)));
 
-    let _entity_5 = world.push::<ArchBar>((CompA(5), CompC(15))).unwrap();
-    let _entity_6 = world.push::<ArchBar>((CompA(6), CompC(16))).unwrap();
-    let _entity_7 = world.push::<ArchBar>((CompA(7), CompC(17))).unwrap();
-    let _entity_8 = world.push::<ArchBar>((CompA(8), CompC(18))).unwrap();
-    let _entity_9 = world.push::<ArchBar>((CompA(9), CompC(19))).unwrap();
+    let _entity_5 = world.try_push::<ArchBar>((CompA(5), CompC(15))).unwrap();
+    let _entity_6 = world.try_push::<ArchBar>((CompA(6), CompC(16))).unwrap();
+    let _entity_7 = world.try_push::<ArchBar>((CompA(7), CompC(17))).unwrap();
+    let _entity_8 = world.try_push::<ArchBar>((CompA(8), CompC(18))).unwrap();
+    let _entity_9 = world.try_push::<ArchBar>((CompA(9), CompC(19))).unwrap();
 
     ecs_iter!(world, |v: &mut CompA| v.0 += 100);
     ecs_iter!(world, |v: &mut CompB| v.0 += 100);
@@ -661,17 +661,17 @@ pub fn test_multi_iter_write() {
 pub fn test_multi_replace() {
     let mut world = World::default();
 
-    let entity_0 = world.push::<ArchFoo>((CompA(0), CompB(10))).unwrap();
-    let entity_1 = world.push::<ArchFoo>((CompA(1), CompB(11))).unwrap();
-    let entity_2 = world.push::<ArchFoo>((CompA(2), CompB(12))).unwrap();
-    let entity_3 = world.push::<ArchFoo>((CompA(3), CompB(13))).unwrap();
-    let entity_4 = world.push::<ArchFoo>((CompA(4), CompB(14))).unwrap();
+    let entity_0 = world.push::<ArchFoo>((CompA(0), CompB(10)));
+    let entity_1 = world.push::<ArchFoo>((CompA(1), CompB(11)));
+    let entity_2 = world.push::<ArchFoo>((CompA(2), CompB(12)));
+    let entity_3 = world.push::<ArchFoo>((CompA(3), CompB(13)));
+    let entity_4 = world.push::<ArchFoo>((CompA(4), CompB(14)));
 
-    let entity_5 = world.push::<ArchBar>((CompA(5), CompC(15))).unwrap();
-    let entity_6 = world.push::<ArchBar>((CompA(6), CompC(16))).unwrap();
-    let entity_7 = world.push::<ArchBar>((CompA(7), CompC(17))).unwrap();
-    let entity_8 = world.push::<ArchBar>((CompA(8), CompC(18))).unwrap();
-    let entity_9 = world.push::<ArchBar>((CompA(9), CompC(19))).unwrap();
+    let entity_5 = world.try_push::<ArchBar>((CompA(5), CompC(15))).unwrap();
+    let entity_6 = world.try_push::<ArchBar>((CompA(6), CompC(16))).unwrap();
+    let entity_7 = world.try_push::<ArchBar>((CompA(7), CompC(17))).unwrap();
+    let entity_8 = world.try_push::<ArchBar>((CompA(8), CompC(18))).unwrap();
+    let entity_9 = world.try_push::<ArchBar>((CompA(9), CompC(19))).unwrap();
 
     assert_eq!(world.len::<ArchFoo>(), 5);
     assert_eq!(world.len::<ArchBar>(), 5);
@@ -739,16 +739,16 @@ pub fn test_multi_replace() {
     assert!(world.remove(entity_8).is_none());
     assert!(world.remove(entity_9).is_none());
 
-    let entity_0b = world.push::<ArchFoo>((CompA(1000), CompB(1010))).unwrap();
-    let entity_1b = world.push::<ArchFoo>((CompA(1001), CompB(1011))).unwrap();
-    let entity_2b = world.push::<ArchFoo>((CompA(1002), CompB(1012))).unwrap();
-    let entity_3b = world.push::<ArchFoo>((CompA(1003), CompB(1013))).unwrap();
-    let entity_4b = world.push::<ArchFoo>((CompA(1004), CompB(1014))).unwrap();
-    let entity_5b = world.push::<ArchBar>((CompA(1005), CompC(1015))).unwrap();
-    let entity_6b = world.push::<ArchBar>((CompA(1006), CompC(1016))).unwrap();
-    let entity_7b = world.push::<ArchBar>((CompA(1007), CompC(1017))).unwrap();
-    let entity_8b = world.push::<ArchBar>((CompA(1008), CompC(1018))).unwrap();
-    let entity_9b = world.push::<ArchBar>((CompA(1009), CompC(1019))).unwrap();
+    let entity_0b = world.push::<ArchFoo>((CompA(1000), CompB(1010)));
+    let entity_1b = world.push::<ArchFoo>((CompA(1001), CompB(1011)));
+    let entity_2b = world.push::<ArchFoo>((CompA(1002), CompB(1012)));
+    let entity_3b = world.push::<ArchFoo>((CompA(1003), CompB(1013)));
+    let entity_4b = world.push::<ArchFoo>((CompA(1004), CompB(1014)));
+    let entity_5b = world.push::<ArchBar>((CompA(1005), CompC(1015)));
+    let entity_6b = world.push::<ArchBar>((CompA(1006), CompC(1016)));
+    let entity_7b = world.push::<ArchBar>((CompA(1007), CompC(1017)));
+    let entity_8b = world.push::<ArchBar>((CompA(1008), CompC(1018)));
+    let entity_9b = world.push::<ArchBar>((CompA(1009), CompC(1019)));
 
     assert!(ecs_find!(world, entity_0b, |v: &CompA, u: &CompB| assert_eq!((v.0, u.0), (1000, 1010))));
     assert!(ecs_find!(world, entity_1b, |v: &CompA, u: &CompB| assert_eq!((v.0, u.0), (1001, 1011))));

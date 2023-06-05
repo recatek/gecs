@@ -18,9 +18,10 @@ Archetypes in gecs can be set to contain a fixed capacity of entities. If all of
 archetypes in your ECS world declaration are configured in this way, gecs will perform
 zero allocations after startup. This guarantees that your ECS world will adhere to a
 known and predictable memory overhead for constrained environments (e.g. servers on
-cloud instances). Attempting to create a new entity in a full archetype will return
-`None` (no panics). Support for dynamically-sized archetypes with `Vec`-like storage
-behavior is planned for support at a later date but is not currently implemented.
+cloud instances). Attempting to add an entity to a full archetype can either report 
+failure or panic depending on the method you call to do so. Support for dynamically-
+sized archetypes with `Vec`-like storage behavior is planned for support at a later 
+date but is not currently implemented.
 
 The goals for gecs are (in descending priority order):
 - Fast iteration and find queries

@@ -4,8 +4,9 @@ use std::num::{NonZeroU32, NonZeroU8};
 
 use crate::error::EcsError;
 use crate::traits::Archetype;
+use crate::util::debug_checked_assume;
 
-pub(crate) const MAX_ARCHETYPE_CAPACITY: usize = (1 << TYPE_SHIFT) as usize;
+pub(crate) const MAX_ARCHETYPE_CAPACITY: u32 = 1_u32 << TYPE_SHIFT;
 
 const TYPE_BITS: u32 = 8;
 const TYPE_SHIFT: u32 = u32::BITS - TYPE_BITS;
@@ -37,9 +38,14 @@ pub struct EntityAny {
     version: NonZeroU32,
 }
 
+/// Safety wrapper for enforcing that the index of an entity adheres to bounds.
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+pub(crate) struct EntityIndex(u32);
+
 impl<A: Archetype> Entity<A> {
     #[inline(always)]
-    pub(crate) fn new(index: u32, version: NonZeroU32) -> Self {
+    pub(crate) fn new(index: EntityIndex, version: NonZeroU32) -> Self {
         Self {
             inner: EntityAny::new(index, A::ARCHETYPE_ID, version),
             _type: PhantomData,
@@ -86,14 +92,13 @@ impl<A: Archetype> Entity<A> {
 
 impl EntityAny {
     #[inline(always)]
-    pub(crate) fn new(index: u32, archetype_id: NonZeroU8, version: NonZeroU32) -> Self {
-        if index >= MAX_ARCHETYPE_CAPACITY.try_into().unwrap() {
-            panic!("index too large for handle");
-        }
-
+    pub(crate) fn new(
+        index: EntityIndex, // This enforces bounds
+        archetype_id: NonZeroU8,
+        version: NonZeroU32,
+    ) -> Self {
         let archetype_id: u32 = archetype_id.get().into();
-        let data = (index << TYPE_BITS) | archetype_id;
-
+        let data = (index.get() << TYPE_BITS) | archetype_id;
         Self { data, version }
     }
 
@@ -138,6 +143,29 @@ impl<A: Archetype> TryFrom<EntityAny> for Entity<A> {
         } else {
             Err(EcsError::InvalidEntityType)
         }
+    }
+}
+
+impl EntityIndex {
+    /// Creates a new `EntityIndex` without checking any bounds.
+    ///
+    /// # Safety
+    ///
+    /// The caller must guarantee that `index < MAX_ARCHETYPE_CAPACITY`.
+    #[inline(always)]
+    pub(crate) unsafe fn new_unchecked(index: u32) -> Self {
+        debug_assert!(index < MAX_ARCHETYPE_CAPACITY);
+        Self(index)
+    }
+
+    /// Gets the raw value of this `EntityIndex`.
+    ///
+    /// The result is guaranteed to be less than `MAX_ARCHETYPE_CAPACITY`.
+    #[inline(always)]
+    pub(crate) fn get(self) -> u32 {
+        // SAFETY: This is verified at creation
+        unsafe { debug_checked_assume!(self.0 < MAX_ARCHETYPE_CAPACITY) };
+        self.0
     }
 }
 
