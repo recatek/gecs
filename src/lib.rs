@@ -35,7 +35,59 @@
 //!
 //! # Getting Started
 //!
-//! See the [`ecs_world!`], [`ecs_find!`], and [`ecs_iter!`] macros to get started.
+//! See the [`ecs_world!`], [`ecs_find!`], and [`ecs_iter!`] macros for more information.
+//! The following example creates a world with three components and two archetypes:
+//!
+//! ```rust
+//! use gecs::prelude::*;
+//!
+//! // Components -- must be pub
+//! pub struct CompA(pub u32);
+//! pub struct CompB(pub u32);
+//! pub struct CompC(pub u32);
+//!
+//! ecs_world! {
+//!     // Declare two archetypes, ArchFoo and ArchBar, each with fixed a capacity of 100
+//!     ecs_archetype!(ArchFoo, 100, CompA, CompB);
+//!     ecs_archetype!(ArchBar, 100, CompA, CompC);
+//! }
+//!
+//! fn main() {
+//!     let mut world = World::default(); // Initialize a new ECS world
+//!
+//!     // Note: Push returns an Option<Entity<A>>, so we must unwrap
+//!     let entity_a = world.push::<ArchFoo>((CompA(1), CompB(20))).unwrap();
+//!     let entity_b = world.push::<ArchBar>((CompA(3), CompC(40))).unwrap();
+//!
+//!     // Each archetype has one entity
+//!     assert_eq!(world.len::<ArchFoo>(), 1);
+//!     assert_eq!(world.len::<ArchBar>(), 1);
+//!
+//!     // Look up each entity and check its CompB/CompC value
+//!     assert!(ecs_find!(world, entity_a, |c: &CompB| assert_eq!(c.0, 20)));
+//!     assert!(ecs_find!(world, entity_b, |c: &CompC| assert_eq!(c.0, 40)));
+//!
+//!     // Add to entity_a's CompA value
+//!     ecs_find!(world, entity_a, |c: &mut CompA| { c.0 += 1; });
+//!
+//!     // Sum up both entities' CompA values with a single iter query
+//!     let mut sum = 0;
+//!     ecs_iter!(world, |c: &CompA| { sum += c.0 });
+//!     assert_eq!(sum, 5); // Adding 2 + 3 -- recall that we added 1 to entity_a's CompA
+//!
+//!     // Collect both entities that have a CompA component
+//!     let mut found = Vec::new();
+//!     ecs_iter!(world, |entity: &EntityAny, _: &CompA| { found.push(*entity); });
+//!     assert!(found == vec![entity_a.into(), entity_b.into()]);
+//!
+//!     // Remove both entities -- this will return an Option containing their components
+//!     assert!(world.remove(entity_a).is_some());
+//!     assert!(world.remove(entity_b).is_some());
+//!
+//!     // Try to look up a stale entity handle -- this will return false
+//!     assert_eq!(ecs_find!(world, entity_a, |_: &Entity<ArchFoo>| { panic!() }), false);
+//! }
+//! ```
 
 mod archetype;
 mod util;
