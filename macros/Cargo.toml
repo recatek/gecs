@@ -1,6 +1,6 @@
 [package]
 name = "gecs_macros"
-version = "0.0.9"
+version = "0.1.0"
 authors = ["recatek"]
 description = "Procedural macros for the gecs crate."
 edition = "2021"

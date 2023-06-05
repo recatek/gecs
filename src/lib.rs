@@ -57,22 +57,22 @@
 //! fn main() {
 //!     let mut world = World::default(); // Initialize a new ECS world
 //!
-//!     // Note: Push returns an Option<Entity<A>>, so we must unwrap
+//!     // Add entities to the world by pushing their components and receiving a handle
 //!     let entity_a = world.push::<ArchFoo>((CompA(1), CompB(20)));
 //!     let entity_b = world.push::<ArchBar>((CompA(3), CompC(40)));
 //!
-//!     // Each archetype has one entity
+//!     // Each archetype now has one entity
 //!     assert_eq!(world.len::<ArchFoo>(), 1);
 //!     assert_eq!(world.len::<ArchBar>(), 1);
 //!
-//!     // Look up each entity and check its CompB/CompC value
+//!     // Look up each entity and check its CompB or CompC value
 //!     assert!(ecs_find!(world, entity_a, |c: &CompB| assert_eq!(c.0, 20)));
 //!     assert!(ecs_find!(world, entity_b, |c: &CompC| assert_eq!(c.0, 40)));
 //!
 //!     // Add to entity_a's CompA value
 //!     ecs_find!(world, entity_a, |c: &mut CompA| { c.0 += 1; });
 //!
-//!     // Sum up both entities' CompA values with a single iter query
+//!     // Sum both entities' CompA values with one iter despite being different archetypes
 //!     let mut sum = 0;
 //!     ecs_iter!(world, |c: &CompA| { sum += c.0 });
 //!     assert_eq!(sum, 5); // Adding 2 + 3 -- recall that we added 1 to entity_a's CompA
@@ -116,7 +116,8 @@ mod macros {
     ///
     /// Note that irrespective of capacity configuration, a single ECS archetype can hold at
     /// most `16,777,216` entities due to the encoding structure of the `Entity` type. For
-    /// similar reasons, an ECS world can have only `255` distinct archetypes.
+    /// similar reasons, an ECS world can have only `256` distinct archetypes. Archetypes can
+    /// currently store up to `16` distinct components.
     ///
     /// The `ecs_world!` macro has several inner pseudo-macros used for declaring archetypes
     /// or performing other tasks such as naming the ECS world's data type. These are not true
@@ -143,7 +144,7 @@ mod macros {
     ///     - A constant expression (e.g. `200` or `config::ARCH_CAPACITY + 4`). This will
     ///       create a fixed-size archetype that can contain at most that number of entities.
     ///     - The `dyn` keyword here is currently reserved for near-future work implementing
-    ///       dynamically sized archetypes. It is not supported in this version of the library.
+    ///       dynamically sized archetypes. It is not supported in this version of gecs.
     /// - `Component, ...`: One or more component types to include in this archetype. Because
     ///   generated archetypes are `pub` with `pub` members, all components must be `pub` too.
     ///
@@ -152,7 +153,7 @@ mod macros {
     /// - `#[cfg]` attributes can be used both on the `ecs_archetype!` itself, and on
     ///   individual component parameters.
     /// - `#[archetype_id(N)]` can be used to override this archetype's `ARCHETYPE_ID` to `N`
-    ///   (which must be between `1` and `255`). By default, archetype IDs start at `1` and
+    ///   (which must be between `0` and `255`). By default, archetype IDs start at `0` and
     ///   count up sequentially from the last value, similar to enum discriminants. No two
     ///   archetypes may have the same archetype ID (this is compiler-enforced).
     ///
@@ -204,8 +205,9 @@ mod macros {
     ///     // Create a new empty world with allocated storage where appropriate
     ///     let mut world = MyWorld::default();
     ///
-    ///     // Push an ArchFoo entity into the world and unwrap Option<Entity<ArchFoo>> result
-    ///     let entity_a = world.push::<ArchFoo>((CompA(0), CompB(1)));
+    ///     // Push an ArchFoo entity into the world and unwrap the Option<Entity<ArchFoo>>
+    ///     // Alternatively, we could use .push(), which will panic if the archetype is full
+    ///     let entity_a = world.try_push::<ArchFoo>((CompA(0), CompB(1))).unwrap();
     ///
     ///     // The length of the archetype should now be 1
     ///     assert_eq!(world.len::<ArchFoo>(), 1);
@@ -336,7 +338,7 @@ mod macros {
     ///
     /// The `ecs_find!` macro returns `true` if the entity was found, or false otherwise.
     ///
-    /// # Special Query Closure Arguments
+    /// # Special Arguments
     ///
     /// Query closure arguments can have the following special types:
     ///
@@ -377,7 +379,6 @@ mod macros {
     /// fn main() {
     ///     let mut world = World::default();
     ///
-    ///     // Note: Push returns an Option<Entity<A>>, so we must unwrap
     ///     let entity_a = world.push::<ArchFoo>((CompA(0), CompB(0)));
     ///     let entity_b = world.push::<ArchBar>((CompA(0), CompC(0)));
     ///
@@ -465,7 +466,7 @@ mod macros {
     ///   that are known at compile-time to have all components requested in the query closure.
     ///     - Note that this closure is always treated as a `&mut FnMut`.
     ///
-    /// # Special Query Closure Arguments
+    /// # Special Arguments
     ///
     /// Query closure arguments can have the following special types:
     ///
@@ -619,9 +620,7 @@ pub struct OneOf {
 }
 
 #[cfg(not(doc))]
-pub mod macros {
-    pub use gecs_macros::{ecs_component_id, ecs_world};
-}
+pub use gecs_macros::{ecs_component_id, ecs_world};
 
 /// `use gecs::prelude::*;` to import common macros, traits, and types.
 pub mod prelude {
