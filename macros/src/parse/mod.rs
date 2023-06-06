@@ -11,7 +11,8 @@ fn is_allowed_component_name(name: &str) -> bool {
         "Entity" => false,
         "EntityAny" => false,
         "OneOf" => false,
-        "Option" => false,
+        "AnyOf" => false,  // Reserved
+        "Option" => false, // Reserved
         _ => true,
     }
 }
