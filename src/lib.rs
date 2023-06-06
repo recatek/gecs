@@ -228,6 +228,47 @@ mod macros {
     ///     #[cfg(feature = "some_feature")] assert_eq!(ArchBar::ARCHETYPE_ID, 1);
     /// }
     /// ```
+    ///
+    /// # Using an ECS World Across Modules
+    ///
+    /// The `ecs_world!` macro locally generates a number of archetypes and macros, including the
+    /// [`ecs_find!`] and [`ecs_iter!`] macros and their borrow equivalents. These are all added
+    /// to the module scope where the `ecs_world!` invocation exists, and are all marked `pub`.
+    /// If you want to use a generated ECS world in another module or crate, you must import not
+    /// only the world struct, but its archetypes and macros. The recommended way to do this is to
+    /// wrap your `ecs_world!` declaration in its own prelude-like module and then glob import it:
+    ///
+    /// ```
+    /// use gecs::prelude::*;
+    ///
+    /// pub struct CompA;
+    /// pub struct CompB;
+    ///
+    /// pub mod my_world {
+    ///     pub mod prelude {
+    ///         // Pull in all the components we want to use as local identifiers
+    ///         use super::super::*;
+    ///
+    ///         ecs_world! {
+    ///             ecs_archetype!(ArchFoo, 10, CompA, CompB);
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// // Pull the world from another module/crate into scope with its archetypes and macros
+    /// use my_world::prelude::*;
+    ///
+    /// fn main() {
+    ///     let mut world = World::default();
+    ///     let entity = world.push::<ArchFoo>((CompA, CompB));
+    ///     assert!(ecs_find!(world, entity, || {}));
+    /// }
+    /// ```
+    ///
+    /// Note that `ecs_find!`, `ecs_iter!`, and their borrow equivalents are generated specific
+    /// to each world, and are scoped to the location of the `ecs_world!` that generated them.
+    /// If you need to have multiple distinct ECS worlds in the same scope, you will need to
+    /// disambiguate between their query macros manually.
     #[macro_export]
     macro_rules! ecs_world {
         {...} => {};
@@ -550,7 +591,7 @@ mod macros {
     ///
     /// # Example
     ///
-    /// See the example for ['ecs_find_borrow!`].
+    /// See the example for [`ecs_find_borrow!`].
     #[macro_export]
     macro_rules! ecs_iter_borrow {
         (...) => {};

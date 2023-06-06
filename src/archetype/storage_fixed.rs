@@ -88,7 +88,6 @@ macro_rules! declare_dense_fixed_n {
                         debug_assert!(slot.is_free());
                         self.free_head = slot.index();
                         slot.assign(dense_index);
-                        // SAFETY: We know slot_index fits in a usize because N <= u32::MAX.
                         let entity = Entity::new(entity_index, slot.version());
                         let index = self.len;
                         self.len += 1;
