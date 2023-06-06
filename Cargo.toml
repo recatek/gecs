@@ -11,6 +11,6 @@ keywords = ["ecs", "entity"]
 categories = ["data-structures", "game-engines"]
 
 [dependencies]
-gecs_macros = { version = "0.1.1", path = "macros" }
+gecs_macros = { version = "0.1.2", path = "macros" }
 
 paste = { version = "1.0" }

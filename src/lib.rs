@@ -231,8 +231,8 @@ mod macros {
     ///
     /// # Using an ECS World Across Modules
     ///
-    /// The `ecs_world!` macro locally generates a number of archetypes and macros, including the
-    /// [`ecs_find!`] and [`ecs_iter!`] macros and their borrow equivalents. These are all added
+    /// The `ecs_world!` macro locally generates a number of archetypes and macros, including its
+    /// own `ecs_find!` and `ecs_iter!` macros and their borrow equivalents. These are all added
     /// to the module scope where the `ecs_world!` invocation exists, and are all marked `pub`.
     /// If you want to use a generated ECS world in another module or crate, you must import not
     /// only the world struct, but its archetypes and macros. The recommended way to do this is to
