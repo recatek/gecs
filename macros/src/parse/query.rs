@@ -40,6 +40,7 @@ pub enum ParseQueryParamType {
     Component(Ident),
     Entity(Ident),
     EntityAny,
+    EntityWild, // Entity<_>
     OneOf(Box<[Ident]>),
 }
 
@@ -129,12 +130,23 @@ impl Parse for ParseQueryParamType {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
         if lookahead.peek(kw::Entity) {
-            // Entity<A>
+            // Entity<...>
             input.parse::<kw::Entity>()?;
             input.parse::<Lt>()?;
-            let archetype = input.parse::<Ident>()?;
-            input.parse::<Gt>()?;
-            Ok(ParseQueryParamType::Entity(archetype))
+
+            // Entity<A> or Entity<_>
+            let lookahead = input.lookahead1();
+            if lookahead.peek(Token![_]) {
+                input.parse::<Token![_]>()?;
+                input.parse::<Gt>()?;
+                Ok(ParseQueryParamType::EntityWild)
+            } else if lookahead.peek(Ident) {
+                let archetype = input.parse::<Ident>()?;
+                input.parse::<Gt>()?;
+                Ok(ParseQueryParamType::Entity(archetype))
+            } else {
+                Err(lookahead.error())
+            }
         } else if lookahead.peek(kw::EntityAny) {
             // EntityAny
             input.parse::<kw::EntityAny>()?;

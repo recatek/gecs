@@ -386,6 +386,9 @@ mod macros {
     /// - `&Entity<A>`/`&EntityAny`: Returns the current entity being accessed by the closure.
     ///   This is somewhat redundant for `ecs_find!` queries, but useful for `ecs_iter!` loops.
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
+    /// - `&Entity<_>`: When used with the special `_` wildcard, each execution of this query
+    ///   will return a typed `Entity<A>` handle for the exact archetype matched for this
+    ///   specific execution. This can be used to optimize switched behavior by type.
     /// - `&OneOf<A, B, ...>` or `&mut OneOf<A, B, ...>`: See [`OneOf`](crate::OneOf).
     ///
     /// In query closures, a special `MatchedArchetype` type alias is set to the currently
@@ -514,6 +517,9 @@ mod macros {
     /// - `&Entity<A>`/`&EntityAny`: Returns the current entity being accessed by the closure.
     ///   This is somewhat redundant for `ecs_find!` queries, but useful for `ecs_iter!` loops.
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
+    /// - `&Entity<_>`: When used with the special `_` wildcard, each execution of this query
+    ///   will return a typed `Entity<A>` handle for the exact archetype matched for this
+    ///   specific execution. This can be used to optimize switched behavior by type.
     /// - `&OneOf<A, B, ...>` or `&mut OneOf<A, B, ...>`: See [`OneOf`](crate::OneOf).
     ///
     /// In query closures, a special `MatchedArchetype` type alias is set to the currently
