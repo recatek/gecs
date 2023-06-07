@@ -11,7 +11,7 @@ use crate::entity::{Entity, EntityIndex, MAX_ARCHETYPE_CAPACITY};
 use crate::traits::Archetype;
 use crate::util::{debug_checked_assume, num_assert_leq, num_assert_lt};
 
-macro_rules! declare_dense_fixed_n {
+macro_rules! declare_storage_fixed_n {
     ($n:literal, $($i:literal),+) => {
         paste! {
             pub struct [<StorageFixed$n>]<A: Archetype, $([<T$i>],)+ const N: usize> {
@@ -19,8 +19,8 @@ macro_rules! declare_dense_fixed_n {
                 free_head: u32,
                 slots: Box<[Slot; N]>, // Sparse
                 // No RefCell here since we never grant mutable access externally
-                entities: Box<MaybeUninitArray<Entity<A>, N>>,
-                $([<d$i>]: RefCell<Box<MaybeUninitArray<[<T$i>], N>>>,)+
+                entities: DataFixed<Entity<A>, N>,
+                $([<d$i>]: RefCell<DataFixed<[<T$i>], N>>,)+
             }
 
             impl<A: Archetype, $([<T$i>],)+ const N: usize> [<StorageFixed$n>]<A, $([<T$i>],)+ N>
@@ -37,9 +37,9 @@ macro_rules! declare_dense_fixed_n {
                     Self {
                         len: 0,
                         free_head: 0,
-                        slots: new_free_list_slot_array(),
-                        entities: Box::new(MaybeUninitArray::new()),
-                        $([<d$i>]: RefCell::new(Box::new(MaybeUninitArray::new())),)+
+                        slots: new_free_list(),
+                        entities: DataFixed::new(),
+                        $([<d$i>]: RefCell::new(DataFixed::new()),)+
                     }
                 }
 
@@ -96,8 +96,8 @@ macro_rules! declare_dense_fixed_n {
                         debug_checked_assume!(index < self.len);
 
                         // SAFETY: We know that index < N and points to an empty cell.
-                        self.entities.slice_mut(self.len)[index] = entity;
-                        $(self.[<d$i>].get_mut().slice_mut(self.len)[index] = data.$i;)+
+                        self.entities.write(index, entity);
+                        $(self.[<d$i>].get_mut().write(index, data.$i);)+
 
                         Some(entity)
                     }
@@ -249,7 +249,6 @@ macro_rules! declare_dense_fixed_n {
                 #[inline(always)]
                 fn resolve_slot(&self, entity: Entity<A>) -> Option<(u32, u32)> {
                     // Nothing to resolve if we have nothing stored
-                    debug_assert!(self.len <= N);
                     if self.len == 0 {
                         return None;
                     }
@@ -257,13 +256,21 @@ macro_rules! declare_dense_fixed_n {
                     // Get the index into the slot array from the entity.
                     let slot_index = entity.index();
 
-                    // NOTE: It's a little silly, but we don't actually know if this entity
-                    // was created by this map, so we can't assume internal consistency here.
-                    // We'll just have to take the small hit for bounds checking on the index.
-                    let slot = self.slots[slot_index as usize];
+                    let slot = unsafe {
+                        // NOTE: It's a little silly, but we don't actually know if this entity
+                        // was created by this map, so we can't assume internal consistency here.
+                        // We'll just have to take the small hit for bounds checking on the index.
+                        if slot_index as usize >= N {
+                            panic!("entity handle is invalid for this archetype");
+                        }
+
+                        // SAFETY: We guarantee that the array is allocated up to self.capacity.
+                        // SAFETY: We guarantee that the slot index is less than self.capacity.
+                        self.slots.get_unchecked(slot_index as usize)
+                    };
 
                     if (slot.version() != entity.version()) || slot.is_free() {
-                        return None; // Invalid entity handle, fail the lookup
+                        return None; // Stale entity handle, fail the lookup
                     }
 
                     // Get the index into the dense array from the slot.
@@ -298,25 +305,25 @@ macro_rules! declare_dense_fixed_n {
     };
 }
 
-declare_dense_fixed_n!(1, 0);
-declare_dense_fixed_n!(2, 0, 1);
-declare_dense_fixed_n!(3, 0, 1, 2);
-declare_dense_fixed_n!(4, 0, 1, 2, 3);
-declare_dense_fixed_n!(5, 0, 1, 2, 3, 4);
-declare_dense_fixed_n!(6, 0, 1, 2, 3, 4, 5);
-declare_dense_fixed_n!(7, 0, 1, 2, 3, 4, 5, 6);
-declare_dense_fixed_n!(8, 0, 1, 2, 3, 4, 5, 6, 7);
-declare_dense_fixed_n!(9, 0, 1, 2, 3, 4, 5, 6, 7, 8);
-declare_dense_fixed_n!(10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-declare_dense_fixed_n!(11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-declare_dense_fixed_n!(12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
-declare_dense_fixed_n!(13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
-declare_dense_fixed_n!(14, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
-declare_dense_fixed_n!(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
-declare_dense_fixed_n!(16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+declare_storage_fixed_n!(1, 0);
+declare_storage_fixed_n!(2, 0, 1);
+declare_storage_fixed_n!(3, 0, 1, 2);
+declare_storage_fixed_n!(4, 0, 1, 2, 3);
+declare_storage_fixed_n!(5, 0, 1, 2, 3, 4);
+declare_storage_fixed_n!(6, 0, 1, 2, 3, 4, 5);
+declare_storage_fixed_n!(7, 0, 1, 2, 3, 4, 5, 6);
+declare_storage_fixed_n!(8, 0, 1, 2, 3, 4, 5, 6, 7);
+declare_storage_fixed_n!(9, 0, 1, 2, 3, 4, 5, 6, 7, 8);
+declare_storage_fixed_n!(10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+declare_storage_fixed_n!(11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+declare_storage_fixed_n!(12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+declare_storage_fixed_n!(13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
+declare_storage_fixed_n!(14, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
+declare_storage_fixed_n!(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+declare_storage_fixed_n!(16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
 
 #[inline(always)]
-fn new_free_list_slot_array<const N: usize>() -> Box<[Slot; N]> {
+fn new_free_list<const N: usize>() -> Box<[Slot; N]> {
     num_assert_lt!(N, u32::MAX as usize); // Prevent overflow
 
     // NOTE: The last slot will point off the end of the free list.
@@ -328,15 +335,33 @@ fn new_free_list_slot_array<const N: usize>() -> Box<[Slot; N]> {
     Box::new(array::from_fn(|i| Slot::new((i as u32) + 1)))
 }
 
-struct MaybeUninitArray<T, const N: usize>([MaybeUninit<T>; N]);
+struct DataFixed<T, const N: usize>(Box<[MaybeUninit<T>; N]>);
 
-impl<T, const N: usize> MaybeUninitArray<T, N> {
+impl<T, const N: usize> DataFixed<T, N> {
     /// Creates a new fully uninitialized array.
     #[inline(always)]
+    #[rustfmt::skip]
     fn new() -> Self {
-        // SAFETY: An uninitialized `[MaybeUninit<_>; LEN]` is valid.
-        // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#350
-        unsafe { Self(MaybeUninit::<[MaybeUninit<T>; N]>::uninit().assume_init()) }
+        unsafe { 
+            // SAFETY: An uninitialized `[MaybeUninit<_>; LEN]` is valid.
+            // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#350
+            Self(Box::new(MaybeUninit::<[MaybeUninit<T>; N]>::uninit().assume_init())) 
+        }
+    }
+
+    /// Writes an element to the given index.
+    ///
+    /// # Safety
+    ///
+    /// It is up to the caller to guarantee the following:
+    /// - `index <= N`
+    /// - The element at `index` is not currently initialized
+    #[inline(always)]
+    unsafe fn write(&mut self, index: usize, val: T) {
+        unsafe {
+            // SAFETY: The caller guarantees index <= N.
+            self.0.get_unchecked_mut(index).write(val);
+        }
     }
 
     /// Gets a slice for the range `0..len`.
@@ -344,18 +369,18 @@ impl<T, const N: usize> MaybeUninitArray<T, N> {
     /// # Safety
     ///
     /// It is up to the caller to guarantee the following:
-    /// - All elements in the array in the range `0..len` are valid data
+    /// - All elements in the array in the range `0..len` are initialized
     /// - `len <= N`
     #[inline(always)]
     unsafe fn slice(&self, len: usize) -> &[T] {
-        // SAFETY: Casting `slice` to a `*const [T]` is safe since the caller guarantees that
-        // `slice` is initialized, and `MaybeUninit` is guaranteed to have the same layout as `T`.
-        // The pointer obtained is valid since it refers to memory owned by `slice` which is a
-        // reference and thus guaranteed to be valid for reads.
-        // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#972
         unsafe {
             debug_checked_assume!(len <= N); // SAFETY: The caller guarantees len <= N.
 
+            // SAFETY: Casting `slice` to a `*const [T]` is safe since the caller guarantees that
+            // `slice` is initialized, and `MaybeUninit` is guaranteed to have the same layout as
+            // `T`. The pointer obtained is valid since it refers to memory owned by `slice` which
+            // is a reference and thus guaranteed to be valid for reads.
+            // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#972
             &*(self.0.get_unchecked(0..len) as *const [MaybeUninit<T>] as *const [T])
         }
     }
@@ -369,12 +394,12 @@ impl<T, const N: usize> MaybeUninitArray<T, N> {
     /// - `len <= N`
     #[inline(always)]
     unsafe fn slice_mut(&mut self, len: usize) -> &mut [T] {
-        // SAFETY: Similar to safety notes for `assume_init_slice`, but we have a
-        // mutable reference which is also guaranteed to be valid for writes.
-        // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#994
         unsafe {
             debug_checked_assume!(len <= N); // SAFETY: The caller guarantees len <= N.
 
+            // SAFETY: Similar to safety notes for `assume_init_slice`, but we have a
+            // mutable reference which is also guaranteed to be valid for writes.
+            // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#994
             &mut *(self.0.get_unchecked_mut(0..len) as *mut [MaybeUninit<T>] as *mut [T])
         }
     }
@@ -426,11 +451,11 @@ impl<T, const N: usize> MaybeUninitArray<T, N> {
         unsafe {
             // SAFETY: The caller guarantees len <= N.
             debug_checked_assume!(len <= N);
-
-            for v in self.0[..len].iter_mut() {
-                // SAFETY: The caller guarantees v is valid.
-                v.assume_init_drop();
-                *v = MaybeUninit::uninit(); // Hint for Miri
+            for i in 0..len {
+                let i_ptr = self.0.as_mut_ptr().add(i);
+                // SAFETY: The caller guarantees this element is valid.
+                ptr::drop_in_place(i_ptr as *mut T);
+                ptr::write(i_ptr, MaybeUninit::uninit()); // Hint for Miri
             }
         };
     }
