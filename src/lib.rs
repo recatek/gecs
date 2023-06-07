@@ -92,6 +92,7 @@
 //! ```
 
 mod archetype;
+mod index;
 mod util;
 
 /// Handles for accessing entity representations as component data.
@@ -102,8 +103,6 @@ pub mod error;
 
 /// Traits for working with ECS types as generics.
 pub mod traits;
-
-/// Test
 
 #[cfg(doc)]
 mod macros {
@@ -675,7 +674,7 @@ pub mod prelude {
 
     pub use gecs_macros::{ecs_component_id, ecs_world};
 
-    pub use entity::{Entity, EntityAny};
+    pub use entity::{ArchetypeId, Entity, EntityAny};
     pub use traits::Archetype;
     pub use traits::{ArchetypeContainer, ComponentContainer};
     pub use traits::{HasArchetype, HasComponent};

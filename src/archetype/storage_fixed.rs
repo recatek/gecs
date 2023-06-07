@@ -1,4 +1,3 @@
-use std::array;
 use std::cell::{Ref, RefCell, RefMut};
 use std::mem::MaybeUninit;
 use std::ptr;
@@ -6,17 +5,18 @@ use std::ptr;
 use paste::paste;
 
 use crate::archetype::slices::*;
-use crate::archetype::slot::Slot;
-use crate::entity::{Entity, EntityIndex, MAX_ARCHETYPE_CAPACITY};
+use crate::archetype::slot::{Slot, SlotIndex};
+use crate::entity::{Entity};
 use crate::traits::Archetype;
-use crate::util::{debug_checked_assume, num_assert_leq, num_assert_lt};
+use crate::util::{debug_checked_assume, num_assert_leq};
+use crate::index::{DataIndex, MAX_DATA_CAPACITY};
 
 macro_rules! declare_storage_fixed_n {
     ($n:literal, $($i:literal),+) => {
         paste! {
             pub struct [<StorageFixed$n>]<A: Archetype, $([<T$i>],)+ const N: usize> {
                 len: usize,
-                free_head: u32,
+                free_head: SlotIndex,
                 slots: Box<[Slot; N]>, // Sparse
                 // No RefCell here since we never grant mutable access externally
                 entities: DataFixed<Entity<A>, N>,
@@ -29,15 +29,15 @@ macro_rules! declare_storage_fixed_n {
                 pub fn new() -> Self {
                     // We assume in a lot of places that u32 can trivially convert to usize
                     num_assert_leq!(std::mem::size_of::<u32>(), std::mem::size_of::<usize>());
-                    // N must be less than or equal to MAX_ARCHETYPE_CAPACITY to fit in entities
-                    num_assert_leq!(N, MAX_ARCHETYPE_CAPACITY as usize);
-                    // N must be strictly less than u32::MAX because of the last free list index
-                    num_assert_lt!(N, u32::MAX as usize);
+                    // N must be less than or equal to MAX_DATA_CAPACITY to fit in entities
+                    num_assert_leq!(N, MAX_DATA_CAPACITY as usize);
+
+                    let (slots, free_head) = new_slot_array::<N>();
 
                     Self {
                         len: 0,
-                        free_head: 0,
-                        slots: new_free_list(),
+                        free_head,
+                        slots,
                         entities: DataFixed::new(),
                         $([<d$i>]: RefCell::new(DataFixed::new()),)+
                     }
@@ -63,32 +63,27 @@ macro_rules! declare_storage_fixed_n {
                 #[inline(always)]
                 pub fn try_push(&mut self, data: ($([<T$i>],)+)) -> Option<Entity<A>> {
                     if self.len >= N {
-                        return None;
-                    }
-
-                    // We know that self.len < N, and N <= u32::MAX
-                    let dense_index: u32 = self.len as u32;
-                    let slot_index: u32 = self.free_head;
-
-                    // This means we're at the end of the free list
-                    if (slot_index as usize) >= N {
-                        return None;
+                        return None; // Out of space
                     }
 
                     unsafe {
-                        debug_assert!((slot_index as usize) < N);
-                        debug_assert!(slot_index < MAX_ARCHETYPE_CAPACITY);
+                        debug_assert!(self.len < MAX_DATA_CAPACITY as usize);
 
-                        // SAFETY: We know that slot_index < N
-                        let slot = self.slots.get_unchecked_mut(slot_index as usize);
-                        // SAFETY: We know that slot_index < MAX_ARCHETYPE_CAPACITY
-                        let entity_index = EntityIndex::new_unchecked(slot_index);
+                        // SAFETY: We will never hit the the free list end if we're below capacity
+                        // WARNING: This changes if we decide to orphan version-overflow slots!
+                        let slot_index = self.free_head.get_next_free().unwrap_unchecked();
+                        // SAFETY: We never let self.len be greater than MAX_DATA_CAPACITY.
+                        let dense_index = DataIndex::new_unchecked(self.len as u32);
+
+                        // SAFETY: We know this is not the end of the free list, and we know that
+                        // a free list slot index can never be assigned to an out of bounds value.
+                        let slot = self.slots.get_unchecked_mut(slot_index.get() as usize);
 
                         // NOTE: Do not change the following order of operations!
                         debug_assert!(slot.is_free());
                         self.free_head = slot.index();
                         slot.assign(dense_index);
-                        let entity = Entity::new(entity_index, slot.version());
+                        let entity = Entity::new(slot_index, slot.version());
                         let index = self.len;
                         self.len += 1;
 
@@ -112,15 +107,15 @@ macro_rules! declare_storage_fixed_n {
                         Some(found) => found,
                     };
 
-                    let dense_index = dense_index.try_into().unwrap();
+                    let dense_index_usize = dense_index.get() as usize;
 
                     unsafe {
                         // SAFETY: resolve_slot guarantees this index is valid.
                         // We assume this to help avoid bounds checks later on.
-                        debug_checked_assume!(dense_index < self.len);
+                        debug_checked_assume!(dense_index_usize < self.len);
                     }
 
-                    Some(dense_index)
+                    Some(dense_index_usize)
                 }
 
                 /// Removes the given entity from storage if it exists there.
@@ -134,13 +129,12 @@ macro_rules! declare_storage_fixed_n {
 
                     let result = unsafe {
                         // SAFETY: These are guaranteed by resolve_slot to be in range.
-                        let slot_index_usize: usize = slot_index.try_into().unwrap();
-                        let dense_index_usize: usize = dense_index.try_into().unwrap();
+                        let slot_index_usize: usize = slot_index.get() as usize;
+                        let dense_index_usize: usize = dense_index.get() as usize;
 
                         debug_assert!(self.len > 0);
                         debug_assert!(self.len <= N);
                         debug_assert!(slot_index_usize <= N);
-                        debug_assert!(dense_index_usize <= N);
                         debug_assert!(dense_index_usize < self.len);
 
                         let entities = self.entities.slice(self.len);
@@ -148,12 +142,12 @@ macro_rules! declare_storage_fixed_n {
                         debug_assert!(entities[dense_index_usize].index() == entity.index());
                         debug_assert!(entities[dense_index_usize].version() == entity.version());
 
-                        // SAFETY: We know that self.len > 0 from the early-out check above.
+                        // SAFETY: We know self.len > 0 because we got Some from resolve_slot.
                         let last_dense_index = self.len - 1;
                         // SAFETY: We know the entity slice has a length of self.len.
                         let last_entity = *entities.get_unchecked(last_dense_index);
                         // SAFETY: We guarantee that stored entities point to valid slots.
-                        let last_slot_index: usize = last_entity.index().try_into().unwrap();
+                        let last_slot_index: usize = last_entity.index().get() as usize;
 
                         // Perform the swap_remove on our data to drop the target entity.
                         // SAFETY: We guarantee that non-free slots point to valid dense data.
@@ -161,13 +155,16 @@ macro_rules! declare_storage_fixed_n {
                         let result =
                             ($(self.[<d$i>].get_mut().swap_remove(dense_index_usize, self.len),)+);
 
+                        // For consistency with StorageDynamic's remove function
+                        let slots = &mut self.slots;
+
                         // NOTE: Order matters here to support the (target == last) case!
                         // Fix up the slot pointing to the last entity
-                        self.slots
+                        slots
                             .get_unchecked_mut(last_slot_index) // SAFETY: See declaration.
                             .assign(dense_index);
                         // Return the target slot to the free list
-                        self.slots
+                        slots
                             .get_unchecked_mut(slot_index_usize) // SAFETY: See declaration.
                             .release(self.free_head)
                             .expect("slot version overflow"); // TODO: Orphan this slot?
@@ -179,7 +176,7 @@ macro_rules! declare_storage_fixed_n {
                     // is maxed out. It would be better to orphan that slot to avoid issues.
 
                     // Update the free list head
-                    self.free_head = entity.index();
+                    self.free_head = SlotIndex::new_free(entity.index());
                     self.len -= 1;
 
                     Some(result)
@@ -247,7 +244,7 @@ macro_rules! declare_storage_fixed_n {
                 /// Resolves the slot index and data index for a given entity.
                 /// Both indices are guaranteed to point to valid cells.
                 #[inline(always)]
-                fn resolve_slot(&self, entity: Entity<A>) -> Option<(u32, u32)> {
+                fn resolve_slot(&self, entity: Entity<A>) -> Option<(DataIndex, DataIndex)> {
                     // Nothing to resolve if we have nothing stored
                     if self.len == 0 {
                         return None;
@@ -256,27 +253,34 @@ macro_rules! declare_storage_fixed_n {
                     // Get the index into the slot array from the entity.
                     let slot_index = entity.index();
 
-                    let slot = unsafe {
+                    unsafe {
+                        let slot_index_usize = slot_index.get() as usize;
+
                         // NOTE: It's a little silly, but we don't actually know if this entity
                         // was created by this map, so we can't assume internal consistency here.
                         // We'll just have to take the small hit for bounds checking on the index.
-                        if slot_index as usize >= N {
+                        if slot_index_usize >= N {
                             panic!("entity handle is invalid for this archetype");
                         }
 
-                        // SAFETY: We guarantee that the array is allocated up to self.capacity.
-                        // SAFETY: We guarantee that the slot index is less than self.capacity.
-                        self.slots.get_unchecked(slot_index as usize)
-                    };
+                        // For consistency with StorageDynamic's resolve_slot function.
+                        let slots = &self.slots;
+                        // SAFETY: We know slot_index_usize is within bounds due to the panic above.
+                        let slot = slots.get_unchecked(slot_index_usize);
 
-                    if (slot.version() != entity.version()) || slot.is_free() {
-                        return None; // Stale entity handle, fail the lookup
+                        // NOTE: For similar reasons above, a crossed-wires entity handle from another
+                        // world could miraculously have the correct version while pointing to a freed
+                        // slot. This could cause some wacky memory access, so we need to allow slots
+                        // to be explicitly identified as free or not. Again, this has a small cost.
+                        if (slot.version() != entity.version()) || slot.is_free() {
+                            return None; // Stale entity handle, fail the lookup
+                        }
+
+                        // SAFETY: We know that this is not a free slot due to the check above.
+                        let dense_index = slot.index().get_data().unwrap_unchecked();
+
+                        Some((slot_index, dense_index))
                     }
-
-                    // Get the index into the dense array from the slot.
-                    let dense_index = slot.index();
-
-                    Some((slot_index, dense_index))
                 }
             }
 
@@ -322,18 +326,40 @@ declare_storage_fixed_n!(14, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
 declare_storage_fixed_n!(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
 declare_storage_fixed_n!(16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
 
-#[inline(always)]
-fn new_free_list<const N: usize>() -> Box<[Slot; N]> {
-    num_assert_lt!(N, u32::MAX as usize); // Prevent overflow
+pub(crate) fn new_slot_array<const N: usize>() -> (Box<[Slot; N]>, SlotIndex) {
+    // Prevent u32 overflow when we add 1 to every u32 value between 1 and N-1.
+    num_assert_leq!(N, u32::MAX as usize);
+    // Make sure we aren't trying to make more slots than we can reference.
+    num_assert_leq!(N, MAX_DATA_CAPACITY as usize);
 
-    // NOTE: The last slot will point off the end of the free list.
-    // In practice, we should never read this value anyway, since
-    // we'd only ask to reserve when the dense list has room. However,
-    // we may still want to check in the future if we decide to orphan
-    // slots with overflowed versions (since we'd then have fewer slots
-    // than dense list space). We'll need to revisit this logic if so.
-    Box::new(array::from_fn(|i| Slot::new((i as u32) + 1)))
+    // TODO: This should be done as a direct heap allocation to avoid stack overflow.
+    let mut uninit = Box::new([MaybeUninit::<Slot>::uninit(); N]);
+
+    for i in 0..(N - 1) {
+        // SAFETY: We know N is less than MAX_DATA_CAPACITY and won't overflow
+        // during u32 addition because of the two compile-time asserts above.
+        let index = unsafe { DataIndex::new_unchecked((i as u32) + 1) };
+        uninit[i].write(Slot::new_free(SlotIndex::new_free(index)));
+    }
+
+    let free_list_head = if N > 0 {
+        // Set up the end of the free list with the special end index.
+        uninit[N - 1].write(Slot::new_free(SlotIndex::new_free_end()));
+
+        // Point the free list head to the front of the list.
+        SlotIndex::new_free(DataIndex::zero())
+    } else {
+        // Otherwise, we have nothing, so point the free list head to the end.
+        SlotIndex::new_free_end()
+    };
+
+    // Convert the MaybeUninit slot array to an assumed-init slot array.
+    // SAFETY: We have written to every value in the uninitialized array.
+    let slots = unsafe { Box::from_raw(Box::into_raw(uninit).cast()) };
+
+    (slots, free_list_head)
 }
+
 
 struct DataFixed<T, const N: usize>(Box<[MaybeUninit<T>; N]>);
 
@@ -342,6 +368,7 @@ impl<T, const N: usize> DataFixed<T, N> {
     #[inline(always)]
     #[rustfmt::skip]
     fn new() -> Self {
+        // TODO: This should be done as a direct heap allocation to avoid stack overflow.
         unsafe { 
             // SAFETY: An uninitialized `[MaybeUninit<_>; LEN]` is valid.
             // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#350
