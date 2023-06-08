@@ -5,11 +5,11 @@ use std::ptr;
 use paste::paste;
 
 use crate::archetype::slices::*;
-use crate::archetype::slot::{Slot, SlotIndex};
-use crate::entity::{Entity};
+use crate::archetype::slot::{self, Slot, SlotIndex};
+use crate::entity::Entity;
+use crate::index::{DataIndex, MAX_DATA_CAPACITY};
 use crate::traits::Archetype;
 use crate::util::{debug_checked_assume, num_assert_leq};
-use crate::index::{DataIndex, MAX_DATA_CAPACITY};
 
 macro_rules! declare_storage_fixed_n {
     ($n:literal, $($i:literal),+) => {
@@ -17,7 +17,7 @@ macro_rules! declare_storage_fixed_n {
             pub struct [<StorageFixed$n>]<A: Archetype, $([<T$i>],)+ const N: usize> {
                 len: usize,
                 free_head: SlotIndex,
-                slots: Box<[Slot; N]>, // Sparse
+                slots: DataFixed<Slot, N>, // Sparse
                 // No RefCell here since we never grant mutable access externally
                 entities: DataFixed<Entity<A>, N>,
                 $([<d$i>]: RefCell<DataFixed<[<T$i>], N>>,)+
@@ -29,10 +29,13 @@ macro_rules! declare_storage_fixed_n {
                 pub fn new() -> Self {
                     // We assume in a lot of places that u32 can trivially convert to usize
                     num_assert_leq!(std::mem::size_of::<u32>(), std::mem::size_of::<usize>());
-                    // N must be less than or equal to MAX_DATA_CAPACITY to fit in entities
+                    // Our data indices must be able to fit inside of entity handles
                     num_assert_leq!(N, MAX_DATA_CAPACITY as usize);
 
-                    let (slots, free_head) = new_slot_array::<N>();
+                    let mut slots: DataFixed<Slot, N> = DataFixed::new();
+                    // For consistency with the dynamic version.
+                    let raw_data = slots.raw_data();
+                    let free_head = slot::populate_free_list(DataIndex::zero(), raw_data);
 
                     Self {
                         len: 0,
@@ -62,22 +65,28 @@ macro_rules! declare_storage_fixed_n {
                 /// Returns an entity handle if successful, or None if we're full.
                 #[inline(always)]
                 pub fn try_push(&mut self, data: ($([<T$i>],)+)) -> Option<Entity<A>> {
-                    if self.len >= N {
+                    debug_assert!(self.len <= self.capacity());
+
+                    if self.len >= self.capacity() {
+                        // If we're full, we should also be at the end of the slot free list.
+                        // WARNING: This changes if we decide to orphan version-overflow slots!
+                        debug_assert!(self.free_head.is_free_list_end());
+
                         return None; // Out of space
                     }
 
                     unsafe {
-                        debug_assert!(self.len < MAX_DATA_CAPACITY as usize);
-
                         // SAFETY: We will never hit the the free list end if we're below capacity
                         // WARNING: This changes if we decide to orphan version-overflow slots!
                         let slot_index = self.free_head.get_next_free().unwrap_unchecked();
                         // SAFETY: We never let self.len be greater than MAX_DATA_CAPACITY.
                         let dense_index = DataIndex::new_unchecked(self.len as u32);
 
+                        // SAFETY: We know that the slot storage is valid up to our capacity.
+                        let slots = self.slots.slice_mut(self.capacity());
                         // SAFETY: We know this is not the end of the free list, and we know that
                         // a free list slot index can never be assigned to an out of bounds value.
-                        let slot = self.slots.get_unchecked_mut(slot_index.get() as usize);
+                        let slot = slots.get_unchecked_mut(slot_index.get() as usize);
 
                         // NOTE: Do not change the following order of operations!
                         debug_assert!(slot.is_free());
@@ -120,6 +129,13 @@ macro_rules! declare_storage_fixed_n {
 
                 /// Removes the given entity from storage if it exists there.
                 /// Returns the removed entity's components, if any.
+                ///
+                /// # Panics
+                ///
+                /// This function may panic if a slot's generational version overflows,
+                /// in order to protect the safety of entity handle lookups. This is an
+                /// extremely unlikely occurrence in nearly all programs -- it would only
+                /// happen if the exact same lookup slot was rewritten 4.2 billion times.
                 #[inline(always)]
                 pub fn remove(&mut self, entity: Entity<A>) -> Option<($([<T$i>],)*)> {
                     let (slot_index, dense_index) = match self.resolve_slot(entity) {
@@ -133,8 +149,8 @@ macro_rules! declare_storage_fixed_n {
                         let dense_index_usize: usize = dense_index.get() as usize;
 
                         debug_assert!(self.len > 0);
-                        debug_assert!(self.len <= N);
-                        debug_assert!(slot_index_usize <= N);
+                        debug_assert!(self.len <= self.capacity());
+                        debug_assert!(slot_index_usize <= self.capacity());
                         debug_assert!(dense_index_usize < self.len);
 
                         let entities = self.entities.slice(self.len);
@@ -155,8 +171,8 @@ macro_rules! declare_storage_fixed_n {
                         let result =
                             ($(self.[<d$i>].get_mut().swap_remove(dense_index_usize, self.len),)+);
 
-                        // For consistency with StorageDynamic's remove function
-                        let slots = &mut self.slots;
+                        // SAFETY: We know that the slot storage is valid up to our capacity.
+                        let slots = self.slots.slice_mut(self.capacity());
 
                         // NOTE: Order matters here to support the (target == last) case!
                         // Fix up the slot pointing to the last entity
@@ -167,7 +183,11 @@ macro_rules! declare_storage_fixed_n {
                         slots
                             .get_unchecked_mut(slot_index_usize) // SAFETY: See declaration.
                             .release(self.free_head)
-                            .expect("slot version overflow"); // TODO: Orphan this slot?
+                            .expect("slot version overflow"); // Wow, 4 billion slot writes!
+                        // NOTE: We could orphan this slot instead, but this would break the
+                        // assumptions we make elsewhere (see the WARNING in try_push, etc.)
+                        // that the end of the free list and len == capacity are synonymous.
+                        // Enabling slot orphaning would create a lot of edge cases to fix.
 
                         result
                     };
@@ -259,12 +279,12 @@ macro_rules! declare_storage_fixed_n {
                         // NOTE: It's a little silly, but we don't actually know if this entity
                         // was created by this map, so we can't assume internal consistency here.
                         // We'll just have to take the small hit for bounds checking on the index.
-                        if slot_index_usize >= N {
+                        if slot_index_usize >= self.capacity() {
                             panic!("entity handle is invalid for this archetype");
                         }
 
-                        // For consistency with StorageDynamic's resolve_slot function.
-                        let slots = &self.slots;
+                        // SAFETY: We know that the slot storage is valid up to our capacity.
+                        let slots = self.slots.slice(self.capacity());
                         // SAFETY: We know slot_index_usize is within bounds due to the panic above.
                         let slot = slots.get_unchecked(slot_index_usize);
 
@@ -326,41 +346,6 @@ declare_storage_fixed_n!(14, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
 declare_storage_fixed_n!(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
 declare_storage_fixed_n!(16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
 
-pub(crate) fn new_slot_array<const N: usize>() -> (Box<[Slot; N]>, SlotIndex) {
-    // Prevent u32 overflow when we add 1 to every u32 value between 1 and N-1.
-    num_assert_leq!(N, u32::MAX as usize);
-    // Make sure we aren't trying to make more slots than we can reference.
-    num_assert_leq!(N, MAX_DATA_CAPACITY as usize);
-
-    // TODO: This should be done as a direct heap allocation to avoid stack overflow.
-    let mut uninit = Box::new([MaybeUninit::<Slot>::uninit(); N]);
-
-    for i in 0..(N - 1) {
-        // SAFETY: We know N is less than MAX_DATA_CAPACITY and won't overflow
-        // during u32 addition because of the two compile-time asserts above.
-        let index = unsafe { DataIndex::new_unchecked((i as u32) + 1) };
-        uninit[i].write(Slot::new_free(SlotIndex::new_free(index)));
-    }
-
-    let free_list_head = if N > 0 {
-        // Set up the end of the free list with the special end index.
-        uninit[N - 1].write(Slot::new_free(SlotIndex::new_free_end()));
-
-        // Point the free list head to the front of the list.
-        SlotIndex::new_free(DataIndex::zero())
-    } else {
-        // Otherwise, we have nothing, so point the free list head to the end.
-        SlotIndex::new_free_end()
-    };
-
-    // Convert the MaybeUninit slot array to an assumed-init slot array.
-    // SAFETY: We have written to every value in the uninitialized array.
-    let slots = unsafe { Box::from_raw(Box::into_raw(uninit).cast()) };
-
-    (slots, free_list_head)
-}
-
-
 struct DataFixed<T, const N: usize>(Box<[MaybeUninit<T>; N]>);
 
 impl<T, const N: usize> DataFixed<T, N> {
@@ -368,12 +353,16 @@ impl<T, const N: usize> DataFixed<T, N> {
     #[inline(always)]
     #[rustfmt::skip]
     fn new() -> Self {
-        // TODO: This should be done as a direct heap allocation to avoid stack overflow.
-        unsafe { 
-            // SAFETY: An uninitialized `[MaybeUninit<_>; LEN]` is valid.
-            // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#350
-            Self(Box::new(MaybeUninit::<[MaybeUninit<T>; N]>::uninit().assume_init())) 
-        }
+        let mut v = Vec::with_capacity(N);
+        // SAFETY: MaybeUninit is always trivially initialized.
+        unsafe { v.set_len(N) };
+        Self( v.try_into().unwrap())
+    }
+
+    /// Gets the raw stored data as a mutable `MaybeUninit<T>` slice.
+    #[inline(always)]
+    fn raw_data(&mut self) -> &mut [MaybeUninit<T>] {
+        &mut (*self.0)
     }
 
     /// Writes an element to the given index.
@@ -386,7 +375,8 @@ impl<T, const N: usize> DataFixed<T, N> {
     #[inline(always)]
     unsafe fn write(&mut self, index: usize, val: T) {
         unsafe {
-            // SAFETY: The caller guarantees index <= N.
+            debug_assert!(index < N);
+
             self.0.get_unchecked_mut(index).write(val);
         }
     }
@@ -401,12 +391,13 @@ impl<T, const N: usize> DataFixed<T, N> {
     #[inline(always)]
     unsafe fn slice(&self, len: usize) -> &[T] {
         unsafe {
-            debug_checked_assume!(len <= N); // SAFETY: The caller guarantees len <= N.
+            debug_assert!(len <= N);
 
-            // SAFETY: Casting `slice` to a `*const [T]` is safe since the caller guarantees that
-            // `slice` is initialized, and `MaybeUninit` is guaranteed to have the same layout as
-            // `T`. The pointer obtained is valid since it refers to memory owned by `slice` which
-            // is a reference and thus guaranteed to be valid for reads.
+            // SAFETY: Casting a `[MaybeUninit<T>]` to a `[T]` is safe because the caller
+            // guarantees that this portion of the data is valid and `MaybeUninit<T>` is
+            // guaranteed to have the same layout as `T`. The pointer obtained is valid
+            // since it refers to memory owned by `slice` which is a reference and thus
+            // guaranteed to be valid for reads.
             // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#972
             &*(self.0.get_unchecked(0..len) as *const [MaybeUninit<T>] as *const [T])
         }
@@ -422,10 +413,10 @@ impl<T, const N: usize> DataFixed<T, N> {
     #[inline(always)]
     unsafe fn slice_mut(&mut self, len: usize) -> &mut [T] {
         unsafe {
-            debug_checked_assume!(len <= N); // SAFETY: The caller guarantees len <= N.
+            debug_assert!(len <= N);
 
-            // SAFETY: Similar to safety notes for `assume_init_slice`, but we have a
-            // mutable reference which is also guaranteed to be valid for writes.
+            // SAFETY: Similar to safety notes for `slice`, but we have a mutable reference
+            // which is also guaranteed to be valid for writes.
             // Ref: https://doc.rust-lang.org/stable/src/core/mem/maybe_uninit.rs.html#994
             &mut *(self.0.get_unchecked_mut(0..len) as *mut [MaybeUninit<T>] as *mut [T])
         }
@@ -444,11 +435,10 @@ impl<T, const N: usize> DataFixed<T, N> {
     #[inline(always)]
     unsafe fn swap_remove(&mut self, index: usize, len: usize) -> T {
         unsafe {
-            // SAFETY: These are all guaranteed by the caller and stated above.
-            debug_checked_assume!(len <= N);
-            debug_checked_assume!(len > 0);
-            debug_checked_assume!(index < N);
-            debug_checked_assume!(index < len);
+            debug_assert!(len <= N);
+            debug_assert!(len > 0);
+            debug_assert!(index < N);
+            debug_assert!(index < len);
 
             // SAFETY: The caller is guaranteeing that the element at index, and
             // the element at len - 1 are both valid. With this guarantee we can
@@ -476,8 +466,8 @@ impl<T, const N: usize> DataFixed<T, N> {
     #[inline(always)]
     unsafe fn drop_to(&mut self, len: usize) {
         unsafe {
-            // SAFETY: The caller guarantees len <= N.
-            debug_checked_assume!(len <= N);
+            debug_assert!(len <= N);
+
             for i in 0..len {
                 let i_ptr = self.0.as_mut_ptr().add(i);
                 // SAFETY: The caller guarantees this element is valid.

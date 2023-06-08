@@ -1,8 +1,9 @@
+use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 
 use crate::error::EcsError;
-use crate::index::{DataIndex, MAX_DATA_INDEX};
-use crate::util::num_assert_lt;
+use crate::index::{DataIndex, MAX_DATA_CAPACITY, MAX_DATA_INDEX};
+use crate::util::{num_assert_leq, num_assert_lt};
 
 // This is a slightly messy hack to create a NonZeroU32 constant.
 const VERSION_START: NonZeroU32 = match NonZeroU32::new(1) {
@@ -18,7 +19,47 @@ const FREE_BIT: u32 = 1 << 31;
 
 // This is a reserved index marking the end of the free list. It should
 // always be bigger than the maximum index we can store in an entity/slot.
-const FREE_LIST_END: u32 = FREE_BIT - 1;
+// This index has the FREE_BIT baked into it.
+const FREE_LIST_END: u32 = (FREE_BIT - 1) | FREE_BIT;
+
+#[inline(always)]
+pub(crate) fn populate_free_list(
+    free_start_address: DataIndex,
+    slots: &mut [MaybeUninit<Slot>],
+) -> SlotIndex {
+    // We need to make sure that MAX_DATA_CAPACITY wouldn't overflow a u32.
+    num_assert_leq!(MAX_DATA_CAPACITY as usize, u32::MAX as usize);
+    // Make sure we aren't trying to populate more slots than we could store.
+    if slots.len() > MAX_DATA_CAPACITY as usize {
+        panic!("capacity may not exceed {}", MAX_DATA_CAPACITY);
+    }
+
+    for i in 0..(slots.len() - 1) {
+        unsafe {
+            // SAFETY: We know i is less than MAX_DATA_CAPACITY and won't overflow
+            // because we only go up to slots.len() - 1, and here we also know that
+            // slots.len() <= MAX_DATA_CAPACITY <= u32::MAX. We do a wrapping add
+            // here since we know for certain that i will not need to be checked.
+            let index = DataIndex::new_unchecked(i.wrapping_add(1) as u32);
+            let slot = Slot::new_free(SlotIndex::new_free(index));
+
+            // SAFETY: We know that i < slots.len() and is safe to write to.
+            slots.get_unchecked_mut(i).write(slot);
+        }
+    }
+
+    // Set up the last slot to point to the end of the free list, if we have one.
+    if slots.len() > 0 {
+        // SAFETY: We know the array is large enough to access the last.
+        slots[slots.len() - 1].write(Slot::new_free(SlotIndex::new_free_end()));
+
+        // Point the free list head to the front of the list.
+        SlotIndex::new_free(free_start_address)
+    } else {
+        // Otherwise, we have nothing, so point the free list head to the end.
+        SlotIndex::new_free_end()
+    }
+}
 
 /// The data index stored in a slot.
 ///
@@ -30,7 +71,7 @@ impl SlotIndex {
     /// Creates a new SlotIndex at the end of the free list.
     #[inline(always)]
     pub(crate) fn new_free_end() -> Self {
-        Self(FREE_BIT | FREE_LIST_END)
+        Self(FREE_LIST_END)
     }
 
     /// Creates a new SlotIndex pointing to another slot in the free list.
@@ -42,6 +83,12 @@ impl SlotIndex {
     #[inline(always)]
     pub(crate) fn is_free(&self) -> bool {
         (FREE_BIT & self.0) != 0
+    }
+
+    /// Returns true if this is points to the end of the free list.
+    #[inline(always)]
+    pub(crate) fn is_free_list_end(&self) -> bool {
+        self.0 == FREE_LIST_END
     }
 
     /// Returns the data index this slot points to.
@@ -56,9 +103,8 @@ impl SlotIndex {
     /// Will be `None` if the index is the free list end.
     #[inline(always)]
     pub(crate) fn get_next_free(&self) -> Option<DataIndex> {
-        // This only works if FREE_LIST_END is too big to fit in a DataIndex.
-        // We also verify this in verify_free_list_end_is_invalid_data_index.
-        num_assert_lt!(MAX_DATA_INDEX as usize, FREE_LIST_END as usize);
+        // This only works if (!FREE_BIT & FREE_LIST_END) is too big to fit in a
+        // DataIndex. We test this in verify_free_list_end_is_invalid_data_index.
 
         debug_assert!(self.is_free());
         DataIndex::new(!FREE_BIT & self.0)
@@ -141,5 +187,5 @@ impl Slot {
 // If this isn't true, then we can't trust the FREE_LIST_END value.
 #[test]
 fn verify_free_list_end_is_invalid_data_index() {
-    assert!(DataIndex::new(FREE_LIST_END).is_none());
+    assert!(DataIndex::new(!FREE_BIT & FREE_LIST_END).is_none());
 }

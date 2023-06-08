@@ -30,7 +30,7 @@ impl DataIndex {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that `index < INDEX_MAX`.
+    /// The caller must guarantee that `index < MAX_DATA_CAPACITY`.
     #[inline(always)]
     pub(crate) unsafe fn new_unchecked(index: u32) -> Self {
         debug_assert!(index < MAX_DATA_CAPACITY);
@@ -39,7 +39,7 @@ impl DataIndex {
 
     /// Gets the raw value of this `DataIndex`.
     ///
-    /// The result is guaranteed to be less than `INDEX_MAX`.
+    /// The result is guaranteed to be less than `MAX_DATA_CAPACITY`.
     #[inline(always)]
     pub(crate) fn get(self) -> u32 {
         unsafe {
