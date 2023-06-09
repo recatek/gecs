@@ -252,11 +252,28 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let ArchetypeSlicesArgs = quote!(#Archetype, #(#Component),*);
 
     let (StorageType, StorageArgs) = match &archetype_data.build_data.as_ref().unwrap().capacity {
-        DataCapacity::Expression(expr) => {
+        DataCapacity::Fixed(expr) => {
             let StorageFixed = format_ident!("StorageFixed{}", count_str);
             (StorageFixed, quote!(Self, #(#Component,)* { #expr }))
         }
-        DataCapacity::Dynamic => todo!("dynamic archetype capacity is not yet supported"),
+        DataCapacity::Dynamic => {
+            let StorageDynamic = format_ident!("StorageDynamic{}", count_str);
+            (StorageDynamic, quote!(Self, #(#Component,)*))
+        }
+    };
+
+    // Generated subsections
+    let with_capacity = match &archetype_data.build_data.as_ref().unwrap().capacity {
+        DataCapacity::Fixed(_) => quote!(),
+        DataCapacity::Dynamic => quote!(
+            /// Constructs a new archetype pre-allocated to the given storage capacity.
+            ///
+            /// If the given capacity would result in zero size, this will not allocate.
+            #[inline(always)]
+            pub fn with_capacity(capacity: usize) -> Self {
+                Self { data: #StorageType::with_capacity(capacity) }
+            }
+        ),
     };
 
     // Function names
@@ -302,6 +319,8 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             pub fn new() -> Self {
                 Self { data: #StorageType::new() }
             }
+
+            #with_capacity // Only generated for dynamic storage
 
             /// Returns the number of entities in the archetype, also referred to as its length.
             #[inline(always)]

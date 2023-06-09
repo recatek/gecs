@@ -29,7 +29,12 @@ macro_rules! declare_storage_dynamic_n {
             impl<A: Archetype, $([<T$i>],)+> [<StorageDynamic$n>]<A, $([<T$i>],)+>
             {
                 #[inline(always)]
-                pub fn new(capacity: usize) -> Self {
+                pub fn new() -> Self {
+                    Self::with_capacity(0)
+                }
+
+                #[inline(always)]
+                pub fn with_capacity(capacity: usize) -> Self {
                     // We assume in a lot of places that u32 can trivially convert to usize
                     num_assert_leq!(std::mem::size_of::<u32>(), std::mem::size_of::<usize>());
                     // Our data indices must be able to fit inside of entity handles
@@ -37,7 +42,7 @@ macro_rules! declare_storage_dynamic_n {
                         panic!("capacity may not exceed {}", MAX_DATA_CAPACITY);
                     }
 
-                    let mut slots: DataDynamic<Slot> = DataDynamic::new(capacity);
+                    let mut slots: DataDynamic<Slot> = DataDynamic::with_capacity(capacity);
                     // SAFETY: We just allocated the slot array with this capacity.
                     let raw_data = unsafe { slots.raw_data(capacity) };
                     let free_head = slot::populate_free_list(DataIndex::zero(), raw_data);
@@ -47,8 +52,8 @@ macro_rules! declare_storage_dynamic_n {
                         capacity,
                         free_head: free_head,
                         slots,
-                        entities: DataDynamic::new(capacity),
-                        $([<d$i>]: RefCell::new(DataDynamic::new(capacity)),)+
+                        entities: DataDynamic::with_capacity(capacity),
+                        $([<d$i>]: RefCell::new(DataDynamic::with_capacity(capacity)),)+
                     }
                 }
 
@@ -92,6 +97,7 @@ macro_rules! declare_storage_dynamic_n {
 
                         // SAFETY: We know that the slot storage is valid up to our capacity.
                         let slots = self.slots.slice_mut(self.capacity());
+
                         // SAFETY: We know this is not the end of the free list, and we know that
                         // a free list slot index can never be assigned to an out of bounds value.
                         let slot = slots.get_unchecked_mut(slot_index.get() as usize);
@@ -334,17 +340,19 @@ macro_rules! declare_storage_dynamic_n {
                         // SAFETY: We know self.len < MAX_DATA_CAPACITY.
                         let free_list_start = DataIndex::new_unchecked(self.len as u32);
                         // SAFETY: We just grew the slot data array up to new_capacity.
-                        let raw_data = self.slots.raw_data(new_capacity);
-                        // SAFETY: We know that self.len < new_capacity.
-                        let new_free_list = raw_data.get_unchecked_mut(self.len..);
+                        let slots = self.slots.raw_data(new_capacity);
 
                         // Populate the end of the list as the new free list. We are
                         // assuming here that, because we are full, every slot is occupied
                         // and so our free list is entirely empty. Thus, we need a new one.
-                        self.free_head = slot::populate_free_list(free_list_start, new_free_list);
+                        self.free_head = slot::populate_free_list(free_list_start, slots);
+
+                        // Update our capacity
+                        self.capacity = new_capacity;
                     }
 
-                    todo!();
+                    // Success!
+                    true
                 }
             }
 
@@ -357,6 +365,11 @@ macro_rules! declare_storage_dynamic_n {
                     unsafe {
                         $(self.[<d$i>].get_mut().drop_to(self.len);)+
                         // We don't need to drop the other stuff since it's all trivial.
+
+                        // For dynamic storage we need to deallocate when dropping.
+                        self.slots.dealloc(self.capacity);
+                        self.entities.dealloc(self.capacity);
+                        $(self.[<d$i>].get_mut().dealloc(self.capacity);)*
                     };
                 }
             }
@@ -366,7 +379,7 @@ macro_rules! declare_storage_dynamic_n {
             {
                 #[inline(always)]
                 fn default() -> Self {
-                    [<StorageDynamic$n>]::new(0)
+                    [<StorageDynamic$n>]::new()
                 }
             }
         }
@@ -401,7 +414,7 @@ impl<T> DataDynamic<T> {
     ///
     /// This operation will panic if there is not enough memory to perform the new
     /// allocation, or if the resulting allocation size is greater than `isize::MAX`.
-    pub fn new(capacity: usize) -> Self {
+    pub fn with_capacity(capacity: usize) -> Self {
         if (mem::size_of::<T>() == 0) || (capacity == 0) {
             return Self(NonNull::dangling());
         }

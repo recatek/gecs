@@ -24,8 +24,8 @@ const FREE_LIST_END: u32 = (FREE_BIT - 1) | FREE_BIT;
 
 #[inline(always)]
 pub(crate) fn populate_free_list(
-    free_start_address: DataIndex,
-    slots: &mut [MaybeUninit<Slot>],
+    free_list_start: DataIndex, // Index in the full slot array of where to begin
+    slots: &mut [MaybeUninit<Slot>], // Complete slot array, including old slots
 ) -> SlotIndex {
     // We need to make sure that MAX_DATA_CAPACITY wouldn't overflow a u32.
     num_assert_leq!(MAX_DATA_CAPACITY as usize, u32::MAX as usize);
@@ -34,27 +34,32 @@ pub(crate) fn populate_free_list(
         panic!("capacity may not exceed {}", MAX_DATA_CAPACITY);
     }
 
-    for i in 0..(slots.len() - 1) {
-        unsafe {
-            // SAFETY: We know i is less than MAX_DATA_CAPACITY and won't overflow
-            // because we only go up to slots.len() - 1, and here we also know that
-            // slots.len() <= MAX_DATA_CAPACITY <= u32::MAX. We do a wrapping add
-            // here since we know for certain that i will not need to be checked.
-            let index = DataIndex::new_unchecked(i.wrapping_add(1) as u32);
-            let slot = Slot::new_free(SlotIndex::new_free(index));
-
-            // SAFETY: We know that i < slots.len() and is safe to write to.
-            slots.get_unchecked_mut(i).write(slot);
-        }
-    }
-
-    // Set up the last slot to point to the end of the free list, if we have one.
     if slots.len() > 0 {
-        // SAFETY: We know the array is large enough to access the last.
-        slots[slots.len() - 1].write(Slot::new_free(SlotIndex::new_free_end()));
+        let start_index = free_list_start.get() as usize;
+        let last_index = slots.len() - 1 as usize;
+
+        debug_assert!(start_index <= slots.len());
+
+        for i in start_index..(slots.len() - 1) {
+            unsafe {
+                // SAFETY: We know i is less than MAX_DATA_CAPACITY and won't
+                // overflow because we only go up to slots.len() - 1, and here
+                // we also know that slots.len() <= MAX_DATA_CAPACITY <= u32::MAX.
+                let index = DataIndex::new_unchecked(i.wrapping_add(1) as u32);
+                let slot = Slot::new_free(SlotIndex::new_free(index));
+
+                // SAFETY: We know that i < slots.len() and is safe to write to.
+                slots.get_unchecked_mut(i).write(slot);
+            }
+        }
+
+        // Set the last slot to point off the end of the free list.
+        let last_slot = Slot::new_free(SlotIndex::new_free_end());
+        // SAFETY: We know that last_index is valid and less than slots.len().
+        unsafe { slots.get_unchecked_mut(last_index).write(last_slot) };
 
         // Point the free list head to the front of the list.
-        SlotIndex::new_free(free_start_address)
+        SlotIndex::new_free(free_list_start)
     } else {
         // Otherwise, we have nothing, so point the free list head to the end.
         SlotIndex::new_free_end()
