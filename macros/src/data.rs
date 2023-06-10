@@ -36,7 +36,7 @@ pub struct DataArchetypeBuildOnly {
 
 #[derive(Debug)]
 pub enum DataCapacity {
-    Expression(Expr),
+    Fixed(Expr),
     Dynamic,
 }
 
@@ -128,7 +128,7 @@ impl DataArchetype {
 
 fn convert_capacity(capacity: ParseCapacity) -> DataCapacity {
     match capacity {
-        ParseCapacity::Expression(expr) => DataCapacity::Expression(expr),
+        ParseCapacity::Fixed(expr) => DataCapacity::Fixed(expr),
         ParseCapacity::Dynamic => DataCapacity::Dynamic,
     }
 }

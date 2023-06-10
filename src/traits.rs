@@ -1,6 +1,6 @@
 use std::cell::{Ref, RefMut};
 
-use crate::entity::Entity;
+use crate::entity::{ArchetypeId, Entity};
 
 /// A trait describing each archetype in a given ECS world.
 ///
@@ -10,7 +10,7 @@ use crate::entity::Entity;
 /// it is not intended to be manually implemented by any user data structures.
 pub trait Archetype: Sized {
     /// A unique type ID assigned to this archetype in generation.
-    const ARCHETYPE_ID: u8;
+    const ARCHETYPE_ID: ArchetypeId;
 
     /// A tuple of the components in this archetype.
     type Components;
