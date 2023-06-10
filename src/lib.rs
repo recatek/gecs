@@ -14,14 +14,12 @@
 //! and declared at compile-time, so that adding or removing components from entities at
 //! runtime isn't currently possible -- hybrid approaches could solve this in the future.
 //!
-//! Archetypes in gecs can be set to contain a fixed capacity of entities. If all of the
-//! archetypes in your ECS world declaration are configured in this way, gecs will perform
-//! zero allocations after startup. This guarantees that your ECS world will adhere to a
-//! known and predictable memory overhead for constrained environments (e.g. servers on
-//! cloud instances). Attempting to add an entity to a full archetype can either report
-//! failure or panic depending on the method you call to do so. Support for dynamically-
-//! sized archetypes with `Vec`-like storage behavior is planned for support at a later
-//! date but is not currently implemented.
+//! Archetypes in gecs can be set to contain a fixed or dynamic capacity of entities. If
+//! all of the archetypes in your ECS world declaration are set to a fixed capacity, gecs
+//! will perform zero allocations after startup. This guarantees that your ECS world will
+//! adhere to a known and predictable memory overhead for constrained environments (e.g.
+//! servers on cloud instances). Attempting to add an entity to a full archetype can
+//! either report failure or panic depending on the method you call to do so.
 //!
 //! The goals for gecs are (in descending priority order):
 //! - Fast iteration and find queries
@@ -43,50 +41,50 @@
 //! ```rust
 //! use gecs::prelude::*;
 //!
-//! // Components -- must be pub
+//! // Components -- these must be pub because the world is exported as pub as well.
 //! pub struct CompA(pub u32);
 //! pub struct CompB(pub u32);
 //! pub struct CompC(pub u32);
 //!
 //! ecs_world! {
-//!     // Declare two archetypes, ArchFoo and ArchBar, each with fixed a capacity of 100
-//!     ecs_archetype!(ArchFoo, 100, CompA, CompB);
-//!     ecs_archetype!(ArchBar, 100, CompA, CompC);
+//!     // Declare two archetypes, ArchFoo and ArchBar.
+//!     ecs_archetype!(ArchFoo, 100, CompA, CompB); // Fixed capacity of 100 entities.
+//!     ecs_archetype!(ArchBar, dyn, CompA, CompC); // Dynamic (dyn) entity capacity.
 //! }
 //!
 //! fn main() {
-//!     let mut world = World::default(); // Initialize a new ECS world
+//!     let mut world = World::default(); // Initialize an empty new ECS world.
 //!
-//!     // Add entities to the world by pushing their components and receiving a handle
+//!     // Add entities to the world by pushing their components and receiving a handle.
 //!     let entity_a = world.push::<ArchFoo>((CompA(1), CompB(20)));
 //!     let entity_b = world.push::<ArchBar>((CompA(3), CompC(40)));
 //!
-//!     // Each archetype now has one entity
+//!     // Each archetype now has one entity.
 //!     assert_eq!(world.len::<ArchFoo>(), 1);
 //!     assert_eq!(world.len::<ArchBar>(), 1);
 //!
-//!     // Look up each entity and check its CompB or CompC value
+//!     // Look up each entity and check its CompB or CompC value.
 //!     assert!(ecs_find!(world, entity_a, |c: &CompB| assert_eq!(c.0, 20)));
 //!     assert!(ecs_find!(world, entity_b, |c: &CompC| assert_eq!(c.0, 40)));
 //!
-//!     // Add to entity_a's CompA value
+//!     // Add to entity_a's CompA value.
 //!     ecs_find!(world, entity_a, |c: &mut CompA| { c.0 += 1; });
 //!
-//!     // Sum both entities' CompA values with one iter despite being different archetypes
+//!     // Sum both entities' CompA values with one iter despite being different archetypes.
 //!     let mut sum = 0;
 //!     ecs_iter!(world, |c: &CompA| { sum += c.0 });
-//!     assert_eq!(sum, 5); // Adding 2 + 3 -- recall that we added 1 to entity_a's CompA
+//!     assert_eq!(sum, 5); // Adding 2 + 3 -- recall that we added 1 to entity_a's CompA.
 //!
-//!     // Collect both entities that have a CompA component
+//!     // Collect both entities that have a CompA component.
 //!     let mut found = Vec::new();
 //!     ecs_iter!(world, |entity: &EntityAny, _: &CompA| { found.push(*entity); });
 //!     assert!(found == vec![entity_a.into(), entity_b.into()]);
 //!
-//!     // Remove both entities -- this will return an Option containing their components
+//!     // Remove both entities -- this will return an Option containing their components.
 //!     assert!(world.remove(entity_a).is_some());
 //!     assert!(world.remove(entity_b).is_some());
 //!
-//!     // Try to look up a stale entity handle -- this will return false
+//!     // Try to look up a stale entity handle -- this will return false.
 //!     assert_eq!(ecs_find!(world, entity_a, |_: &Entity<ArchFoo>| { panic!() }), false);
 //! }
 //! ```
@@ -142,8 +140,11 @@ mod macros {
     /// - `capacity`: The capacity of the archetype, specified in one of the following ways:
     ///     - A constant expression (e.g. `200` or `config::ARCH_CAPACITY + 4`). This will
     ///       create a fixed-size archetype that can contain at most that number of entities.
-    ///     - The `dyn` keyword here is currently reserved for near-future work implementing
-    ///       dynamically sized archetypes. It is not supported in this version of gecs.
+    ///     - The `dyn` keyword can be used to create a dynamically-sized archetype. This can
+    ///       grow to accommodate up to `16,777,216` entities. To initialize an ECS world's
+    ///       dynamic archetype with a pre-allocated capacity, use the `with_capacity()`
+    ///       function at world creation. This function will be automatically generated
+    ///       with a named capacity argument for each dynamic archetype in that world.
     /// - `Component, ...`: One or more component types to include in this archetype. Because
     ///   generated archetypes are `pub` with `pub` members, all components must be `pub` too.
     ///
@@ -164,27 +165,27 @@ mod macros {
     /// // Components must be `pub`, as the ECS world will re-export them in its archetypes.
     /// pub struct CompA(pub u32);
     /// pub struct CompB(pub u32);
-    /// #[cfg(feature = "some_feature")] // CompC only exists if "some_feature" is enabled
+    /// #[cfg(feature = "some_feature")] // CompC only exists if "some_feature" is enabled.
     /// pub struct CompC(pub u32);
     ///
     /// const BAR_CAPACITY: usize = 30;
     ///
     /// ecs_world! {
-    ///     ecs_name!(MyWorld); // Set the type name of this ECS structure to MyWorld
+    ///     ecs_name!(MyWorld); // Set the type name of this ECS structure to MyWorld.
     ///
-    ///     // Declare an archetype called ArchFoo with capacity 100 and two components
+    ///     // Declare an archetype called ArchFoo with capacity 100 and two components.
     ///     ecs_archetype!(
     ///         ArchFoo,
     ///         100,
-    ///         CompA, // Note: Type paths are not currently supported for components
+    ///         CompA, // Note: Type paths are not currently supported for components.
     ///         CompB,
     ///     );
     ///
-    ///     // Declare ArchBar only if "some_feature" is enabled, otherwise it won't exist
+    ///     // Declare ArchBar only if "some_feature" is enabled, otherwise it won't exist.
     ///     #[cfg(feature = "some_feature")]
     ///     ecs_archetype!(
     ///         ArchBar,
-    ///         BAR_CAPACITY, // Constants may also be used for archetype capacity
+    ///         BAR_CAPACITY, // Constants may also be used for archetype capacity.
     ///         CompA,
     ///         CompC,
     ///     );
@@ -192,36 +193,38 @@ mod macros {
     ///     #[archetype_id(6)]
     ///     ecs_archetype!(
     ///         ArchBaz,
-    ///         400,
+    ///         dyn, // Use the dyn keyword for a dynamically-sized archetype.
     ///         CompA,
     ///         CompB,
     ///         #[cfg(feature = "some_feature")]
-    ///         CompC, // ArchBaz will only have CompC if "some_feature" is enabled
+    ///         CompC, // ArchBaz will only have CompC if "some_feature" is enabled.
     ///     );
     /// }
     ///
     /// fn main() {
-    ///     // Create a new empty world with allocated storage where appropriate
-    ///     let mut world = MyWorld::default();
+    ///     // Create a new world. Because ArchBaz is the only dynamic archetype, we only need to
+    ///     // set one capacity in World creation (the parameter is named capacity_arch_baz). The
+    ///     // other fixed-size archetypes will always be created sized to their full capacity.
+    ///     let mut world = MyWorld::with_capacity(30);
     ///
-    ///     // Push an ArchFoo entity into the world and unwrap the Option<Entity<ArchFoo>>
-    ///     // Alternatively, we could use .push(), which will panic if the archetype is full
+    ///     // Push an ArchFoo entity into the world and unwrap the Option<Entity<ArchFoo>>.
+    ///     // Alternatively, we could use .push(), which will panic if the archetype is full.
     ///     let entity_a = world.try_push::<ArchFoo>((CompA(0), CompB(1))).unwrap();
     ///
-    ///     // The length of the archetype should now be 1
+    ///     // The length of the archetype should now be 1.
     ///     assert_eq!(world.len::<ArchFoo>(), 1);
     ///
-    ///     // Remove the entity (we don't need to turbofish because this is an Entity<ArchFoo>)
+    ///     // Remove the entity (we don't need to turbofish because this is an Entity<ArchFoo>).
     ///     world.remove(entity_a);
     ///
     ///     assert_eq!(world.len::<ArchFoo>(), 0);
     ///     assert!(world.is_empty::<ArchFoo>());
     ///
-    ///     // Use of #[cfg]-conditionals
+    ///     // Use of #[cfg]-conditionals.
     ///     #[cfg(feature = "some_feature")] world.push::<ArchBar>((CompA(2), CompB(3), CompC(4)));
     ///     world.push::<ArchBaz>((CompA(5), CompB(6), #[cfg(feature = "some_feature")] CompC(7)));
     ///
-    ///     // Use of #[archetype_id(N)] assignment
+    ///     // Use of #[archetype_id(N)] assignment.
     ///     assert_eq!(ArchFoo::ARCHETYPE_ID, 0);
     ///     assert_eq!(ArchBaz::ARCHETYPE_ID, 6);
     ///     #[cfg(feature = "some_feature")] assert_eq!(ArchBar::ARCHETYPE_ID, 1);
@@ -245,7 +248,7 @@ mod macros {
     ///
     /// pub mod my_world {
     ///     pub mod prelude {
-    ///         // Pull in all the components we want to use as local identifiers
+    ///         // Pull in all the components we want to use as local identifiers.
     ///         use super::super::*;
     ///
     ///         ecs_world! {
@@ -254,7 +257,7 @@ mod macros {
     ///     }
     /// }
     ///
-    /// // Pull the world from another module/crate into scope with its archetypes and macros
+    /// // Pull the world from another module/crate into scope with its archetypes and macros.
     /// use my_world::prelude::*;
     ///
     /// fn main() {
@@ -408,14 +411,14 @@ mod macros {
     ///     ecs_archetype!(ArchBar, 100, CompA, CompC);
     /// }
     ///
-    /// // If you need to use a non-mut reference, see the ecs_find_borrow! macro
+    /// // If you need to use a non-mut reference, see the ecs_find_borrow! macro.
     /// fn add_three(world: &mut World, entity: Entity<ArchFoo>) -> bool {
-    ///     // The result will be true if the entity was found and operated on
+    ///     // The result will be true if the entity was found and operated on.
     ///     ecs_find!(world, entity, |comp_a: &mut CompA| { comp_a.0 += 3; })
     /// }
     ///
     /// fn add_three_any(world: &mut World, entity: EntityAny) -> bool {
-    ///     // The query syntax is the same for both Entity<A> and EntityAny
+    ///     // The query syntax is the same for both Entity<A> and EntityAny.
     ///     ecs_find!(world, entity, |comp_a: &mut CompA| { comp_a.0 += 3; })
     /// }
     ///
@@ -470,7 +473,7 @@ mod macros {
     ///     let parent = world.push::<ArchFoo>((CompA(0), CompB(0), Parent(None)));
     ///     let child = world.push::<ArchFoo>((CompA(1), CompB(0), Parent(Some(parent))));
     ///
-    ///     // Assert that we found the parent, and that its CompB value is 0
+    ///     // Assert that we found the parent, and that its CompB value is 0.
     ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 0)));
     ///
     ///     ecs_iter_borrow!(world, |child_a: &CompA, parent: &Parent| {
@@ -483,7 +486,7 @@ mod macros {
     ///         }
     ///     });
     ///
-    ///     // Assert that we found the parent, and that its CompB value is now 1
+    ///     // Assert that we found the parent, and that its CompB value is now 1.
     ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 1)));
     /// }
     /// ```
@@ -549,7 +552,7 @@ mod macros {
     ///     let entity_a = world.push::<ArchFoo>((CompA(0), CompB(0)));
     ///     let entity_b = world.push::<ArchBar>((CompA(0), CompC(0)));
     ///
-    ///     // Iterates both ArchFoo and ArchBar since both have a CompA
+    ///     // This iterates both ArchFoo and ArchBar since both have a CompA.
     ///     ecs_iter!(world, |entity: &EntityAny, a: &mut CompA| {
     ///         vec_a.push(*entity);
     ///         a.0 += 3; // Add 3 to both entities
@@ -557,14 +560,14 @@ mod macros {
     ///     assert!(vec_a == vec![entity_a.into(), entity_b.into()]);
     ///
     ///     // Even though both ArchFoo and ArchBar have a CompA, only ArchFoo can
-    ///     // provide Entity<ArchFoo> handles, so this will only iterate that one
+    ///     // provide Entity<ArchFoo> handles, so this will only iterate that one.
     ///     ecs_iter!(world, |entity: &Entity<ArchFoo>, a: &mut CompA| {
     ///         vec_b.push((*entity).into());
     ///         a.0 += 3; // Add 3 to entity_a
     ///     });
     ///     assert!(vec_b == vec![entity_a.into()]);
     ///
-    ///     // Iterates only ArchBar since ArchFoo does not have a CompC
+    ///     // This iterates only ArchBar since ArchFoo does not have a CompC.
     ///     ecs_iter!(world, |entity: &EntityAny, a: &mut CompA, _: &CompC| {
     ///         vec_c.push(*entity);
     ///         a.0 += 3; // Add 3 to entity_b
@@ -643,6 +646,7 @@ mod macros {
 ///     let mut sum_a = 0;
 ///     let mut sum_b = 0;
 ///
+///     // All three of these queries match both ArchFoo and ArchBar:
 ///     ecs_find!(world, entity_a, |v: &mut OneOf<CompB, CompC>| {
 ///         v.0 += 1;
 ///     });

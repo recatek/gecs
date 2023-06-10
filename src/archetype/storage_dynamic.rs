@@ -470,8 +470,6 @@ impl<T> DataDynamic<T> {
                 let old_ptr = self.0.as_ptr() as *mut u8;
                 // SAFETY: We checked that T is not a ZST and old_capacity > 0.
                 let old_layout = Layout::array::<T>(old_capacity).unwrap();
-
-                debug_assert!(old_ptr.is_null() == false);
                 debug_assert!(old_layout.size() > 0);
 
                 // SAFETY: The caller guarantees that capacity > 0.
@@ -485,24 +483,19 @@ impl<T> DataDynamic<T> {
     /// # Safety
     ///
     /// It is up to the caller to guarantee the following:
-    /// - This array has exactly `old_capacity` elements allocated
-    pub unsafe fn dealloc(&mut self, old_capacity: usize) {
-        if mem::size_of::<T>() == 0 {
-            return;
+    /// - This array has exactly `capacity` elements allocated
+    pub unsafe fn dealloc(&mut self, capacity: usize) {
+        if (mem::size_of::<T>() == 0) || (capacity == 0) {
+            return; // Nothing to deallocate
         }
 
-        if old_capacity == 0 {
-            return;
-        }
-
-        let old_layout = Layout::array::<T>(old_capacity).unwrap();
-
-        debug_assert!(old_capacity > 0);
-        debug_assert!(old_layout.size() > 0);
+        // SAFETY: We checked that T is not a ZST and capacity > 0.
+        let layout = Layout::array::<T>(capacity).unwrap();
+        debug_assert!(layout.size() > 0);
 
         unsafe {
             // SAFETY: We know that old_layout has a nonzero size
-            alloc::dealloc(self.0.as_ptr() as *mut u8, old_layout);
+            alloc::dealloc(self.0.as_ptr() as *mut u8, layout);
             self.0 = NonNull::dangling();
         }
     }
