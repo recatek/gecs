@@ -53,7 +53,10 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
         if let Some(bound_params) = bound_params.get(&archetype.name) {
             // Types and traits
             let Archetype = format_ident!("{}", archetype.name);
-            let Type = bound_params.iter().map(to_type).collect::<Vec<_>>(); // Bind-dependent!
+            let Type = bound_params
+                .iter()
+                .map(|p| to_type(p, &archetype))
+                .collect::<Vec<_>>(); // Bind-dependent!
 
             // Variables and fields
             let slice = bound_params.iter().map(to_slice).collect::<Vec<_>>(); // Bind-dependent!
@@ -122,7 +125,10 @@ pub fn generate_query_iter(mode: FetchMode, query: ParseQueryIter) -> syn::Resul
         if let Some(bound_params) = bound_params.get(&archetype.name) {
             // Types and traits
             let Archetype = format_ident!("{}", archetype.name);
-            let Type = bound_params.iter().map(to_type).collect::<Vec<_>>(); // Bind-dependent!
+            let Type = bound_params
+                .iter()
+                .map(|p| to_type(p, &archetype))
+                .collect::<Vec<_>>(); // Bind-dependent!
 
             // Variables and fields
             let slice = bound_params.iter().map(to_slice).collect::<Vec<_>>(); // Bind-dependent!
@@ -177,11 +183,13 @@ fn to_name(param: &ParseQueryParam) -> TokenStream {
     quote!(#name)
 }
 
-fn to_type(param: &ParseQueryParam) -> TokenStream {
+fn to_type(param: &ParseQueryParam, archetype: &DataArchetype) -> TokenStream {
+    let archetype_name = format_ident!("{}", archetype.name);
     match &param.param_type {
         ParseQueryParamType::Component(ident) => quote!(#ident),
         ParseQueryParamType::Entity(ident) => quote!(Entity<#ident>),
         ParseQueryParamType::EntityAny => quote!(EntityAny),
+        ParseQueryParamType::EntityWild => quote!(Entity<#archetype_name>),
         ParseQueryParamType::OneOf(_) => panic!("must unpack OneOf first"),
     }
 }
@@ -191,6 +199,7 @@ fn to_slice(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::Component(ident) => to_token_stream(&to_snake_ident(ident)),
         ParseQueryParamType::Entity(_) => quote!(entities),
         ParseQueryParamType::EntityAny => quote!(entities),
+        ParseQueryParamType::EntityWild => quote!(entities),
         ParseQueryParamType::OneOf(_) => panic!("must unpack OneOf first"),
     }
 }
@@ -201,6 +210,7 @@ fn to_borrow(param: &ParseQueryParam) -> TokenStream {
         (true, ParseQueryParamType::Component(ident)) => quote!(borrow_slice_mut::<#ident>()),
         (_, ParseQueryParamType::Entity(_)) => quote!(get_slice_entities()),
         (_, ParseQueryParamType::EntityAny) => quote!(get_slice_entities()),
+        (_, ParseQueryParamType::EntityWild) => quote!(get_slice_entities()),
         (_, ParseQueryParamType::OneOf(_)) => panic!("must unpack OneOf first"),
     }
 }
@@ -244,6 +254,9 @@ fn bind_query_params(
         for param in params {
             match &param.param_type {
                 ParseQueryParamType::EntityAny => {
+                    bound.push(param.clone()); // Always matches
+                }
+                ParseQueryParamType::EntityWild => {
                     bound.push(param.clone()); // Always matches
                 }
                 ParseQueryParamType::Component(name) => {

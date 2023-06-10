@@ -1,6 +1,6 @@
 [package]
 name = "gecs"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["recatek"]
 description = "A generated entity component system."
 edition = "2021"
@@ -10,7 +10,11 @@ readme = "README.md"
 keywords = ["ecs", "entity"]
 categories = ["data-structures", "game-engines"]
 
-[dependencies]
-gecs_macros = { version = "0.1.2", path = "macros" }
+[features]
+default = []
+32_components = []
 
-paste = { version = "1.0" }
+[dependencies]
+gecs_macros = { version = "0.2.0", path = "macros" }
+
+seq-macro = { version = "0.3" } # For building "variadic" storage

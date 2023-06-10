@@ -88,8 +88,8 @@ pub enum ParseAttributeData {
 
 #[derive(Debug)]
 pub enum ParseCapacity {
+    Fixed(Expr),
     Dynamic,
-    Expression(Expr),
 }
 
 impl ParseEcsWorld {
@@ -352,7 +352,7 @@ impl Parse for ParseCapacity {
             input.parse::<Dyn>()?;
             Ok(ParseCapacity::Dynamic)
         } else {
-            input.parse().map(ParseCapacity::Expression)
+            input.parse().map(ParseCapacity::Fixed)
         }
     }
 }

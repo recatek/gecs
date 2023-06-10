@@ -3,13 +3,15 @@ use std::marker::PhantomData;
 use std::num::NonZeroU32;
 
 use crate::error::EcsError;
+use crate::index::{DataIndex, MAX_DATA_INDEX};
 use crate::traits::Archetype;
-use crate::util::debug_checked_assume;
 
-pub(crate) const MAX_ARCHETYPE_CAPACITY: u32 = 1_u32 << TYPE_SHIFT;
+// NOTE: While this is extremely unlikely to change, if it does, the proc
+// macros need to be updated manually with the new type assumptions.
+pub type ArchetypeId = u8;
 
-const TYPE_BITS: u32 = 8;
-const TYPE_SHIFT: u32 = u32::BITS - TYPE_BITS;
+// How many bits of a u32 entity index are reserved for the archetype ID.
+pub(crate) const ARCHETYPE_ID_BITS: u32 = ArchetypeId::BITS;
 
 /// A statically typed handle to an entity of a specific archetype.
 ///
@@ -38,14 +40,9 @@ pub struct EntityAny {
     version: NonZeroU32,
 }
 
-/// Safety wrapper for enforcing that the index of an entity adheres to bounds.
-#[repr(transparent)]
-#[derive(Clone, Copy)]
-pub(crate) struct EntityIndex(u32);
-
 impl<A: Archetype> Entity<A> {
     #[inline(always)]
-    pub(crate) fn new(index: EntityIndex, version: NonZeroU32) -> Self {
+    pub(crate) fn new(index: DataIndex, version: NonZeroU32) -> Self {
         Self {
             inner: EntityAny::new(index, A::ARCHETYPE_ID, version),
             _type: PhantomData,
@@ -53,7 +50,7 @@ impl<A: Archetype> Entity<A> {
     }
 
     #[inline(always)]
-    pub(crate) fn index(&self) -> u32 {
+    pub(crate) fn index(&self) -> DataIndex {
         self.inner.index()
     }
 
@@ -85,26 +82,26 @@ impl<A: Archetype> Entity<A> {
     ///
     /// This is the same `ARCHETYPE_ID` as the archetype this entity belongs to.
     #[inline(always)]
-    pub const fn archetype_id(self) -> u8 {
+    pub const fn archetype_id(self) -> ArchetypeId {
         A::ARCHETYPE_ID
     }
 }
 
 impl EntityAny {
     #[inline(always)]
-    pub(crate) fn new(
-        index: EntityIndex, // This enforces bounds
-        archetype_id: u8,
-        version: NonZeroU32,
-    ) -> Self {
+    pub(crate) fn new(index: DataIndex, archetype_id: ArchetypeId, version: NonZeroU32) -> Self {
         let archetype_id: u32 = archetype_id.into();
-        let data = (index.get() << TYPE_BITS) | archetype_id;
+        let data = (index.get() << ARCHETYPE_ID_BITS) | archetype_id;
         Self { data, version }
     }
 
     #[inline(always)]
-    pub(crate) fn index(&self) -> u32 {
-        self.data >> TYPE_BITS
+    pub(crate) fn index(&self) -> DataIndex {
+        unsafe {
+            // SAFETY: We know the remaining data can fit in a DataIndex
+            debug_assert!(self.data >> ARCHETYPE_ID_BITS <= MAX_DATA_INDEX);
+            DataIndex::new_unchecked(self.data >> ARCHETYPE_ID_BITS)
+        }
     }
 
     #[inline(always)]
@@ -116,9 +113,8 @@ impl EntityAny {
     ///
     /// This is the same `ARCHETYPE_ID` as the archetype this entity belongs to.
     #[inline(always)]
-    pub fn archetype_id(self) -> u8 {
-        debug_assert!(self.data as u8 != 0, "invalid archetype_id");
-        self.data as u8 // Trim off the bottom byte to get the ID
+    pub fn archetype_id(self) -> ArchetypeId {
+        self.data as ArchetypeId // Trim off the bottom to get the ID
     }
 }
 
@@ -142,29 +138,6 @@ impl<A: Archetype> TryFrom<EntityAny> for Entity<A> {
         } else {
             Err(EcsError::InvalidEntityType)
         }
-    }
-}
-
-impl EntityIndex {
-    /// Creates a new `EntityIndex` without checking any bounds.
-    ///
-    /// # Safety
-    ///
-    /// The caller must guarantee that `index < MAX_ARCHETYPE_CAPACITY`.
-    #[inline(always)]
-    pub(crate) unsafe fn new_unchecked(index: u32) -> Self {
-        debug_assert!(index < MAX_ARCHETYPE_CAPACITY);
-        Self(index)
-    }
-
-    /// Gets the raw value of this `EntityIndex`.
-    ///
-    /// The result is guaranteed to be less than `MAX_ARCHETYPE_CAPACITY`.
-    #[inline(always)]
-    pub(crate) fn get(self) -> u32 {
-        // SAFETY: This is verified at creation
-        unsafe { debug_checked_assume!(self.0 < MAX_ARCHETYPE_CAPACITY) };
-        self.0
     }
 }
 
