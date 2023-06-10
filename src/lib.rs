@@ -114,7 +114,8 @@ mod macros {
     /// Note that irrespective of capacity configuration, a single ECS archetype can hold at
     /// most `16,777,216` entities due to the encoding structure of the `Entity` type. For
     /// similar reasons, an ECS world can have only `256` distinct archetypes. Archetypes can
-    /// currently store up to `16` distinct components.
+    /// store up to `16` distinct components by default. Use the `32_components` crate feature
+    /// to raise this limit to `32` components -- note that this may impact compilation speed.
     ///
     /// The `ecs_world!` macro has several inner pseudo-macros used for declaring archetypes
     /// or performing other tasks such as naming the ECS world's data type. These are not true

@@ -335,7 +335,7 @@ seq!(N in 1..=16 {
 });
 
 // Declare additional storage for up to 32 components.
-#[cfg(feature = "more_components")]
+#[cfg(feature = "32_components")]
 seq!(N in 17..=32 {
     declare_storage_fixed_n!(StorageFixed~N, Slices~N, N);
 });

@@ -19,7 +19,7 @@ seq!(N in 1..=16 {
 });
 
 // Declare additional slices for up to 32 components.
-#[cfg(feature = "more_components")]
+#[cfg(feature = "32_components")]
 seq!(N in 17..=32 {
     declare_slices_n!(Slices~N, N);
 });
