@@ -4,7 +4,7 @@ use std::mem::{self, MaybeUninit};
 use std::ptr::{self, NonNull};
 use std::slice;
 
-use paste::paste;
+use seq_macro::seq;
 
 use crate::archetype::slices::*;
 use crate::archetype::slot::{self, Slot, SlotIndex};
@@ -14,19 +14,19 @@ use crate::traits::Archetype;
 use crate::util::{debug_checked_assume, num_assert_leq};
 
 macro_rules! declare_storage_dynamic_n {
-    ($n:literal, $($i:literal),+) => {
-        paste! {
-            pub struct [<StorageDynamic$n>]<A: Archetype, $([<T$i>],)+> {
+    ($name:ident, $slices:ident, $n:literal) => {
+        seq!(I in 0..$n {
+            pub struct $name<A: Archetype, #(T~I,)*> {
                 len: usize,
                 capacity: usize,
                 free_head: SlotIndex,
                 slots: DataDynamic<Slot>, // Sparse
                 // No RefCell here since we never grant mutable access externally
                 entities: DataDynamic<Entity<A>>,
-                $([<d$i>]: RefCell<DataDynamic<[<T$i>]>>,)+
+                #(d~I: RefCell<DataDynamic<T~I>>,)*
             }
 
-            impl<A: Archetype, $([<T$i>],)+> [<StorageDynamic$n>]<A, $([<T$i>],)+>
+            impl<A: Archetype, #(T~I,)*> $name<A, #(T~I,)*>
             {
                 #[inline(always)]
                 pub fn new() -> Self {
@@ -53,7 +53,7 @@ macro_rules! declare_storage_dynamic_n {
                         free_head: free_head,
                         slots,
                         entities: DataDynamic::with_capacity(capacity),
-                        $([<d$i>]: RefCell::new(DataDynamic::with_capacity(capacity)),)+
+                        #(d~I: RefCell::new(DataDynamic::with_capacity(capacity)),)*
                     }
                 }
 
@@ -75,7 +75,7 @@ macro_rules! declare_storage_dynamic_n {
                 /// Reserves a slot in the map pointing to the given dense index.
                 /// Returns an entity handle if successful, or None if we're full.
                 #[inline(always)]
-                pub fn try_push(&mut self, data: ($([<T$i>],)+)) -> Option<Entity<A>> {
+                pub fn try_push(&mut self, data: (#(T~I,)*)) -> Option<Entity<A>> {
                     debug_assert!(self.len <= self.capacity());
 
                     if self.len >= self.capacity() {
@@ -97,7 +97,6 @@ macro_rules! declare_storage_dynamic_n {
 
                         // SAFETY: We know that the slot storage is valid up to our capacity.
                         let slots = self.slots.slice_mut(self.capacity());
-
                         // SAFETY: We know this is not the end of the free list, and we know that
                         // a free list slot index can never be assigned to an out of bounds value.
                         let slot = slots.get_unchecked_mut(slot_index.get() as usize);
@@ -115,7 +114,7 @@ macro_rules! declare_storage_dynamic_n {
 
                         // SAFETY: We know that index < N and points to an empty cell.
                         self.entities.write(index, entity);
-                        $(self.[<d$i>].get_mut().write(index, data.$i);)+
+                        #(self.d~I.get_mut().write(index, data.I);)*
 
                         Some(entity)
                     }
@@ -151,7 +150,7 @@ macro_rules! declare_storage_dynamic_n {
                 /// extremely unlikely occurrence in nearly all programs -- it would only
                 /// happen if the exact same lookup slot was rewritten 4.2 billion times.
                 #[inline(always)]
-                pub fn remove(&mut self, entity: Entity<A>) -> Option<($([<T$i>],)*)> {
+                pub fn remove(&mut self, entity: Entity<A>) -> Option<(#(T~I,)*)> {
                     let (slot_index, dense_index) = match self.resolve_slot(entity) {
                         None => { return None; }
                         Some(found) => found,
@@ -183,7 +182,7 @@ macro_rules! declare_storage_dynamic_n {
                         // SAFETY: We guarantee that non-free slots point to valid dense data.
                         self.entities.swap_remove(dense_index_usize, self.len);
                         let result =
-                            ($(self.[<d$i>].get_mut().swap_remove(dense_index_usize, self.len),)+);
+                            (#(self.d~I.get_mut().swap_remove(dense_index_usize, self.len),)*);
 
                         // SAFETY: We know that the slot storage is valid up to our capacity.
                         let slots = self.slots.slice_mut(self.capacity());
@@ -218,12 +217,12 @@ macro_rules! declare_storage_dynamic_n {
 
                 /// Populates a slice struct with slices to our stored data.
                 #[inline(always)]
-                pub fn get_all_slices<'a, S: [<Slices$n>]<'a, A, $([<T$i>],)+>>(&'a mut self,) -> S {
+                pub fn get_all_slices<'a, S: $slices<'a, A, #(T~I,)*>>(&'a mut self,) -> S {
                     unsafe {
                         // SAFETY: We guarantee that the storage is valid up to self.len.
                         S::new(
                             self.entities.slice(self.len),
-                            $(self.[<d$i>].get_mut().slice_mut(self.len)),+
+                            #(self.d~I.get_mut().slice_mut(self.len),)*
                         )
                     }
                 }
@@ -237,29 +236,29 @@ macro_rules! declare_storage_dynamic_n {
                     }
                 }
 
-                $(
+                #(
                     /// Gets a slice of the given component index.
                     #[inline(always)]
-                    pub fn [<get_slice_$i>](&mut self) -> &[[<T$i>]] {
+                    pub fn get_slice_~I(&mut self) -> &[T~I] {
                         unsafe {
                             // SAFETY: We guarantee that the storage is valid up to self.len.
-                            self.[<d$i>].get_mut().slice(self.len)
+                            self.d~I.get_mut().slice(self.len)
                         }
                     }
 
                     /// Gets a slice of the given component index.
                     #[inline(always)]
-                    pub fn [<get_slice_mut_$i>](&mut self) -> &mut [[<T$i>]] {
+                    pub fn get_slice_mut_~I(&mut self) -> &mut [T~I] {
                         unsafe {
                             // SAFETY: We guarantee that the storage is valid up to self.len.
-                            self.[<d$i>].get_mut().slice_mut(self.len)
+                            self.d~I.get_mut().slice_mut(self.len)
                         }
                     }
 
                     /// Borrows the slice of the given component index.
                     #[inline(always)]
-                    pub fn [<borrow_slice_$i>](&self) -> Ref<[[<T$i>]]> {
-                        Ref::map(self.[<d$i>].borrow(), |slice| unsafe {
+                    pub fn borrow_slice_~I(&self) -> Ref<[T~I]> {
+                        Ref::map(self.d~I.borrow(), |slice| unsafe {
                             // SAFETY: We guarantee that the storage is valid up to self.len.
                             slice.slice(self.len)
                         })
@@ -267,13 +266,13 @@ macro_rules! declare_storage_dynamic_n {
 
                     /// Mutably borrows the slice of the given component index.
                     #[inline(always)]
-                    pub fn [<borrow_slice_mut_$i>](&self) -> RefMut<[[<T$i>]]> {
-                        RefMut::map(self.[<d$i>].borrow_mut(), |slice| unsafe {
+                    pub fn borrow_slice_mut_~I(&self) -> RefMut<[T~I]> {
+                        RefMut::map(self.d~I.borrow_mut(), |slice| unsafe {
                             // SAFETY: We guarantee that the storage is valid up to self.len.
                             slice.slice_mut(self.len)
                         })
                     }
-                )+
+                )*
 
                 /// Resolves the slot index and data index for a given entity.
                 /// Both indices are guaranteed to point to valid cells.
@@ -323,7 +322,7 @@ macro_rules! declare_storage_dynamic_n {
                 #[inline(always)]
                 fn grow(&mut self) -> bool {
                     if self.capacity() >= MAX_DATA_CAPACITY as usize {
-                        return false; // Out of space to grow
+                        return false; // Out of room to grow
                     }
 
                     debug_assert!(self.len == self.capacity);
@@ -335,7 +334,7 @@ macro_rules! declare_storage_dynamic_n {
                         // SAFETY: We know new_capacity > self.capacity and is nonzero.
                         self.slots.grow(self.capacity, new_capacity);
                         self.entities.grow(self.capacity, new_capacity);
-                        $( self.[<d$i>].get_mut().grow(self.capacity, new_capacity); )*
+                        #(self.d~I.get_mut().grow(self.capacity, new_capacity);)*
 
                         // SAFETY: We know self.len < MAX_DATA_CAPACITY.
                         let free_list_start = DataIndex::new_unchecked(self.len as u32);
@@ -356,52 +355,46 @@ macro_rules! declare_storage_dynamic_n {
                 }
             }
 
-            impl<A: Archetype, $([<T$i>],)+> Drop
-                for [<StorageDynamic$n>]<A, $([<T$i>],)+>
+            impl<A: Archetype, #(T~I,)*> Drop
+                for $name<A, #(T~I,)*>
             {
                 #[inline(always)]
                 fn drop(&mut self) {
                     // SAFETY: We guarantee that the storage is valid up to self.len.
                     unsafe {
-                        $(self.[<d$i>].get_mut().drop_to(self.len);)+
+                        #(self.d~I.get_mut().drop_to(self.len);)*
                         // We don't need to drop the other stuff since it's all trivial.
 
                         // For dynamic storage we need to deallocate when dropping.
                         self.slots.dealloc(self.capacity);
                         self.entities.dealloc(self.capacity);
-                        $(self.[<d$i>].get_mut().dealloc(self.capacity);)*
+                        #(self.d~I.get_mut().dealloc(self.capacity);)*
                     };
                 }
             }
 
-            impl<A: Archetype, $([<T$i>],)+> Default
-                for [<StorageDynamic$n>]<A, $([<T$i>],)+>
+            impl<A: Archetype, #(T~I,)*> Default
+                for $name<A, #(T~I,)*>
             {
                 #[inline(always)]
                 fn default() -> Self {
-                    [<StorageDynamic$n>]::new()
+                    $name::new()
                 }
             }
-        }
+        });
     };
 }
 
-declare_storage_dynamic_n!(1, 0);
-declare_storage_dynamic_n!(2, 0, 1);
-declare_storage_dynamic_n!(3, 0, 1, 2);
-declare_storage_dynamic_n!(4, 0, 1, 2, 3);
-declare_storage_dynamic_n!(5, 0, 1, 2, 3, 4);
-declare_storage_dynamic_n!(6, 0, 1, 2, 3, 4, 5);
-declare_storage_dynamic_n!(7, 0, 1, 2, 3, 4, 5, 6);
-declare_storage_dynamic_n!(8, 0, 1, 2, 3, 4, 5, 6, 7);
-declare_storage_dynamic_n!(9, 0, 1, 2, 3, 4, 5, 6, 7, 8);
-declare_storage_dynamic_n!(10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-declare_storage_dynamic_n!(11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-declare_storage_dynamic_n!(12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
-declare_storage_dynamic_n!(13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
-declare_storage_dynamic_n!(14, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
-declare_storage_dynamic_n!(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
-declare_storage_dynamic_n!(16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+// Declare storage for up to 16 components.
+seq!(N in 1..=16 {
+    declare_storage_dynamic_n!(StorageDynamic~N, Slices~N, N);
+});
+
+// Declare additional storage for up to 32 components.
+#[cfg(feature = "more_components")]
+seq!(N in 17..=32 {
+    declare_storage_dynamic_n!(StorageDynamic~N, Slices~N, N);
+});
 
 pub struct DataDynamic<T>(NonNull<MaybeUninit<T>>);
 

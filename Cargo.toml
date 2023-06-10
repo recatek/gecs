@@ -10,7 +10,11 @@ readme = "README.md"
 keywords = ["ecs", "entity"]
 categories = ["data-structures", "game-engines"]
 
+[features]
+default = []
+more_components = []
+
 [dependencies]
 gecs_macros = { version = "0.1.2", path = "macros" }
 
-paste = { version = "1.0" }
+seq-macro = { version = "0.3" } # For building "variadic" storage
