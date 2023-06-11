@@ -36,7 +36,7 @@ pub(crate) fn populate_free_list(
 
     if slots.len() > 0 {
         let start_index = free_list_start.get() as usize;
-        let last_index = slots.len() - 1 as usize;
+        let last_index = slots.len() - 1;
 
         debug_assert!(start_index <= slots.len());
 

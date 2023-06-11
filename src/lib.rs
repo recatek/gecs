@@ -1,7 +1,8 @@
-#![allow(clippy::bool_comparison)]
 #![allow(clippy::type_complexity)] // lol
 #![allow(clippy::too_many_arguments)] // lmao
 #![allow(clippy::needless_doctest_main)] // this has false positives with gecs's macros
+#![allow(clippy::bool_comparison)] // using "== false" is easier to read in some cases
+#![allow(clippy::len_zero)] // using "len() > 0" is easier to read in some cases
 
 //! A generated entity component system 🦎
 //!

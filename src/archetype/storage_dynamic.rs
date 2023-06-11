@@ -50,7 +50,7 @@ macro_rules! declare_storage_dynamic_n {
                     Self {
                         len: 0,
                         capacity,
-                        free_head: free_head,
+                        free_head,
                         slots,
                         entities: DataDynamic::with_capacity(capacity),
                         #(d~I: RefCell::new(DataDynamic::with_capacity(capacity)),)*
