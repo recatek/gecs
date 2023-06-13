@@ -328,10 +328,10 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let borrow_slice_mut = (0..count)
         .into_iter()
         .map(|idx| format_ident!("borrow_slice_mut_{}", idx.to_string()));
-    let get_id = archetype_data
+    let get_id_component = archetype_data
         .components
         .iter()
-        .map(|component| format_ident!("__get_id_{}", component.name))
+        .map(|component| format_ident!("get_id_{}", to_snake(&component.name)))
         .collect::<Vec<_>>();
 
     // Variables/fields
@@ -425,9 +425,8 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
             #(
                 /// Helper function for getting the compile-time ID for the given component.
-                /// This can't be done via generics because traits can't have const fn yet.
-                #[doc(hidden)]
-                pub const fn #get_id() -> u8 {
+                // TODO: Change this to being generic-based once traits can have const fns.
+                pub const fn #get_id_component() -> u8 {
                     #COMPONENT_ID
                 }
             )*
