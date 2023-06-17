@@ -25,7 +25,7 @@ pub(crate) const ARCHETYPE_ID_BITS: u32 = ArchetypeId::BITS;
 /// used to safely avoid attempts to access data for a stale `Entity` handle.
 pub struct Entity<A: Archetype> {
     inner: EntityAny,
-    _type: PhantomData<A>,
+    _type: PhantomData<fn() -> A>,
 }
 
 /// A dynamically typed handle to an entity of some runtime archetype.
