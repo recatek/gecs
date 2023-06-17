@@ -342,6 +342,9 @@ seq!(N in 17..=32 {
 
 struct DataFixed<T, const N: usize>(Box<[MaybeUninit<T>; N]>);
 
+unsafe impl<T, const N: usize> Send for DataFixed<T, N> where T: Send {}
+unsafe impl<T, const N: usize> Sync for DataFixed<T, N> where T: Sync {}
+
 impl<T, const N: usize> DataFixed<T, N> {
     /// Creates a new fully uninitialized array.
     #[inline(always)]

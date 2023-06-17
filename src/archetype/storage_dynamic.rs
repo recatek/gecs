@@ -398,6 +398,9 @@ seq!(N in 17..=32 {
 
 pub struct DataDynamic<T>(NonNull<MaybeUninit<T>>);
 
+unsafe impl<T> Send for DataDynamic<T> where T: Send {}
+unsafe impl<T> Sync for DataDynamic<T> where T: Sync {}
+
 impl<T> DataDynamic<T> {
     /// Allocates a new data array with the given capacity, if any.
     ///
