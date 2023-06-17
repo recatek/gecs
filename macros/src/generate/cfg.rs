@@ -23,6 +23,7 @@ pub fn generate_cfg_checks(world: &ParseEcsWorld, raw: TokenStream) -> TokenStre
 
         macros.push(quote!(
             #[cfg(#predicate)]
+            #[doc(hidden)]
             #[macro_export]
             macro_rules! #this {
                 (($($bools:expr),*), $($args:tt)*) => {
@@ -31,6 +32,7 @@ pub fn generate_cfg_checks(world: &ParseEcsWorld, raw: TokenStream) -> TokenStre
             }
 
             #[cfg(not(#predicate))]
+            #[doc(hidden)]
             #[macro_export]
             macro_rules! #this {
                 (($($bools:expr),*), $($args:tt)*) => {
