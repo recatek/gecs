@@ -46,36 +46,36 @@ pub trait ArchetypeContainer: Sized {
         <Self as HasArchetype<A>>::resolve_is_empty(self)
     }
 
-    /// Adds a new entity with the given component data to the archetype, if there's room.
+    /// Creates a new entity with the given components in the archetype, if there's room.
     ///
     /// Returns a handle for accessing the new entity.
     ///
     /// # Panics
     ///
-    /// Panics if the archetype is full. For a panic-free version, use `try_push` instead.
-    fn push<A: Archetype>(&mut self, components: A::Components) -> Entity<A>
+    /// Panics if the archetype is full. For a panic-free version, use `try_create`.
+    fn create<A: Archetype>(&mut self, components: A::Components) -> Entity<A>
     where
         Self: HasArchetype<A>,
     {
-        <Self as HasArchetype<A>>::resolve_push(self, components)
+        <Self as HasArchetype<A>>::resolve_create(self, components)
     }
 
-    /// Adds a new entity with the given component data to the archetype, if there's room.
+    /// Creates a new entity with the given components in the archetype, if there's room.
     ///
     /// Returns a handle for accessing the new entity, or `None` if the archetype is full.
-    fn try_push<A: Archetype>(&mut self, components: A::Components) -> Option<Entity<A>>
+    fn try_create<A: Archetype>(&mut self, components: A::Components) -> Option<Entity<A>>
     where
         Self: HasArchetype<A>,
     {
-        <Self as HasArchetype<A>>::resolve_try_push(self, components)
+        <Self as HasArchetype<A>>::resolve_try_create(self, components)
     }
 
-    /// If the entity exists in the archetype, this removes it and returns its components.
-    fn remove<A: Archetype>(&mut self, entity: Entity<A>) -> Option<A::Components>
+    /// If the entity exists in the archetype, this destroys it and returns its components.
+    fn destroy<A: Archetype>(&mut self, entity: Entity<A>) -> Option<A::Components>
     where
         Self: HasArchetype<A>,
     {
-        <Self as HasArchetype<A>>::resolve_remove(self, entity)
+        <Self as HasArchetype<A>>::resolve_destroy(self, entity)
     }
 
     /// Gets a reference to the archetype of the given type from the world.
@@ -167,11 +167,11 @@ pub trait ComponentContainer: Archetype {
 ///     ecs_archetype!(ArchFoo, 100, CompA);
 /// }
 ///
-/// fn push_new<W>(world: &mut W)
+/// fn create_new<W>(world: &mut W)
 /// where
 ///     W: HasArchetype<ArchFoo>,
 /// {
-///     world.push::<ArchFoo>((CompA(1),));
+///     world.create::<ArchFoo>((CompA(1),));
 /// }
 ///
 /// # fn main() {} // Not actually running anything here
@@ -184,11 +184,11 @@ pub trait HasArchetype<A: Archetype>: ArchetypeContainer {
     #[doc(hidden)]
     fn resolve_is_empty(&self) -> bool;
     #[doc(hidden)]
-    fn resolve_push(&mut self, data: A::Components) -> Entity<A>;
+    fn resolve_create(&mut self, data: A::Components) -> Entity<A>;
     #[doc(hidden)]
-    fn resolve_try_push(&mut self, data: A::Components) -> Option<Entity<A>>;
+    fn resolve_try_create(&mut self, data: A::Components) -> Option<Entity<A>>;
     #[doc(hidden)]
-    fn resolve_remove(&mut self, entity: Entity<A>) -> Option<A::Components>;
+    fn resolve_destroy(&mut self, entity: Entity<A>) -> Option<A::Components>;
     #[doc(hidden)]
     fn resolve_archetype(&self) -> &A;
     #[doc(hidden)]

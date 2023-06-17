@@ -93,7 +93,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 ///
                 /// This will allocate all archetypes to either their fixed size, or the given
                 /// dynamic capacity. If a given dynamic capacity is 0, that archetype will not
-                /// allocate until an entity is pushed into it.
+                /// allocate until an entity is created in it.
                 ///
                 /// # Panics
                 ///
@@ -106,18 +106,18 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 }
 
 
-                /// Removes a given entity of any type from the world, if it exists.
+                /// Destroys the given entity and removes it from the world, if it exists.
                 ///
-                /// Return `true` if the entity was successfully removed, or `false` otherwise.
+                /// Return `true` if the entity was successfully destroyed, or `false` otherwise.
                 ///
-                /// Unlike other remove functions, this does not return the removed components.
+                /// Unlike other destroy functions, this does not return the entity's components.
                 /// If you need the returned components from an `EntityAny`, use the entity's
                 /// `resolve` type disambiguator and a match statement to get an `Entity<A>`.
-                pub fn remove_any(&mut self, entity: EntityAny) -> bool {
+                pub fn destroy_any(&mut self, entity: EntityAny) -> bool {
                     match entity.into() {
                         #(
                             #EntityWorld::#Archetype(entity) =>
-                                self.#archetype.remove(entity).is_some(),
+                                self.#archetype.destroy(entity).is_some(),
                         )*
                     }
                 }
@@ -143,24 +143,24 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                     }
 
                     #[inline(always)]
-                    fn resolve_push(&mut self, data: <#Archetype as Archetype>::Components)
+                    fn resolve_create(&mut self, data: <#Archetype as Archetype>::Components)
                         -> Entity<#Archetype>
                     {
-                        self.#archetype.push(data)
+                        self.#archetype.create(data)
                     }
 
                     #[inline(always)]
-                    fn resolve_try_push(&mut self, data: <#Archetype as Archetype>::Components)
+                    fn resolve_try_create(&mut self, data: <#Archetype as Archetype>::Components)
                         -> Option<Entity<#Archetype>>
                     {
-                        self.#archetype.try_push(data)
+                        self.#archetype.try_create(data)
                     }
 
                     #[inline(always)]
-                    fn resolve_remove(&mut self, entity: Entity<#Archetype>)
+                    fn resolve_destroy(&mut self, entity: Entity<#Archetype>)
                         -> Option<<#Archetype as Archetype>::Components>
                     {
-                        self.#archetype.remove(entity)
+                        self.#archetype.destroy(entity)
                     }
 
                     #[inline(always)]
@@ -352,7 +352,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             /// Constructs a new, empty archetype.
             ///
             /// If the archetype uses dynamic storage, this archetype will not allocate until
-            /// an entity is pushed into it. Otherwise, for static storage, the full capacity
+            /// an entity is added to it. Otherwise, for static storage, the full capacity
             /// will be allocated on creation of the archetype.
             #[inline(always)]
             pub fn new() -> Self {
@@ -383,23 +383,23 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 self.data.is_empty()
             }
 
-            /// Adds a new entity with the given component data to the archetype, if there's room.
+            /// Creates a new entity with the given components in the archetype, if there's room.
             ///
             /// Returns a handle for accessing the new entity.
             ///
             /// # Panics
             ///
-            /// Panics if the archetype is full. For a panic-free version, use `try_push` instead.
+            /// Panics if the archetype is full. For a panic-free version, use `try_create`.
             #[inline(always)]
-            pub fn push(&mut self, data: (#(#Component,)*)) -> Entity<#Archetype> {
+            pub fn create(&mut self, data: (#(#Component,)*)) -> Entity<#Archetype> {
                 self.data.try_push(data).expect("failed to push to full archetype")
             }
 
-            /// Adds a new entity with the given component data to the archetype, if there's room.
+            /// Creates a new entity with the given components in the archetype, if there's room.
             ///
             /// Returns a handle for accessing the new entity, or `None` if the archetype is full.
             #[inline(always)]
-            pub fn try_push(&mut self, data: (#(#Component,)*)) -> Option<Entity<#Archetype>> {
+            pub fn try_create(&mut self, data: (#(#Component,)*)) -> Option<Entity<#Archetype>> {
                 self.data.try_push(data)
             }
 
@@ -410,9 +410,9 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 self.data.resolve(entity)
             }
 
-            /// If the entity exists in the archetype, this removes it and returns its components.
+            /// If the entity exists in the archetype, this destroys it and returns its components.
             #[inline(always)]
-            pub fn remove(&mut self, entity: Entity<#Archetype>) -> Option<(#(#Component,)*)> {
+            pub fn destroy(&mut self, entity: Entity<#Archetype>) -> Option<(#(#Component,)*)> {
                 self.data.remove(entity)
             }
 

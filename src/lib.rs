@@ -56,9 +56,9 @@
 //! fn main() {
 //!     let mut world = World::default(); // Initialize an empty new ECS world.
 //!
-//!     // Add entities to the world by pushing their components and receiving a handle.
-//!     let entity_a = world.push::<ArchFoo>((CompA(1), CompB(20)));
-//!     let entity_b = world.push::<ArchBar>((CompA(3), CompC(40)));
+//!     // Add entities to the world by populating their components and receive their handles.
+//!     let entity_a = world.create::<ArchFoo>((CompA(1), CompB(20)));
+//!     let entity_b = world.create::<ArchBar>((CompA(3), CompC(40)));
 //!
 //!     // Each archetype now has one entity.
 //!     assert_eq!(world.len::<ArchFoo>(), 1);
@@ -81,9 +81,9 @@
 //!     ecs_iter!(world, |entity: &EntityAny, _: &CompA| { found.push(*entity); });
 //!     assert!(found == vec![entity_a.into(), entity_b.into()]);
 //!
-//!     // Remove both entities -- this will return an Option containing their components.
-//!     assert!(world.remove(entity_a).is_some());
-//!     assert!(world.remove(entity_b).is_some());
+//!     // Destroy both entities -- this will return an Option containing their components.
+//!     assert!(world.destroy(entity_a).is_some());
+//!     assert!(world.destroy(entity_b).is_some());
 //!
 //!     // Try to look up a stale entity handle -- this will return false.
 //!     assert_eq!(ecs_find!(world, entity_a, |_: &Entity<ArchFoo>| { panic!() }), false);
@@ -209,22 +209,22 @@ mod macros {
     ///     // other fixed-size archetypes will always be created sized to their full capacity.
     ///     let mut world = MyWorld::with_capacity(30);
     ///
-    ///     // Push an ArchFoo entity into the world and unwrap the Option<Entity<ArchFoo>>.
-    ///     // Alternatively, we could use .push(), which will panic if the archetype is full.
-    ///     let entity_a = world.try_push::<ArchFoo>((CompA(0), CompB(1))).unwrap();
+    ///     // Create an ArchFoo entity in the world and unwrap the Option<Entity<ArchFoo>>.
+    ///     // Alternatively, we could use .create(), which will panic if the archetype is full.
+    ///     let entity_a = world.try_create::<ArchFoo>((CompA(0), CompB(1))).unwrap();
     ///
     ///     // The length of the archetype should now be 1.
     ///     assert_eq!(world.len::<ArchFoo>(), 1);
     ///
-    ///     // Remove the entity (we don't need to turbofish because this is an Entity<ArchFoo>).
-    ///     world.remove(entity_a);
+    ///     // Destroy the entity (we don't need to turbofish because this is an Entity<ArchFoo>).
+    ///     world.destroy(entity_a);
     ///
     ///     assert_eq!(world.len::<ArchFoo>(), 0);
     ///     assert!(world.is_empty::<ArchFoo>());
     ///
     ///     // Use of #[cfg]-conditionals.
-    ///     #[cfg(feature = "some_feature")] world.push::<ArchBar>((CompA(2), CompB(3), CompC(4)));
-    ///     world.push::<ArchBaz>((CompA(5), CompB(6), #[cfg(feature = "some_feature")] CompC(7)));
+    ///     #[cfg(feature = "some_feature")] world.create::<ArchBar>((CompA(2), CompB(3), CompC(4)));
+    ///     world.create::<ArchBaz>((CompA(5), CompB(6), #[cfg(feature = "some_feature")] CompC(7)));
     ///
     ///     // Use of #[archetype_id(N)] assignment.
     ///     assert_eq!(ArchFoo::ARCHETYPE_ID, 0);
@@ -264,7 +264,7 @@ mod macros {
     ///
     /// fn main() {
     ///     let mut world = World::default();
-    ///     let entity = world.push::<ArchFoo>((CompA, CompB));
+    ///     let entity = world.create::<ArchFoo>((CompA, CompB));
     ///     assert!(ecs_find!(world, entity, || {}));
     /// }
     /// ```
@@ -337,9 +337,9 @@ mod macros {
     /// fn main() {
     ///     let mut world = World::default();
     ///
-    ///     let entity_a = world.archetype_mut::<ArchFoo>().push((CompA, CompC));
-    ///     let entity_b = world.archetype_mut::<ArchBar>().push((CompA, CompB, CompC));
-    ///     let entity_c = world.archetype_mut::<ArchBaz>().push((CompA, CompB, CompC));
+    ///     let entity_a = world.archetype_mut::<ArchFoo>().create((CompA, CompC));
+    ///     let entity_b = world.archetype_mut::<ArchBar>().create((CompA, CompB, CompC));
+    ///     let entity_c = world.archetype_mut::<ArchBaz>().create((CompA, CompB, CompC));
     ///
     ///     ecs_find!(world, entity_a, |_: &CompC| {
     ///         assert_eq!(ecs_component_id!(CompC), 1);
@@ -427,8 +427,8 @@ mod macros {
     /// fn main() {
     ///     let mut world = World::default();
     ///
-    ///     let entity_a = world.push::<ArchFoo>((CompA(0), CompB(0)));
-    ///     let entity_b = world.push::<ArchBar>((CompA(0), CompC(0)));
+    ///     let entity_a = world.create::<ArchFoo>((CompA(0), CompB(0)));
+    ///     let entity_b = world.create::<ArchBar>((CompA(0), CompC(0)));
     ///
     ///     assert!(ecs_find!(world, entity_a, |c: &CompA| assert_eq!(c.0, 0)));
     ///     assert!(ecs_find!(world, entity_b, |c: &CompA| assert_eq!(c.0, 0)));
@@ -472,8 +472,8 @@ mod macros {
     /// fn main() {
     ///     let mut world = World::default();
     ///
-    ///     let parent = world.push::<ArchFoo>((CompA(0), CompB(0), Parent(None)));
-    ///     let child = world.push::<ArchFoo>((CompA(1), CompB(0), Parent(Some(parent))));
+    ///     let parent = world.create::<ArchFoo>((CompA(0), CompB(0), Parent(None)));
+    ///     let child = world.create::<ArchFoo>((CompA(1), CompB(0), Parent(Some(parent))));
     ///
     ///     // Assert that we found the parent, and that its CompB value is 0.
     ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 0)));
@@ -551,8 +551,8 @@ mod macros {
     ///     let mut vec_b = Vec::<EntityAny>::new();
     ///     let mut vec_c = Vec::<EntityAny>::new();
     ///
-    ///     let entity_a = world.push::<ArchFoo>((CompA(0), CompB(0)));
-    ///     let entity_b = world.push::<ArchBar>((CompA(0), CompC(0)));
+    ///     let entity_a = world.create::<ArchFoo>((CompA(0), CompB(0)));
+    ///     let entity_b = world.create::<ArchBar>((CompA(0), CompC(0)));
     ///
     ///     // This iterates both ArchFoo and ArchBar since both have a CompA.
     ///     ecs_iter!(world, |entity: &EntityAny, a: &mut CompA| {
@@ -642,8 +642,8 @@ mod macros {
 /// fn main() {
 ///     let mut world = World::default();
 ///
-///     let entity_a = world.archetype_mut::<ArchFoo>().push((CompA(1), CompB(10)));
-///     let entity_b = world.archetype_mut::<ArchBar>().push((CompA(1), CompC(10)));
+///     let entity_a = world.archetype_mut::<ArchFoo>().create((CompA(1), CompB(10)));
+///     let entity_b = world.archetype_mut::<ArchBar>().create((CompA(1), CompC(10)));
 ///
 ///     let mut sum_a = 0;
 ///     let mut sum_b = 0;

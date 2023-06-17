@@ -55,9 +55,9 @@ ecs_world! {
 fn main() {
     let mut world = World::default(); // Initialize an empty new ECS world.
 
-    // Add entities to the world by pushing their components and receiving a handle.
-    let entity_a = world.push::<ArchFoo>((CompA(1), CompB(20)));
-    let entity_b = world.push::<ArchBar>((CompA(3), CompC(40)));
+    // Add entities to the world by populating their components and receive their handles.
+    let entity_a = world.create::<ArchFoo>((CompA(1), CompB(20)));
+    let entity_b = world.create::<ArchBar>((CompA(3), CompC(40)));
 
     // Each archetype now has one entity.
     assert_eq!(world.len::<ArchFoo>(), 1);
@@ -80,15 +80,14 @@ fn main() {
     ecs_iter!(world, |entity: &EntityAny, _: &CompA| { found.push(*entity); });
     assert!(found == vec![entity_a.into(), entity_b.into()]);
 
-    // Remove both entities -- this will return an Option containing their components.
-    assert!(world.remove(entity_a).is_some());
-    assert!(world.remove(entity_b).is_some());
+    // Destroy both entities -- this will return an Option containing their components.
+    assert!(world.destroy(entity_a).is_some());
+    assert!(world.destroy(entity_b).is_some());
 
     // Try to look up a stale entity handle -- this will return false.
     assert_eq!(ecs_find!(world, entity_a, |_: &Entity<ArchFoo>| { panic!() }), false);
 }
 ```
-
 License
 -------
 

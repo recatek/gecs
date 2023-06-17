@@ -130,6 +130,8 @@ macro_rules! declare_storage_fixed_n {
                 /// Removes the given entity from storage if it exists there.
                 /// Returns the removed entity's components, if any.
                 ///
+                /// This effectively destroys the entity by invalidating all handles to it.
+                ///
                 /// # Panics
                 ///
                 /// This function may panic if a slot's generational version overflows,

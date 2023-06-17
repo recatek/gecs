@@ -29,8 +29,8 @@ ecs_world! {
 fn test_one_of_basic() {
     let mut world = World::default();
 
-    let entity_a = world.archetype_mut::<ArchFoo>().push((CompA(1), CompB(10)));
-    let entity_b = world.archetype_mut::<ArchBar>().push((CompA(1), CompC(10)));
+    let entity_a = world.archetype_mut::<ArchFoo>().create((CompA(1), CompB(10)));
+    let entity_b = world.archetype_mut::<ArchBar>().create((CompA(1), CompC(10)));
 
     ecs_iter!(world, |entity: &Entity<_>| {
         match entity.resolve() {
