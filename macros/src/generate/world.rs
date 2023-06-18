@@ -32,6 +32,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         .iter()
         .map(|archetype| format_ident!("{}", to_snake(&archetype.name)))
         .collect::<Vec<_>>();
+    let num_archetypes = world_data.archetypes.len();
 
     // Generated subsections
     let section_archetype = world_data
@@ -85,6 +86,11 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                     Self {
                         #( #archetype: #Archetype::new(), )*
                     }
+                }
+
+                /// Returns the total number of archetypes in this world.
+                pub const fn num_archetypes() -> usize {
+                    #num_archetypes
                 }
 
                 /// Creates a new world with per-archetype capacities.
