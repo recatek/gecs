@@ -10,6 +10,8 @@ use crate::traits::Archetype;
 // macros need to be updated manually with the new type assumptions.
 pub type ArchetypeId = u8;
 
+// The version to assign all entity slots on creation.
+pub(crate) const ENTITY_START_VERSION: u32 = 1;
 // How many bits of a u32 entity index are reserved for the archetype ID.
 pub(crate) const ARCHETYPE_ID_BITS: u32 = ArchetypeId::BITS;
 
@@ -78,6 +80,14 @@ impl<A: Archetype> Entity<A> {
         }
     }
 
+    /// Converts this `Entity<A>` directly into an `EntityAny`.
+    ///
+    /// Useful for situations where type inference can't deduce a conversion.
+    #[inline(always)]
+    pub fn into_any(self) -> EntityAny {
+        self.inner
+    }
+
     /// Returns this entity's raw `ARCHETYPE_ID` value.
     ///
     /// This is the same `ARCHETYPE_ID` as the archetype this entity belongs to.
@@ -90,6 +100,7 @@ impl<A: Archetype> Entity<A> {
 impl EntityAny {
     #[inline(always)]
     pub(crate) fn new(index: DataIndex, archetype_id: ArchetypeId, version: NonZeroU32) -> Self {
+        debug_assert!(version.get() >= ENTITY_START_VERSION);
         let archetype_id: u32 = archetype_id.into();
         let data = (index.get() << ARCHETYPE_ID_BITS) | archetype_id;
         Self { data, version }

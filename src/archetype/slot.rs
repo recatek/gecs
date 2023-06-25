@@ -1,12 +1,13 @@
 use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 
+use crate::entity::ENTITY_START_VERSION;
 use crate::error::EcsError;
 use crate::index::{DataIndex, MAX_DATA_CAPACITY, MAX_DATA_INDEX};
 use crate::util::{num_assert_leq, num_assert_lt};
 
 // This is a slightly messy hack to create a NonZeroU32 constant.
-const VERSION_START: NonZeroU32 = match NonZeroU32::new(1) {
+const VERSION_START: NonZeroU32 = match NonZeroU32::new(ENTITY_START_VERSION) {
     Some(v) => v,
     None => [][0],
 };
