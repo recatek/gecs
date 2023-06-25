@@ -260,13 +260,13 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             }
         }
 
-        #[doc(hidden)]
+        #[doc(inline)]
         pub use #__ecs_find_unique as ecs_find;
-        #[doc(hidden)]
+        #[doc(inline)]
         pub use #__ecs_find_borrow_unique as ecs_find_borrow;
-        #[doc(hidden)]
+        #[doc(inline)]
         pub use #__ecs_iter_unique as ecs_iter;
-        #[doc(hidden)]
+        #[doc(inline)]
         pub use #__ecs_iter_borrow_unique as ecs_iter_borrow;
     )
 }
