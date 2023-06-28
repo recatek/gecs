@@ -14,7 +14,7 @@ use crate::traits::Archetype;
 use crate::util::{debug_checked_assume, num_assert_leq};
 
 macro_rules! declare_storage_dynamic_n {
-    ($name:ident, $slices:ident, $n:literal) => {
+    ($name:ident, $read_only:ident, $slices:ident, $slices_mut:ident, $n:literal) => {
         seq!(I in 0..$n {
             pub struct $name<A: Archetype, #(T~I,)*> {
                 len: usize,
@@ -229,6 +229,41 @@ macro_rules! declare_storage_dynamic_n {
                     }
                 }
 
+                /// Populates a slice struct with slices to our stored data.
+                #[inline(always)]
+                pub fn get_all_slices_mut<'a, S: $slices_mut<'a, A, #(T~I,)*>>(&'a mut self,) -> S {
+                    unsafe {
+                        // SAFETY: We guarantee that the storage is valid up to self.len.
+                        S::new(
+                            self.entities.slice(self.len),
+                            #(self.d~I.get_mut().slice_mut(self.len),)*
+                        )
+                    }
+                }
+
+                /// Populates a slice struct with slices to our stored data.
+                ///
+                /// # Safety
+                ///
+                /// This function bypasses all runtime borrow checking on our stored slices.
+                /// This operation is undefined if any of the slices in this storage are already
+                /// mutably borrowed. Additionally, mutably borrowing any slices in this storage
+                /// while these slice references are live will also result in undefined behavior.
+                ///
+                /// See [`std::cell::RefCell::try_borrow_unguarded`] for more information on the
+                /// second constraint above. The first constraint comes from `unwrap_unchecked`
+                /// on the result.
+                #[inline(always)]
+                pub unsafe fn get_all_slices_unchecked<'a, S: $slices<'a, A, #(T~I,)*>>(&'a self,) -> S {
+                    unsafe {
+                        // SAFETY: We guarantee that the storage is valid up to self.len.
+                        S::new(
+                            self.entities.slice(self.len),
+                            #(self.d~I.try_borrow_unguarded().unwrap_unchecked().slice(self.len),)*
+                        )
+                    }
+                }
+
                 /// Gets a read-only slice of our currently stored entity handles.
                 #[inline(always)]
                 pub fn get_slice_entities(&self) -> &[Entity<A>] {
@@ -248,12 +283,33 @@ macro_rules! declare_storage_dynamic_n {
                         }
                     }
 
-                    /// Gets a slice of the given component index.
+                    /// Gets a mutable slice of the given component index.
                     #[inline(always)]
                     pub fn get_slice_mut_~I(&mut self) -> &mut [T~I] {
                         unsafe {
                             // SAFETY: We guarantee that the storage is valid up to self.len.
                             self.d~I.get_mut().slice_mut(self.len)
+                        }
+                    }
+
+                    /// Gets a slice of the given component index.
+                    ///
+                    /// # Safety
+                    ///
+                    /// This function bypasses all runtime borrow checking on our stored slices.
+                    /// This operation is undefined if any of the slices in this storage are already
+                    /// mutably borrowed. Additionally, mutably borrowing any slices in this storage
+                    /// while these slice references are live will also result in undefined behavior.
+                    ///
+                    /// See [`std::cell::RefCell::try_borrow_unguarded`] for more information on the
+                    /// second constraint above. The first constraint comes from `unwrap_unchecked`
+                    /// on the result.
+                    #[inline(always)]
+                    pub unsafe fn get_slice_unchecked_~I(&self) -> &[T~I] {
+                        unsafe {
+                            // SAFETY: The caller guarantees that this is not mutably borrowed.
+                            // SAFETY: We guarantee that the storage is valid up to self.len.
+                            self.d~I.try_borrow_unguarded().unwrap_unchecked().slice(self.len)
                         }
                     }
 
@@ -387,15 +443,97 @@ macro_rules! declare_storage_dynamic_n {
     };
 }
 
+#[cfg(feature = "read_only")]
+macro_rules! declare_storage_dynamic_read_only_n {
+    ($name:ident, $read_only:ident, $slices:ident, $slices_mut:ident, $n:literal) => {
+        seq!(I in 0..$n {
+            impl<A: Archetype, #(T~I,)*> $name<A, #(T~I,)*>
+            {
+                #[inline(always)]
+                pub fn as_read_only(&mut self) -> $read_only<A, #(T~I,)*> {
+                    $read_only { source: self }
+                }
+            }
+
+            pub struct $read_only<'a, A: Archetype, #(T~I,)*> {
+                source: &'a mut $name<A, #(T~I,)*>,
+            }
+
+            impl<'a, A: Archetype, #(T~I,)*> $read_only<'a, A, #(T~I,)*>
+            {
+                #[inline(always)]
+                pub const fn len(&self) -> usize {
+                    self.source.len
+                }
+
+                #[inline(always)]
+                pub const fn is_empty(&self) -> bool {
+                    self.source.len == 0
+                }
+
+                #[inline(always)]
+                pub const fn capacity(&self) -> usize {
+                    self.source.capacity()
+                }
+
+                /// Resolves an entity to an index in the storage data slices.
+                /// This index is guaranteed to be in bounds and point to valid data.
+                #[inline(always)]
+                pub fn resolve(&self, entity: Entity<A>) -> Option<usize> {
+                    self.source.resolve(entity)
+                }
+
+                /// Gets a read-only slice of our currently stored entity handles.
+                #[inline(always)]
+                pub fn get_slice_entities(&self) -> &[Entity<A>] {
+                    self.source.get_slice_entities()
+                }
+
+                #(
+                    /// Gets a slice of the given component index.
+                    #[inline(always)]
+                    pub fn get_slice_~I(&self) -> &[T~I] {
+                        // SAFETY: This is UB if the slice is either already mutably borrowed,
+                        // or mutably borrowed after this point. However, we wrap a mutable
+                        // reference to the underlying structure, which means we have exclusive
+                        // access to it. That means that nobody could mutably borrow its
+                        // contents other than us, and this structure will never do so.
+                        unsafe {
+                            self.source.get_slice_unchecked_~I()
+                        }
+                    }
+
+                    /// Borrows the slice of the given component index.
+                    #[inline(always)]
+                    pub fn borrow_slice_~I(&self) -> Ref<[T~I]> {
+                        self.source.borrow_slice_~I()
+                    }
+                )*
+            }
+        });
+    };
+}
+
 // Declare storage for up to 16 components.
 seq!(N in 1..=16 {
-    declare_storage_dynamic_n!(StorageDynamic~N, Slices~N, N);
+    declare_storage_dynamic_n!(StorageDynamic~N, StorageDynamicReadOnly~N, Slices~N, SlicesMut~N, N);
+});
+
+#[cfg(feature = "read_only")]
+seq!(N in 1..=16 {
+    declare_storage_dynamic_read_only_n!(StorageDynamic~N, StorageDynamicReadOnly~N, Slices~N, SlicesMut~N, N);
 });
 
 // Declare additional storage for up to 32 components.
 #[cfg(feature = "32_components")]
 seq!(N in 17..=32 {
-    declare_storage_dynamic_n!(StorageDynamic~N, Slices~N, N);
+    declare_storage_dynamic_n!(StorageDynamic~N, StorageDynamicReadOnly~N, Slices~N, SlicesMut~N, N);
+});
+
+#[cfg(feature = "32_components")]
+#[cfg(feature = "read_only")]
+seq!(N in 1..=16 {
+    declare_storage_dynamic_read_only_n!(StorageDynamic~N, StorageDynamicReadOnly~N, Slices~N, SlicesMut~N, N);
 });
 
 pub struct DataDynamic<T>(NonNull<MaybeUninit<T>>);

@@ -681,9 +681,16 @@ pub mod prelude {
     pub use gecs_macros::{ecs_component_id, ecs_world};
 
     pub use entity::{ArchetypeId, Entity, EntityAny};
+
     pub use traits::Archetype;
-    pub use traits::{ArchetypeContainer, ComponentContainer};
-    pub use traits::{HasArchetype, HasComponent};
+
+    pub use traits::{ArchetypeContainer, HasArchetype};
+    pub use traits::{ArchetypeContainerMut, HasArchetypeMut};
+    pub use traits::{ArchetypeContainerReadOnly, HasArchetypeReadOnly};
+
+    pub use traits::{ComponentContainer, HasComponent};
+    pub use traits::{ComponentContainerMut, HasComponentMut};
+    pub use traits::{ComponentContainerReadOnly, HasComponentReadOnly};
 }
 
 #[doc(hidden)]
@@ -699,6 +706,12 @@ pub mod __internal {
     pub use archetype::storage_fixed::*;
 
     pub use traits::Archetype;
-    pub use traits::{ArchetypeContainer, ComponentContainer};
-    pub use traits::{HasArchetype, HasComponent};
+
+    pub use traits::{ArchetypeContainer, HasArchetype};
+    pub use traits::{ArchetypeContainerMut, HasArchetypeMut};
+    pub use traits::{ArchetypeContainerReadOnly, HasArchetypeReadOnly};
+
+    pub use traits::{ComponentContainer, HasComponent};
+    pub use traits::{ComponentContainerMut, HasComponentMut};
+    pub use traits::{ComponentContainerReadOnly, HasComponentReadOnly};
 }

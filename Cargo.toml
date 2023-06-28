@@ -11,10 +11,11 @@ keywords = ["ecs", "entity"]
 categories = ["data-structures", "game-engines"]
 
 [features]
-default = []
+default = ["read_only"]
+read_only = ["gecs_macros/read_only"]
 32_components = []
 
 [dependencies]
-gecs_macros = { version = "0.2.2", path = "macros" }
+gecs_macros = { version = "0.2.2", path = "macros", default_features = false }
 
 seq-macro = { version = "0.3" } # For building "variadic" storage
