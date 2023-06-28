@@ -11,8 +11,7 @@ keywords = ["ecs", "entity"]
 categories = ["data-structures", "game-engines"]
 
 [features]
-default = ["read_only"]
-read_only = ["gecs_macros/read_only"]
+default = []
 32_components = []
 
 [dependencies]

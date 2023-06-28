@@ -387,98 +387,17 @@ macro_rules! declare_storage_fixed_n {
     };
 }
 
-#[cfg(feature = "read_only")]
-macro_rules! declare_storage_fixed_read_only_n {
-    ($name:ident, $read_only:ident, $slices:ident, $slices_mut:ident, $n:literal) => {
-        seq!(I in 0..$n {
-            impl<A: Archetype, #(T~I,)* const N: usize> $name<A, #(T~I,)* N>
-            {
-                #[inline(always)]
-                pub fn as_read_only(&mut self) -> $read_only<A, #(T~I,)* N> {
-                    $read_only { source: self }
-                }
-            }
-
-            pub struct $read_only<'a, A: Archetype, #(T~I,)* const N: usize> {
-                source: &'a mut $name<A, #(T~I,)* N>,
-            }
-
-            impl<'a, A: Archetype, #(T~I,)* const N: usize> $read_only<'a, A, #(T~I,)* N>
-            {
-                #[inline(always)]
-                pub const fn len(&self) -> usize {
-                    self.source.len
-                }
-
-                #[inline(always)]
-                pub const fn is_empty(&self) -> bool {
-                    self.source.len == 0
-                }
-
-                #[inline(always)]
-                pub const fn capacity(&self) -> usize {
-                    self.source.capacity()
-                }
-
-                /// Resolves an entity to an index in the storage data slices.
-                /// This index is guaranteed to be in bounds and point to valid data.
-                #[inline(always)]
-                pub fn resolve(&self, entity: Entity<A>) -> Option<usize> {
-                    self.source.resolve(entity)
-                }
-
-                /// Gets a read-only slice of our currently stored entity handles.
-                #[inline(always)]
-                pub fn get_slice_entities(&self) -> &[Entity<A>] {
-                    self.source.get_slice_entities()
-                }
-
-                #(
-                    /// Gets a slice of the given component index.
-                    #[inline(always)]
-                    pub fn get_slice_~I(&self) -> &[T~I] {
-                        // SAFETY: This is UB if the slice is either already mutably borrowed,
-                        // or mutably borrowed after this point. However, we wrap a mutable
-                        // reference to the underlying structure, which means we have exclusive
-                        // access to it. That means that nobody could mutably borrow its
-                        // contents other than us, and this structure will never do so.
-                        unsafe {
-                            self.source.get_slice_unchecked_~I()
-                        }
-                    }
-
-                    /// Borrows the slice of the given component index.
-                    #[inline(always)]
-                    pub fn borrow_slice_~I(&self) -> Ref<[T~I]> {
-                        self.source.borrow_slice_~I()
-                    }
-                )*
-            }
-        });
-    };
-}
-
 // Declare storage for up to 16 components.
 seq!(N in 1..=16 {
-    declare_storage_fixed_n!(StorageFixed~N, StorageFixedReadOnly~N, Slices~N, SlicesMut~N, N);
-});
-
-#[cfg(feature = "read_only")]
-seq!(N in 1..=16 {
-    declare_storage_fixed_read_only_n!(StorageFixed~N, StorageFixedReadOnly~N, Slices~N, SlicesMut~N, N);
+    declare_storage_fixed_n!(StorageFixed~N, StorageFixedStable~N, Slices~N, SlicesMut~N, N);
 });
 
 // Declare additional storage for up to 32 components.
 #[cfg(feature = "32_components")]
 seq!(N in 17..=32 {
-    declare_storage_fixed_n!(StorageFixed~N, StorageFixedReadOnly~N, Slices~N, SlicesMut~N, N);
+    declare_storage_fixed_n!(StorageFixed~N, StorageFixedStable~N, Slices~N, SlicesMut~N, N);
 });
 
-#[cfg(feature = "32_components")]
-#[cfg(feature = "read_only")]
-seq!(N in 1..=16 {
-    declare_storage_fixed_read_only_n!(StorageFixed~N, StorageFixedReadOnly~N, Slices~N, SlicesMut~N, N);
-});
 struct DataFixed<T, const N: usize>(Box<[MaybeUninit<T>; N]>);
 
 unsafe impl<T, const N: usize> Send for DataFixed<T, N> where T: Send {}

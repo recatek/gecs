@@ -27,15 +27,6 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         .map(|archetype| format_ident!("{}", archetype.name))
         .collect::<Vec<_>>();
 
-    #[cfg(feature = "read_only")]
-    let WorldReadOnly = format_ident!("{}ReadOnly", world_data.name);
-    #[cfg(feature = "read_only")]
-    let ArchetypeReadOnly = world_data
-        .archetypes
-        .iter()
-        .map(|archetype| format_ident!("{}ReadOnly", archetype.name))
-        .collect::<Vec<_>>();
-
     // Variables and fields
     let archetype = world_data
         .archetypes
@@ -67,50 +58,6 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     let __ecs_iter_unique = format_ident!("__ecs_iter_{}", unique_hash);
     let __ecs_iter_borrow_unique = format_ident!("__ecs_iter_borrow_{}", unique_hash);
 
-    #[cfg(not(feature = "read_only"))]
-    let read_only = quote!();
-    #[cfg(feature = "read_only")]
-    let read_only = quote!(
-        // pub struct #WorldReadOnly {
-        //     #(
-        //         pub #archetype: #ArchetypeReadOnly,
-        //     )*
-        // }
-
-        // impl #WorldReadOnly {
-        //     /// Returns the total number of archetypes in this world.
-        //     pub const fn num_archetypes() -> usize {
-        //         #num_archetypes
-        //     }
-        // }
-
-        // impl ArchetypeContainer for #WorldReadOnly {}
-
-        // #(
-        //     impl HasArchetype<#Archetype> for #WorldReadOnly {
-        //         #[inline(always)]
-        //         fn resolve_len(&self) -> usize {
-        //             self.#archetype.len()
-        //         }
-
-        //         #[inline(always)]
-        //         fn resolve_capacity(&self) -> usize {
-        //             self.#archetype.capacity()
-        //         }
-
-        //         #[inline(always)]
-        //         fn resolve_is_empty(&self) -> bool {
-        //             self.#archetype.is_empty()
-        //         }
-
-        //         #[inline(always)]
-        //         fn resolve_archetype(&self) -> &#Archetype {
-        //             &self.#archetype
-        //         }
-        //     }
-        // )*
-    );
-
     quote!(
         pub use #ecs_world_sealed::{#World, #EntityWorld, #EntityWorldExt};
         #( pub use #ecs_world_sealed::#Archetype; )*
@@ -123,8 +70,6 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             use ::gecs::__internal::*;
 
             #(#section_archetype)*
-
-            #read_only // Read-only world declaration, if enabled.
 
             #[derive(Default)]
             pub struct #World {
@@ -186,7 +131,6 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             }
 
             impl ArchetypeContainer for #World {}
-            impl ArchetypeContainerMut for #World {}
 
             #(
                 impl HasArchetype<#Archetype> for #World {
@@ -206,18 +150,6 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                     }
 
                     #[inline(always)]
-                    fn resolve_resolve(&self, entity: Entity<#Archetype>) -> Option<usize> {
-                        self.#archetype.resolve(entity)
-                    }
-
-                    #[inline(always)]
-                    fn resolve_archetype(&self) -> &#Archetype {
-                        &self.#archetype
-                    }
-                }
-
-                impl HasArchetypeMut<#Archetype> for #World {
-                    #[inline(always)]
                     fn resolve_create(&mut self, data: <#Archetype as Archetype>::Components)
                         -> Entity<#Archetype>
                     {
@@ -232,10 +164,20 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                     }
 
                     #[inline(always)]
+                    fn resolve_resolve(&self, entity: Entity<#Archetype>) -> Option<usize> {
+                        self.#archetype.resolve(entity)
+                    }
+
+                    #[inline(always)]
                     fn resolve_destroy(&mut self, entity: Entity<#Archetype>)
                         -> Option<<#Archetype as Archetype>::Components>
                     {
                         self.#archetype.destroy(entity)
+                    }
+
+                    #[inline(always)]
+                    fn resolve_archetype(&self) -> &#Archetype {
+                        &self.#archetype
                     }
 
                     #[inline(always)]
@@ -523,17 +465,9 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         }
 
         impl ComponentContainer for #Archetype {}
-        impl ComponentContainerMut for #Archetype {}
 
         #(
             impl HasComponent<#Component> for #Archetype {
-                #[inline(always)]
-                fn resolve_borrow_slice(&self) -> Ref<[#Component]> {
-                    self.data.#borrow_slice()
-                }
-            }
-
-            impl HasComponentMut<#Component> for #Archetype {
                 #[inline(always)]
                 fn resolve_get_slice(&mut self) -> &[#Component] {
                     self.data.#get_slice()
@@ -542,6 +476,11 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 #[inline(always)]
                 fn resolve_get_slice_mut(&mut self) -> &mut [#Component] {
                     self.data.#get_slice_mut()
+                }
+
+                #[inline(always)]
+                fn resolve_borrow_slice(&self) -> Ref<[#Component]> {
+                    self.data.#borrow_slice()
                 }
 
                 #[inline(always)]

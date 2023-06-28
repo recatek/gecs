@@ -11,8 +11,7 @@ license = "MIT OR Apache-2.0"
 proc-macro = true
 
 [features]
-default = ["read_only"]
-read_only = []
+default = []
 
 [dependencies]
 convert_case = { version = "0.6" }

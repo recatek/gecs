@@ -683,14 +683,8 @@ pub mod prelude {
     pub use entity::{ArchetypeId, Entity, EntityAny};
 
     pub use traits::Archetype;
-
     pub use traits::{ArchetypeContainer, HasArchetype};
-    pub use traits::{ArchetypeContainerMut, HasArchetypeMut};
-    pub use traits::{ArchetypeContainerReadOnly, HasArchetypeReadOnly};
-
     pub use traits::{ComponentContainer, HasComponent};
-    pub use traits::{ComponentContainerMut, HasComponentMut};
-    pub use traits::{ComponentContainerReadOnly, HasComponentReadOnly};
 }
 
 #[doc(hidden)]
@@ -706,12 +700,6 @@ pub mod __internal {
     pub use archetype::storage_fixed::*;
 
     pub use traits::Archetype;
-
     pub use traits::{ArchetypeContainer, HasArchetype};
-    pub use traits::{ArchetypeContainerMut, HasArchetypeMut};
-    pub use traits::{ArchetypeContainerReadOnly, HasArchetypeReadOnly};
-
     pub use traits::{ComponentContainer, HasComponent};
-    pub use traits::{ComponentContainerMut, HasComponentMut};
-    pub use traits::{ComponentContainerReadOnly, HasComponentReadOnly};
 }
