@@ -8,6 +8,8 @@ mod kw {
 
     syn::custom_keyword!(Entity);
     syn::custom_keyword!(EntityAny);
+    syn::custom_keyword!(EntityRaw);
+    syn::custom_keyword!(EntityRawAny);
     syn::custom_keyword!(OneOf);
 }
 
@@ -41,6 +43,9 @@ pub enum ParseQueryParamType {
     Entity(Ident),
     EntityAny,
     EntityWild, // Entity<_>
+    EntityRaw(Ident),
+    EntityRawAny,
+    EntityRawWild,
     OneOf(Box<[Ident]>),
 }
 
@@ -114,9 +119,19 @@ impl Parse for ParseQueryParam {
 
         // Enforce mutability rules
         match ty {
-            ParseQueryParamType::Entity(_) | ParseQueryParamType::EntityAny if is_mut => Err(
-                syn::Error::new(check_span, "mut entity access is forbidden"),
-            ),
+            ParseQueryParamType::Entity(_)
+            | ParseQueryParamType::EntityAny
+            | ParseQueryParamType::EntityWild
+            | ParseQueryParamType::EntityRaw(_)
+            | ParseQueryParamType::EntityRawAny
+            | ParseQueryParamType::EntityRawWild
+                if is_mut =>
+            {
+                Err(syn::Error::new(
+                    check_span,
+                    "mut entity access is forbidden",
+                ))
+            }
             _ => Ok(Self {
                 name,
                 is_mut,
@@ -147,10 +162,32 @@ impl Parse for ParseQueryParamType {
             } else {
                 Err(lookahead.error())
             }
+        } else if lookahead.peek(kw::EntityRaw) {
+            // EntityRaw<...>
+            input.parse::<kw::EntityRaw>()?;
+            input.parse::<Lt>()?;
+
+            // EntityRaw<A> or EntityRaw<_>
+            let lookahead = input.lookahead1();
+            if lookahead.peek(Token![_]) {
+                input.parse::<Token![_]>()?;
+                input.parse::<Gt>()?;
+                Ok(ParseQueryParamType::EntityRawWild)
+            } else if lookahead.peek(Ident) {
+                let archetype = input.parse::<Ident>()?;
+                input.parse::<Gt>()?;
+                Ok(ParseQueryParamType::EntityRaw(archetype))
+            } else {
+                Err(lookahead.error())
+            }
         } else if lookahead.peek(kw::EntityAny) {
             // EntityAny
             input.parse::<kw::EntityAny>()?;
             Ok(ParseQueryParamType::EntityAny)
+        } else if lookahead.peek(kw::EntityRawAny) {
+            // EntityRawAny
+            input.parse::<kw::EntityRawAny>()?;
+            Ok(ParseQueryParamType::EntityRawAny)
         } else if lookahead.peek(kw::OneOf) {
             // OneOf<A, B, C>
             input.parse::<kw::OneOf>()?;

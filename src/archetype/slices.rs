@@ -7,10 +7,6 @@ macro_rules! declare_slices_n {
     ($slices:ident, $slices_mut:ident, $n:literal) => {
         seq!(I in 0..$n {
             pub trait $slices<'a, A: Archetype, #(T~I,)*> {
-                fn new(entities: &'a [Entity<A>], #(s~I: &'a [T~I],)*) -> Self;
-            }
-
-            pub trait $slices_mut<'a, A: Archetype, #(T~I,)*> {
                 fn new(entities: &'a [Entity<A>], #(s~I: &'a mut [T~I],)*) -> Self;
             }
         });

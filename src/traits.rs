@@ -15,10 +15,10 @@ pub trait Archetype: Sized {
     /// A tuple of the components in this archetype.
     type Components;
 
+    /// The entries type when accessing a single entity's components simultaneously.
+    type Entries<'a>;
     /// The slices type when accessing all of this archetype's slices simultaneously.
     type Slices<'a>;
-    /// The slices type when mutably accessing all of this archetype's slices simultaneously.
-    type SlicesMut<'a>;
 
     #[doc(hidden)]
     fn get_slice_entities(&self) -> &[Entity<Self>];
@@ -26,34 +26,6 @@ pub trait Archetype: Sized {
 
 /// A set of helper functions for accessing archetypes from a world via turbofish.
 pub trait ArchetypeContainer: Sized {
-    /// Returns the number of entities in the archetype, also referred to as its length.
-    #[inline(always)]
-    fn len<A: Archetype>(&self) -> usize
-    where
-        Self: HasArchetype<A>,
-    {
-        <Self as HasArchetype<A>>::resolve_len(self)
-    }
-
-    /// Returns the total number of elements the archetype can hold without reallocating.
-    /// If the archetype has fixed-sized storage, this is the absolute total capacity.
-    #[inline(always)]
-    fn capacity<A: Archetype>(&self) -> usize
-    where
-        Self: HasArchetype<A>,
-    {
-        <Self as HasArchetype<A>>::resolve_capacity(self)
-    }
-
-    /// Returns `true` if the archetype contains no elements.
-    #[inline(always)]
-    fn is_empty<A: Archetype>(&self) -> bool
-    where
-        Self: HasArchetype<A>,
-    {
-        <Self as HasArchetype<A>>::resolve_is_empty(self)
-    }
-
     /// Creates a new entity with the given components in the archetype, if there's room.
     ///
     /// Returns a handle for accessing the new entity.
@@ -78,14 +50,6 @@ pub trait ArchetypeContainer: Sized {
         Self: HasArchetype<A>,
     {
         <Self as HasArchetype<A>>::resolve_try_create(self, components)
-    }
-
-    #[inline(always)]
-    fn resolve<A: Archetype>(&self, entity: Entity<A>) -> Option<usize>
-    where
-        Self: HasArchetype<A>,
-    {
-        <Self as HasArchetype<A>>::resolve_resolve(self, entity)
     }
 
     /// If the entity exists in the archetype, this destroys it and returns its components.
@@ -114,50 +78,6 @@ pub trait ArchetypeContainer: Sized {
     {
         <Self as HasArchetype<A>>::resolve_archetype_mut(self)
     }
-
-    /// Gets the archetype's entity slice. Used internally for generated queries.
-    #[inline(always)]
-    fn get_slice_entities<A: Archetype>(&self) -> &[Entity<A>]
-    where
-        Self: HasArchetype<A>,
-    {
-        <Self as HasArchetype<A>>::resolve_archetype(self).get_slice_entities()
-    }
-
-    #[inline(always)]
-    fn get_all_slices<'a, A: Archetype>(&'a mut self) -> <A as Archetype>::Slices<'a>
-    where
-        Self: HasArchetype<A>,
-    {
-        <Self as HasArchetype<A>>::resolve_get_all_slices(self)
-    }
-
-    #[inline(always)]
-    fn get_all_slices_mut<'a, A: Archetype>(&'a mut self) -> <A as Archetype>::SlicesMut<'a>
-    where
-        Self: HasArchetype<A>,
-    {
-        <Self as HasArchetype<A>>::resolve_get_all_slices_mut(self)
-    }
-
-    /// Borrows an archetype's component slice. Used internally for generated queries.
-    #[inline(always)]
-    fn borrow_slice<'a: 'b, 'b, A: Archetype, C>(&'a self) -> Ref<'b, [C]>
-    where
-        Self: HasArchetype<A>,
-        A: HasComponent<C> + 'a,
-    {
-        <Self as HasArchetype<A>>::resolve_borrow_slice::<C>(self)
-    }
-
-    #[inline(always)]
-    fn borrow_slice_mut<'a: 'b, 'b, A: Archetype, C>(&'a self) -> RefMut<'b, [C]>
-    where
-        Self: HasArchetype<A>,
-        A: HasComponent<C> + 'a,
-    {
-        <Self as HasArchetype<A>>::resolve_borrow_slice_mut::<C>(self)
-    }
 }
 
 /// A trait promising that an archetype container (i.e. world) has an archetype.
@@ -185,26 +105,16 @@ pub trait ArchetypeContainer: Sized {
 /// where
 ///     W: HasArchetype<ArchFoo>,
 /// {
-///     world.create::<ArchFoo>((CompA(3),));
-///     world.len::<ArchFoo>()
+///     world.archetype::<ArchFoo>().len()
 /// }
 ///
 /// # fn main() {} // Not actually running anything here
 /// ```
 pub trait HasArchetype<A: Archetype>: ArchetypeContainer {
     #[doc(hidden)]
-    fn resolve_len(&self) -> usize;
-    #[doc(hidden)]
-    fn resolve_capacity(&self) -> usize;
-    #[doc(hidden)]
-    fn resolve_is_empty(&self) -> bool;
-
-    #[doc(hidden)]
     fn resolve_create(&mut self, data: A::Components) -> Entity<A>;
     #[doc(hidden)]
     fn resolve_try_create(&mut self, data: A::Components) -> Option<Entity<A>>;
-    #[doc(hidden)]
-    fn resolve_resolve(&self, entity: Entity<A>) -> Option<usize>;
     #[doc(hidden)]
     fn resolve_destroy(&mut self, entity: Entity<A>) -> Option<A::Components>;
 
@@ -212,31 +122,6 @@ pub trait HasArchetype<A: Archetype>: ArchetypeContainer {
     fn resolve_archetype(&self) -> &A;
     #[doc(hidden)]
     fn resolve_archetype_mut(&mut self) -> &mut A;
-
-    #[doc(hidden)]
-    fn resolve_get_all_slices<'a>(&'a mut self) -> A::Slices<'a>;
-    #[doc(hidden)]
-    fn resolve_get_all_slices_mut<'a>(&'a mut self) -> A::SlicesMut<'a>;
-
-    #[doc(hidden)]
-    #[inline(always)]
-    fn resolve_borrow_slice<'a: 'b, 'b, C>(&'a self) -> Ref<'b, [C]>
-    where
-        A: HasComponent<C> + 'a,
-    {
-        let archetype = <Self as HasArchetype<A>>::resolve_archetype(self);
-        <A as ComponentContainer>::borrow_slice::<C>(archetype)
-    }
-
-    #[doc(hidden)]
-    #[inline(always)]
-    fn resolve_borrow_slice_mut<'a: 'b, 'b, C>(&'a self) -> RefMut<'b, [C]>
-    where
-        A: HasComponent<C> + 'a,
-    {
-        let archetype = <Self as HasArchetype<A>>::resolve_archetype(self);
-        <A as ComponentContainer>::borrow_slice_mut::<C>(archetype)
-    }
 }
 
 /// A set of helper functions for accessing components from an archetype via turbofish.
@@ -339,4 +224,8 @@ pub trait HasComponent<C>: ComponentContainer {
     fn resolve_borrow_slice(&self) -> Ref<[C]>;
     #[doc(hidden)]
     fn resolve_borrow_slice_mut(&self) -> RefMut<[C]>;
+}
+
+pub trait CanResolve<T> {
+    fn resolve_for(&self, key: T) -> Option<usize>;
 }

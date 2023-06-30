@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
-use syn::Expr;
 
 use crate::data::{DataArchetype, DataWorld};
 use crate::parse::{ParseQueryFind, ParseQueryIter, ParseQueryParam, ParseQueryParamType};
@@ -29,10 +28,10 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
     // bound_params for the given archetype. Note that it's faster to use query.params
     // where available, since it avoids redundant computation for each archetype.
 
-    // TODO PERF: We could avoid binding entirely if we know that the params have no AnyOf.
+    // TODO PERF: We could avoid binding entirely if we know that the params have no OneOf.
 
-    // Types and traits
-    let EntityWorld = format_ident!("Entity{}", world_data.name);
+    // Types
+    let WorldDispatch = format_ident!("{}DispatchInternal", world_data.name);
 
     // Variables and fields
     let world = &query.world;
@@ -40,9 +39,11 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
     let body = &query.body;
     let arg = query.params.iter().map(to_name).collect::<Vec<_>>();
 
+    // We want this to be hygenic because it's declared above the closure.
+    let resolved_entity = quote_spanned!(Span::mixed_site() => entity);
+
     // Keywords
     let maybe_mut = query.params.iter().map(to_maybe_mut).collect::<Vec<_>>();
-    let maybe_into = query.params.iter().map(to_maybe_into).collect::<Vec<_>>();
 
     let mut queries = Vec::<TokenStream>::new();
     for archetype in world_data.archetypes {
@@ -51,26 +52,58 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
         if let Some(bound_params) = bound_params.get(&archetype.name) {
             // Types and traits
             let Archetype = format_ident!("{}", archetype.name);
+            let ArchetypeRaw = format_ident!("{}Raw", archetype.name);
             let Type = bound_params
                 .iter()
                 .map(|p| to_type(p, &archetype))
                 .collect::<Vec<_>>(); // Bind-dependent!
 
-            // Variables and fields
-            let slice = bound_params.iter().map(to_slice).collect::<Vec<_>>(); // Bind-dependent!
+            #[rustfmt::skip]
+            let get_archetype = match mode {
+                FetchMode::Borrow => quote!(#world.archetype::<#Archetype>()),
+                FetchMode::Mut => quote!(#world.archetype_mut::<#Archetype>()),
+            };
 
-            // Mode-specific behavior
-            let slice_access = generate_slice_access(world, mode, &bound_params); // Bind-dependent!
+            #[rustfmt::skip]
+            let let_resolve = match mode {
+                FetchMode::Borrow => quote!(let Some(idx) = archetype.resolve(#resolved_entity)),
+                FetchMode::Mut => quote!(let Some((idx, entries)) = archetype.get_all_entries_mut(#resolved_entity)),
+            };
 
-            queries.push(quote_spanned!(Span::mixed_site() =>
-                #EntityWorld::#Archetype(entity) => {
-                    // Alias the current archetype for use in the closure
+            #[rustfmt::skip]
+            let bind = match mode {
+                FetchMode::Borrow => bound_params.iter().map(find_bind_borrow).collect::<Vec<_>>(),
+                FetchMode::Mut => bound_params.iter().map(find_bind_mut).collect::<Vec<_>>(),
+            };
+
+            queries.push(quote!(
+                #WorldDispatch::#Archetype(#resolved_entity) => {
+                    // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
-                    // The closure needs to be made per-archetype because of OneOf types
+                    // The closure needs to be made per-archetype because of OneOf types.
                     let mut closure = |#(#arg: &#maybe_mut #Type),*| #body;
-                    if let Some(idx) = #world.resolve::<MatchedArchetype>(entity) {
-                        #slice_access // This depends on fetch mode
-                        closure(#(&#maybe_mut #slice[idx] #maybe_into),*);
+
+                    let archetype = #get_archetype;
+                    let version = archetype.version();
+
+                    if #let_resolve {
+                        closure(#(#bind),*);
+                        true
+                    } else {
+                        false
+                    }
+                }
+                #WorldDispatch::#ArchetypeRaw(#resolved_entity) => {
+                    // Alias the current archetype for use in the closure.
+                    type MatchedArchetype = #Archetype;
+                    // The closure needs to be made per-archetype because of OneOf types.
+                    let mut closure = |#(#arg: &#maybe_mut #Type),*| #body;
+
+                    let archetype = #get_archetype;
+                    let version = archetype.version();
+
+                    if #let_resolve {
+                        closure(#(#bind),*);
                         true
                     } else {
                         false
@@ -82,12 +115,75 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
 
     Ok(quote!(
         {
-            match #entity.into() {
+            match #WorldDispatch::from(#entity) {
                 #(#queries)*
                 _ => false,
             }
         }
     ))
+}
+
+#[rustfmt::skip]
+fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
+    match &param.param_type {
+        ParseQueryParamType::Component(ident) => { 
+            let ident = to_snake_ident(ident); quote!(entries.#ident)
+        }
+        ParseQueryParamType::Entity(_) => {
+            quote!(entries.entity)
+        }
+        ParseQueryParamType::EntityAny => {
+            quote!(entries.entity.into())
+        }
+        ParseQueryParamType::EntityWild => {
+            quote!(entries.entity)
+        }
+        ParseQueryParamType::EntityRaw(_) => {
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+        }
+        ParseQueryParamType::EntityRawAny => {
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version).into())
+        }
+        ParseQueryParamType::EntityRawWild => {
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+        }
+        ParseQueryParamType::OneOf(_) => {
+            panic!("must unpack OneOf first")
+        }
+    }
+}
+
+#[rustfmt::skip]
+fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
+    match &param.param_type {
+        ParseQueryParamType::Component(ident) => {
+            match param.is_mut { 
+                true => quote!(&mut archetype.borrow_slice_mut::<#ident>()[idx]),
+                false => quote!(&archetype.borrow_slice::<#ident>()[idx]),
+            }
+        }
+        ParseQueryParamType::Entity(_) => {
+            quote!(&archetype.get_slice_entities()[idx])
+        }
+        ParseQueryParamType::EntityAny => {
+            quote!(&archetype.get_slice_entities()[idx].into())
+        }
+        ParseQueryParamType::EntityWild => {
+            quote!(&archetype.get_slice_entities()[idx])
+        }
+        ParseQueryParamType::EntityRaw(_) => {
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+        }
+        ParseQueryParamType::EntityRawAny => {
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version).into())
+        }
+        ParseQueryParamType::EntityRawWild => {
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+        }
+        ParseQueryParamType::OneOf(_) => {
+            panic!("must unpack OneOf first")
+        }
+    }
 }
 
 #[allow(non_snake_case)]
@@ -101,7 +197,7 @@ pub fn generate_query_iter(mode: FetchMode, query: ParseQueryIter) -> syn::Resul
     // bound_params for the given archetype. Note that it's faster to use query.params
     // where available, since it avoids redundant computation for each archetype.
 
-    // TODO PERF: We could avoid binding entirely if we know that the params have no AnyOf.
+    // TODO PERF: We could avoid binding entirely if we know that the params have no OneOf.
 
     // Variables and fields
     let world = &query.world;
@@ -110,7 +206,6 @@ pub fn generate_query_iter(mode: FetchMode, query: ParseQueryIter) -> syn::Resul
 
     // Special cases
     let maybe_mut = query.params.iter().map(to_maybe_mut).collect::<Vec<_>>();
-    let maybe_into = query.params.iter().map(to_maybe_into).collect::<Vec<_>>();
 
     let mut queries = Vec::<TokenStream>::new();
     for archetype in world_data.archetypes {
@@ -124,22 +219,38 @@ pub fn generate_query_iter(mode: FetchMode, query: ParseQueryIter) -> syn::Resul
                 .map(|p| to_type(p, &archetype))
                 .collect::<Vec<_>>(); // Bind-dependent!
 
-            // Variables and fields
-            let slice = bound_params.iter().map(to_slice).collect::<Vec<_>>(); // Bind-dependent!
+            #[rustfmt::skip]
+            let get_archetype = match mode {
+                FetchMode::Borrow => quote!(#world.archetype::<#Archetype>()),
+                FetchMode::Mut => quote!(#world.archetype_mut::<#Archetype>()),
+            };
 
-            // Mode-specific behavior
-            let slice_access = generate_slice_access(world, mode, &bound_params); // Bind-dependent!
+            #[rustfmt::skip]
+            let get_slices = match mode {
+                FetchMode::Borrow => quote!(()),
+                FetchMode::Mut => quote!(archetype.get_all_slices_mut()),
+            };
 
-            queries.push(quote_spanned!(Span::mixed_site() =>
+            #[rustfmt::skip]
+            let bind = match mode {
+                FetchMode::Borrow => bound_params.iter().map(iter_bind_borrow).collect::<Vec<_>>(),
+                FetchMode::Mut => bound_params.iter().map(iter_bind_mut).collect::<Vec<_>>(),
+            };
+
+            queries.push(quote!(
                 {
                     // Alias the current archetype for use in the closure
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types
                     let mut closure = |#(#arg: &#maybe_mut #Type),*| #body;
-                    let len = #world.len::<#Archetype>();
-                    #slice_access // This depends on fetch mode
+
+                    let archetype = #get_archetype;
+                    let version = archetype.version();
+                    let len = archetype.len();
+                    let slices = #get_slices;
+
                     for idx in 0..len {
-                        closure(#(&#maybe_mut #slice[idx] #maybe_into),*);
+                        closure(#(#bind),*);
                     }
                 }
             ));
@@ -148,21 +259,70 @@ pub fn generate_query_iter(mode: FetchMode, query: ParseQueryIter) -> syn::Resul
     Ok(quote!(#(#queries)*))
 }
 
-#[allow(non_snake_case)]
-fn generate_slice_access(world: &Expr, mode: FetchMode, params: &[ParseQueryParam]) -> TokenStream {
-    let slice = params.iter().map(to_slice).collect::<Vec<_>>();
-    let maybe_mut = params.iter().map(to_maybe_mut).collect::<Vec<_>>();
-    let fn_borrow = params.iter().map(to_borrow).collect::<Vec<_>>();
+#[rustfmt::skip]
+fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
+    match &param.param_type {
+        ParseQueryParamType::Component(ident) => { 
+            let ident = to_snake_ident(ident); 
+            match param.is_mut { 
+                true => quote!(&mut slices.#ident[idx]),
+                false => quote!(&slices.#ident[idx]),
+            }
+        }
+        ParseQueryParamType::Entity(_) => {
+            quote!(&slices.entity[idx])
+        }
+        ParseQueryParamType::EntityAny => {
+            quote!(&slices.entity[idx].into())
+        }
+        ParseQueryParamType::EntityWild => {
+            quote!(&slices.entity[idx])
+        }
+        ParseQueryParamType::EntityRaw(_) => {
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+        }
+        ParseQueryParamType::EntityRawAny => {
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version).into())
+        }
+        ParseQueryParamType::EntityRawWild => {
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+        }
+        ParseQueryParamType::OneOf(_) => {
+            panic!("must unpack OneOf first")
+        }
+    }
+}
 
-    match mode {
-        FetchMode::Borrow => quote_spanned!(Span::mixed_site() =>
-            //#(let #maybe_mut #slice = archetype.#fn_borrow;)*
-            #(let #maybe_mut #slice = #world.#fn_borrow;)*
-        ),
-        FetchMode::Mut => quote_spanned!(Span::mixed_site() =>
-            let slices = #world.get_all_slices_mut::<MatchedArchetype>();
-            #(let #maybe_mut #slice = slices.#slice;)*
-        ),
+#[rustfmt::skip]
+fn iter_bind_borrow(param: &ParseQueryParam) -> TokenStream {
+    match &param.param_type {
+        ParseQueryParamType::Component(ident) => {
+            match param.is_mut { 
+                true => quote!(&mut archetype.borrow_slice_mut::<#ident>()[idx]),
+                false => quote!(&archetype.borrow_slice::<#ident>()[idx]),
+            }
+        }
+        ParseQueryParamType::Entity(_) => {
+            quote!(&archetype.get_slice_entities()[idx])
+        }
+        ParseQueryParamType::EntityAny => {
+            quote!(&archetype.get_slice_entities()[idx].into())
+        }
+        ParseQueryParamType::EntityWild => {
+            quote!(&archetype.get_slice_entities()[idx])
+        }
+        ParseQueryParamType::EntityRaw(_) => {
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+        }
+        ParseQueryParamType::EntityRawAny => {
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version).into())
+        }
+        ParseQueryParamType::EntityRawWild => {
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+        }
+        ParseQueryParamType::OneOf(_) => {
+            panic!("must unpack OneOf first")
+        }
     }
 }
 
@@ -171,6 +331,7 @@ fn to_name(param: &ParseQueryParam) -> TokenStream {
     quote!(#name)
 }
 
+#[rustfmt::skip]
 fn to_type(param: &ParseQueryParam, archetype: &DataArchetype) -> TokenStream {
     let archetype_name = format_ident!("{}", archetype.name);
     match &param.param_type {
@@ -178,29 +339,10 @@ fn to_type(param: &ParseQueryParam, archetype: &DataArchetype) -> TokenStream {
         ParseQueryParamType::Entity(ident) => quote!(Entity<#ident>),
         ParseQueryParamType::EntityAny => quote!(EntityAny),
         ParseQueryParamType::EntityWild => quote!(Entity<#archetype_name>),
+        ParseQueryParamType::EntityRaw(ident) => quote!(EntityRaw<#ident>),
+        ParseQueryParamType::EntityRawAny => quote!(EntityRawAny),
+        ParseQueryParamType::EntityRawWild => quote!(EntityRaw<#archetype_name>),
         ParseQueryParamType::OneOf(_) => panic!("must unpack OneOf first"),
-    }
-}
-
-fn to_slice(param: &ParseQueryParam) -> TokenStream {
-    match &param.param_type {
-        ParseQueryParamType::Component(ident) => to_token_stream(&to_snake_ident(ident)),
-        ParseQueryParamType::Entity(_) => quote!(entities),
-        ParseQueryParamType::EntityAny => quote!(entities),
-        ParseQueryParamType::EntityWild => quote!(entities),
-        ParseQueryParamType::OneOf(_) => panic!("must unpack OneOf first"),
-    }
-}
-
-#[rustfmt::skip]
-fn to_borrow(param: &ParseQueryParam) -> TokenStream {
-    match (param.is_mut, &param.param_type) {
-        (false, ParseQueryParamType::Component(ident)) => quote!(borrow_slice::<MatchedArchetype, #ident>()),
-        (true, ParseQueryParamType::Component(ident)) => quote!(borrow_slice_mut::<MatchedArchetype, #ident>()),
-        (_, ParseQueryParamType::Entity(_)) => quote!(get_slice_entities::<MatchedArchetype>()),
-        (_, ParseQueryParamType::EntityAny) => quote!(get_slice_entities::<MatchedArchetype>()),
-        (_, ParseQueryParamType::EntityWild) => quote!(get_slice_entities::<MatchedArchetype>()),
-        (_, ParseQueryParamType::OneOf(_)) => panic!("must unpack OneOf first"),
     }
 }
 
@@ -211,23 +353,12 @@ fn to_maybe_mut(param: &ParseQueryParam) -> TokenStream {
     }
 }
 
-fn to_maybe_into(param: &ParseQueryParam) -> TokenStream {
-    match &param.param_type {
-        ParseQueryParamType::EntityAny => quote!(.into()),
-        _ => quote!(),
-    }
-}
-
 fn to_snake_ident(ident: &Ident) -> Ident {
     Ident::new(&to_snake_str(&ident.to_string()), ident.span())
 }
 
 fn to_snake_str(name: &String) -> String {
     name.from_case(Case::Pascal).to_case(Case::Snake)
-}
-
-fn to_token_stream(ident: &Ident) -> TokenStream {
-    quote!(#ident)
 }
 
 fn bind_query_params(
@@ -245,7 +376,13 @@ fn bind_query_params(
                 ParseQueryParamType::EntityAny => {
                     bound.push(param.clone()); // Always matches
                 }
+                ParseQueryParamType::EntityRawAny => {
+                    bound.push(param.clone()); // Always matches
+                }
                 ParseQueryParamType::EntityWild => {
+                    bound.push(param.clone()); // Always matches
+                }
+                ParseQueryParamType::EntityRawWild => {
                     bound.push(param.clone()); // Always matches
                 }
                 ParseQueryParamType::Component(name) => {
@@ -256,6 +393,13 @@ fn bind_query_params(
                     }
                 }
                 ParseQueryParamType::Entity(name) => {
+                    if archetype.name == name.to_string() {
+                        bound.push(param.clone());
+                    } else {
+                        continue; // No need to check more
+                    }
+                }
+                ParseQueryParamType::EntityRaw(name) => {
                     if archetype.name == name.to_string() {
                         bound.push(param.clone());
                     } else {

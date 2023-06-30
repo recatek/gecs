@@ -13,6 +13,7 @@ categories = ["data-structures", "game-engines"]
 [features]
 default = []
 32_components = []
+wrapping_versions = []
 
 [dependencies]
 gecs_macros = { version = "0.2.2", path = "macros", default_features = false }

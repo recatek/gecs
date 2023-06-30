@@ -61,8 +61,8 @@
 //!     let entity_b = world.create::<ArchBar>((CompA(3), CompC(40)));
 //!
 //!     // Each archetype now has one entity.
-//!     assert_eq!(world.len::<ArchFoo>(), 1);
-//!     assert_eq!(world.len::<ArchBar>(), 1);
+//!     assert_eq!(world.archetype::<ArchFoo>().len(), 1);
+//!     assert_eq!(world.archetype::<ArchBar>().len(), 1);
 //!
 //!     // Look up each entity and check its CompB or CompC value.
 //!     assert!(ecs_find!(world, entity_a, |c: &CompB| assert_eq!(c.0, 20)));
@@ -102,6 +102,9 @@ pub mod error;
 
 /// Traits for working with ECS types as generics.
 pub mod traits;
+
+/// A checked generational version.
+pub mod version;
 
 #[cfg(doc)]
 mod macros {
@@ -214,13 +217,13 @@ mod macros {
     ///     let entity_a = world.try_create::<ArchFoo>((CompA(0), CompB(1))).unwrap();
     ///
     ///     // The length of the archetype should now be 1.
-    ///     assert_eq!(world.len::<ArchFoo>(), 1);
+    ///     assert_eq!(world.archetype::<ArchFoo>().len(), 1);
     ///
     ///     // Destroy the entity (we don't need to turbofish because this is an Entity<ArchFoo>).
     ///     world.destroy(entity_a);
     ///
-    ///     assert_eq!(world.len::<ArchFoo>(), 0);
-    ///     assert!(world.is_empty::<ArchFoo>());
+    ///     assert_eq!(world.archetype::<ArchFoo>().len(), 0);
+    ///     assert!(world.archetype::<ArchFoo>().is_empty());
     ///
     ///     // Use of #[cfg]-conditionals.
     ///     #[cfg(feature = "some_feature")] world.create::<ArchBar>((CompA(2), CompB(3), CompC(4)));
@@ -680,7 +683,7 @@ pub mod prelude {
 
     pub use gecs_macros::{ecs_component_id, ecs_world};
 
-    pub use entity::{ArchetypeId, Entity, EntityAny};
+    pub use entity::{ArchetypeId, Entity, EntityAny, EntityRaw, EntityRawAny};
 
     pub use traits::Archetype;
     pub use traits::{ArchetypeContainer, HasArchetype};
@@ -695,11 +698,16 @@ pub mod __internal {
     pub use gecs_macros::{__ecs_find, __ecs_find_borrow};
     pub use gecs_macros::{__ecs_iter, __ecs_iter_borrow};
 
+    pub use entity::__internal::*;
+
+    pub use version::Version;
+
+    pub use archetype::entries::*;
     pub use archetype::slices::*;
     pub use archetype::storage_dynamic::*;
     pub use archetype::storage_fixed::*;
 
-    pub use traits::Archetype;
+    pub use traits::{Archetype, CanResolve};
     pub use traits::{ArchetypeContainer, HasArchetype};
     pub use traits::{ComponentContainer, HasComponent};
 }

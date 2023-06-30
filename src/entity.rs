@@ -1,17 +1,15 @@
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::num::NonZeroU32;
 
 use crate::error::EcsError;
 use crate::index::{DataIndex, MAX_DATA_INDEX};
 use crate::traits::Archetype;
+use crate::version::Version;
 
 // NOTE: While this is extremely unlikely to change, if it does, the proc
 // macros need to be updated manually with the new type assumptions.
 pub type ArchetypeId = u8;
 
-// The version to assign all entity slots on creation.
-pub(crate) const ENTITY_START_VERSION: u32 = 1;
 // How many bits of a u32 entity index are reserved for the archetype ID.
 pub(crate) const ARCHETYPE_ID_BITS: u32 = ArchetypeId::BITS;
 
@@ -30,6 +28,14 @@ pub struct Entity<A: Archetype> {
     _type: PhantomData<fn() -> A>,
 }
 
+/// A statically typed, unchecked, raw entity index for accelerated lookup.
+///
+/// See [`EntityRawAny`] for more information on this type and its risks.
+pub struct EntityRaw<A: Archetype> {
+    inner: EntityRawAny,
+    _type: PhantomData<fn() -> A>,
+}
+
 /// A dynamically typed handle to an entity of some runtime archetype.
 ///
 /// This behaves like an [`Entity`] key, but its type is only known at runtime.
@@ -38,30 +44,53 @@ pub struct Entity<A: Archetype> {
 /// an enum with each possible archetype outcome.
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct EntityAny {
-    data: u32, // [ index (u24) | archetype_id (u8) ]
-    version: NonZeroU32,
+    key: u32, // [ slot_index (u24) | archetype_id (u8) ]
+    version: Version,
+}
+
+/// A dynamically typed, unchecked, raw entity index for accelerated lookup.
+///
+/// Unlike [`EntityAny`], this key does not perform version checking or any
+/// validation that it points to the intended set of components for this entity.
+/// If the archetype this was taken from has since added or removed components
+/// since this key's creation, it's possible that this could point to the wrong
+/// data, or out of bounds. This is not unsafe per se -- access with these keys
+/// is still bounds checked and won't result in undefined behavior on their own.
+/// However, using this key type without careful management of the ECS world
+/// may result in unexpected data manipulation.
+///
+/// In debug contexts where the `debug_assertions` config is enabled, you can
+/// `set_debug_lock` the world or individual archetypes to detect cases where
+/// these raw indices might be invalidated.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct EntityRawAny {
+    key: u32, // [ dense_index (u24) | archetype_id (u8) ]
+    version: Version,
 }
 
 impl<A: Archetype> Entity<A> {
     #[inline(always)]
-    pub(crate) fn new(index: DataIndex, version: NonZeroU32) -> Self {
+    pub(crate) fn new(
+        slot_index: DataIndex, //.
+        version: Version,
+    ) -> Self {
         Self {
-            inner: EntityAny::new(index, A::ARCHETYPE_ID, version),
+            inner: EntityAny::new(slot_index, A::ARCHETYPE_ID, version),
             _type: PhantomData,
         }
     }
 
     #[inline(always)]
-    pub(crate) fn index(&self) -> DataIndex {
-        self.inner.index()
+    pub(crate) fn slot_index(&self) -> DataIndex {
+        self.inner.slot_index()
     }
 
     #[inline(always)]
-    pub(crate) fn version(&self) -> NonZeroU32 {
+    pub(crate) fn version(&self) -> Version {
         self.inner.version()
     }
 
-    /// Creates a new typed entity from an `EntityAny`.
+    /// Creates a new typed `Entity` from an `EntityAny`.
     ///
     /// In match statements, this tends to optimize better than `TryFrom`.
     ///
@@ -99,33 +128,141 @@ impl<A: Archetype> Entity<A> {
 
 impl EntityAny {
     #[inline(always)]
-    pub(crate) fn new(index: DataIndex, archetype_id: ArchetypeId, version: NonZeroU32) -> Self {
-        debug_assert!(version.get() >= ENTITY_START_VERSION);
+    pub(crate) fn new(
+        slot_index: DataIndex, //.
+        archetype_id: ArchetypeId,
+        version: Version,
+    ) -> Self {
         let archetype_id: u32 = archetype_id.into();
-        let data = (index.get() << ARCHETYPE_ID_BITS) | archetype_id;
-        Self { data, version }
+        let key = (slot_index.get() << ARCHETYPE_ID_BITS) | archetype_id;
+        Self { key, version }
     }
 
     #[inline(always)]
-    pub(crate) fn index(&self) -> DataIndex {
+    pub(crate) fn slot_index(&self) -> DataIndex {
         unsafe {
             // SAFETY: We know the remaining data can fit in a DataIndex
-            debug_assert!(self.data >> ARCHETYPE_ID_BITS <= MAX_DATA_INDEX);
-            DataIndex::new_unchecked(self.data >> ARCHETYPE_ID_BITS)
+            debug_assert!(self.key >> ARCHETYPE_ID_BITS <= MAX_DATA_INDEX);
+            DataIndex::new_unchecked(self.key >> ARCHETYPE_ID_BITS)
         }
-    }
-
-    #[inline(always)]
-    pub(crate) fn version(&self) -> NonZeroU32 {
-        self.version
     }
 
     /// Returns this entity's raw `ARCHETYPE_ID` value.
     ///
     /// This is the same `ARCHETYPE_ID` as the archetype this entity belongs to.
     #[inline(always)]
-    pub fn archetype_id(self) -> ArchetypeId {
-        self.data as ArchetypeId // Trim off the bottom to get the ID
+    pub const fn archetype_id(self) -> ArchetypeId {
+        self.key as ArchetypeId // Trim off the bottom to get the ID
+    }
+
+    #[inline(always)]
+    pub(crate) const fn version(&self) -> Version {
+        self.version
+    }
+
+    /// Returns self.
+    #[inline(always)]
+    pub fn into_any(self) -> EntityAny {
+        self
+    }
+}
+
+impl<A: Archetype> EntityRaw<A> {
+    #[inline(always)]
+    pub(crate) fn new(
+        dense_index: DataIndex, //.
+        version: Version,
+    ) -> Self {
+        Self {
+            inner: EntityRawAny::new(dense_index, A::ARCHETYPE_ID, version),
+            _type: PhantomData,
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) fn dense_index(&self) -> DataIndex {
+        self.inner.dense_index()
+    }
+
+    #[inline(always)]
+    pub(crate) fn version(&self) -> Version {
+        self.inner.version()
+    }
+
+    /// Creates a new typed `EntityRaw` from an `EntityRawAny`.
+    ///
+    /// In match statements, this tends to optimize better than `TryFrom`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `EntityRawAny` is not an entity of this type.
+    #[inline(always)]
+    pub fn from_any(entity: EntityRawAny) -> Self {
+        if entity.archetype_id() != A::ARCHETYPE_ID {
+            panic!("invalid entity conversion");
+        }
+
+        Self {
+            inner: entity,
+            _type: PhantomData,
+        }
+    }
+
+    /// Converts this `EntityRaw<A>` directly into an `EntityRawAny`.
+    ///
+    /// Useful for situations where type inference can't deduce a conversion.
+    #[inline(always)]
+    pub fn into_any(self) -> EntityRawAny {
+        self.inner
+    }
+
+    /// Returns this entity's raw `ARCHETYPE_ID` value.
+    ///
+    /// This is the same `ARCHETYPE_ID` as the archetype this entity belongs to.
+    #[inline(always)]
+    pub const fn archetype_id(self) -> ArchetypeId {
+        A::ARCHETYPE_ID
+    }
+}
+
+impl EntityRawAny {
+    #[inline(always)]
+    pub(crate) fn new(
+        dense_index: DataIndex, //.
+        archetype_id: ArchetypeId,
+        version: Version,
+    ) -> Self {
+        let archetype_id: u32 = archetype_id.into();
+        let key = (dense_index.get() << ARCHETYPE_ID_BITS) | archetype_id;
+        Self { key, version }
+    }
+
+    #[inline(always)]
+    pub(crate) fn dense_index(&self) -> DataIndex {
+        unsafe {
+            // SAFETY: We know the remaining data can fit in a DataIndex
+            debug_assert!(self.key >> ARCHETYPE_ID_BITS <= MAX_DATA_INDEX);
+            DataIndex::new_unchecked(self.key >> ARCHETYPE_ID_BITS)
+        }
+    }
+
+    /// Returns this entity's raw `ARCHETYPE_ID` value.
+    ///
+    /// This is the same `ARCHETYPE_ID` as the archetype this entity belongs to.
+    #[inline(always)]
+    pub const fn archetype_id(self) -> ArchetypeId {
+        self.key as ArchetypeId // Trim off the bottom to get the ID
+    }
+
+    #[inline(always)]
+    pub(crate) const fn version(&self) -> Version {
+        self.version
+    }
+
+    /// Returns self.
+    #[inline(always)]
+    pub fn into_any(self) -> EntityRawAny {
+        self
     }
 }
 
@@ -133,8 +270,19 @@ impl Hash for EntityAny {
     #[inline(always)]
     fn hash<H: Hasher>(&self, state: &mut H) {
         // Hash as a single u64 rather than two u32s.
-        let index: u64 = self.data.into();
-        let version: u64 = self.version.get().into();
+        let index: u64 = self.key.into();
+        let version: u64 = self.version.get().get().into();
+        let combined = (index << 32) | version;
+        combined.hash(state);
+    }
+}
+
+impl Hash for EntityRawAny {
+    #[inline(always)]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Hash as a single u64 rather than two u32s.
+        let index: u64 = self.key.into();
+        let version: u64 = self.version.get().get().into();
         let combined = (index << 32) | version;
         combined.hash(state);
     }
@@ -143,6 +291,13 @@ impl Hash for EntityAny {
 impl<A: Archetype> From<Entity<A>> for EntityAny {
     #[inline(always)]
     fn from(entity: Entity<A>) -> Self {
+        entity.inner
+    }
+}
+
+impl<A: Archetype> From<EntityRaw<A>> for EntityRawAny {
+    #[inline(always)]
+    fn from(entity: EntityRaw<A>) -> Self {
         entity.inner
     }
 }
@@ -163,6 +318,27 @@ impl<A: Archetype> TryFrom<EntityAny> for Entity<A> {
     }
 }
 
+impl<A: Archetype> TryFrom<EntityRawAny> for EntityRaw<A> {
+    type Error = EcsError;
+
+    #[inline(always)]
+    fn try_from(entity: EntityRawAny) -> Result<Self, Self::Error> {
+        if entity.archetype_id() == A::ARCHETYPE_ID {
+            Ok(Self {
+                inner: entity,
+                _type: PhantomData,
+            })
+        } else {
+            Err(EcsError::InvalidEntityType)
+        }
+    }
+}
+
+// #[doc(hidden)]
+// pub trait CanEntityConvert<T> {
+
+// }
+
 // Derive boilerplate until https://github.com/rust-lang/rust/issues/26925 is resolved
 
 impl<A: Archetype> Clone for Entity<A> {
@@ -175,7 +351,15 @@ impl<A: Archetype> Clone for Entity<A> {
     }
 }
 
-impl<A: Archetype> Copy for Entity<A> {}
+impl<A: Archetype> Clone for EntityRaw<A> {
+    #[inline(always)]
+    fn clone(&self) -> EntityRaw<A> {
+        EntityRaw {
+            inner: self.inner,
+            _type: PhantomData,
+        }
+    }
+}
 
 impl<A: Archetype> PartialEq for Entity<A> {
     fn eq(&self, other: &Self) -> bool {
@@ -183,10 +367,69 @@ impl<A: Archetype> PartialEq for Entity<A> {
     }
 }
 
-impl<A: Archetype> Eq for Entity<A> {}
+impl<A: Archetype> PartialEq for EntityRaw<A> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
 
 impl<A: Archetype> Hash for Entity<A> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.inner.hash(state)
+    }
+}
+
+impl<A: Archetype> Hash for EntityRaw<A> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.inner.hash(state)
+    }
+}
+
+impl<A: Archetype> Copy for Entity<A> {}
+impl<A: Archetype> Copy for EntityRaw<A> {}
+
+impl<A: Archetype> Eq for Entity<A> {}
+impl<A: Archetype> Eq for EntityRaw<A> {}
+
+#[doc(hidden)]
+pub mod __internal {
+    use super::*;
+
+    #[doc(hidden)]
+    #[inline(always)]
+    pub fn new_entity_raw<A: Archetype>(index: usize, version: Version) -> EntityRaw<A> {
+        EntityRaw::new(DataIndex::new_usize(index).unwrap(), version)
+    }
+
+    /// Creates new a typed `Entity` from an `EntityAny` without checking its archetype.
+    ///
+    /// While this is not a true unsafe operation (bounds checks are still enforced), this
+    /// should generally only be used by internal macro-generated functions, as improper use
+    /// may result in logic errors from incorrect data access.
+    #[inline(always)]
+    #[doc(hidden)]
+    pub fn entity_from_any_unchecked<A: Archetype>(entity: EntityAny) -> Entity<A> {
+        debug_assert!(entity.archetype_id() == A::ARCHETYPE_ID);
+
+        Entity {
+            inner: entity,
+            _type: PhantomData,
+        }
+    }
+
+    /// Creates new a typed `EntityRaw` from an `EntityRawAny` without checking its archetype.
+    ///
+    /// While this is not a true unsafe operation (bounds checks are still enforced), this
+    /// should generally only be used by internal macro-generated functions, as improper use
+    /// may result in logic errors from incorrect data access.
+    #[inline(always)]
+    #[doc(hidden)]
+    pub fn entity_raw_from_any_unchecked<A: Archetype>(entity: EntityRawAny) -> EntityRaw<A> {
+        debug_assert!(entity.archetype_id() == A::ARCHETYPE_ID);
+
+        EntityRaw {
+            inner: entity,
+            _type: PhantomData,
+        }
     }
 }
