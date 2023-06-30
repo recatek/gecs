@@ -226,6 +226,11 @@ pub trait HasComponent<C>: ComponentContainer {
     fn resolve_borrow_slice_mut(&self) -> RefMut<[C]>;
 }
 
+pub trait CanBorrow<T> {
+    fn resolve_borrow(&self) -> Ref<T>;
+    fn resolve_borrow_mut(&self) -> RefMut<T>;
+}
+
 pub trait CanResolve<T> {
     fn resolve_for(&self, key: T) -> Option<usize>;
 }

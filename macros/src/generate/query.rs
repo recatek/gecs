@@ -66,8 +66,12 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
 
             #[rustfmt::skip]
             let let_resolve = match mode {
-                FetchMode::Borrow => quote!(let Some(idx) = archetype.resolve(#resolved_entity)),
-                FetchMode::Mut => quote!(let Some((idx, entries)) = archetype.get_all_entries_mut(#resolved_entity)),
+                FetchMode::Borrow => quote!(
+                    let Some((idx, borrow)) = archetype.begin_borrow(#resolved_entity)
+                ),
+                FetchMode::Mut => quote!(
+                    let Some((idx, entries)) = archetype.get_all_entries_mut(#resolved_entity)
+                ),
             };
 
             #[rustfmt::skip]
@@ -158,18 +162,18 @@ fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
     match &param.param_type {
         ParseQueryParamType::Component(ident) => {
             match param.is_mut { 
-                true => quote!(&mut archetype.borrow_slice_mut::<#ident>()[idx]),
-                false => quote!(&archetype.borrow_slice::<#ident>()[idx]),
+                true => quote!(&mut borrow.borrow_mut::<#ident>()),
+                false => quote!(&borrow.borrow::<#ident>()),
             }
         }
         ParseQueryParamType::Entity(_) => {
-            quote!(&archetype.get_slice_entities()[idx])
+            quote!(borrow.entity())
         }
         ParseQueryParamType::EntityAny => {
-            quote!(&archetype.get_slice_entities()[idx].into())
+            quote!(borrow.entity().into())
         }
         ParseQueryParamType::EntityWild => {
-            quote!(&archetype.get_slice_entities()[idx])
+            quote!(borrow.entity())
         }
         ParseQueryParamType::EntityRaw(_) => {
             quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))

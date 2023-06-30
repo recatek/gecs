@@ -16,7 +16,7 @@ use crate::util::{debug_checked_assume, num_assert_leq};
 use crate::version::Version;
 
 macro_rules! declare_storage_dynamic_n {
-    ($name:ident, $slices:ident, $entries:ident, $n:literal) => {
+    ($name:ident, $borrow:ident, $slices:ident, $entries:ident, $n:literal) => {
         seq!(I in 0..$n {
             pub struct $name<A: Archetype, #(T~I,)*> {
                 version: Version,
@@ -209,6 +209,22 @@ macro_rules! declare_storage_dynamic_n {
                     Self: CanResolve<T>
                 {
                     <Self as CanResolve<T>>::resolve_for(self, storage_key)
+                }
+
+                /// Creates a borrow context to accelerate accessing borrowed data for an entity.
+                #[inline(always)]
+                pub fn begin_borrow<'a, K>(
+                    &'a self,
+                    storage_key: K
+                ) -> Option<(usize, $borrow<'a, A, #(T~I,)*>)>
+                where
+                    Self: CanResolve<K>
+                {
+                    if let Some(index) = <Self as CanResolve<K>>::resolve_for(self, storage_key) {
+                        Some((index, $borrow { index, source: self }))
+                    } else {
+                        None
+                    }
                 }
 
                 /// Populates an entries struct with our stored data for the given storage key.
@@ -446,19 +462,76 @@ macro_rules! declare_storage_dynamic_n {
                     $name::new()
                 }
             }
+
+            pub struct $borrow<'a, A: Archetype, #(T~I,)*> {
+                index: usize,
+                source: &'a $name<A, #(T~I,)*>,
+            }
+
+            impl<'a, A: Archetype, #(T~I,)*> $borrow<'a, A, #(T~I,)*> {
+                #[inline(always)]
+                pub fn entity(&self) -> &Entity<A> {
+                    unsafe {
+                        // SAFETY: We can only be created with a valid index, and because
+                        // we hold a reference to the source, that reference can't have
+                        // changed in any way that would have made this index invalid.
+                        self.source.get_slice_entities().get_unchecked(self.index)
+                    }
+                }
+
+                #(
+                    /// Borrows the element of the given component index.
+                    #[inline(always)]
+                    pub fn borrow_~I(&self) -> Ref<T~I> {
+                        Ref::map(self.source.d~I.borrow(), |slice| unsafe {
+                            debug_assert!(self.index < self.source.len);
+                            // SAFETY: We can only be created with a valid index, and because
+                            // we hold a reference to the source, that reference can't have
+                            // changed in any way that would have made this index invalid.
+                            // SAFETY: We guarantee that the storage is valid up to self.len.
+                            slice.slice(self.source.len).get_unchecked(self.index)
+                        })
+                    }
+
+                    /// Mutably borrows the element of the given component index.
+                    #[inline(always)]
+                    pub fn borrow_mut_~I(&self) -> RefMut<T~I> {
+                        RefMut::map(self.source.d~I.borrow_mut(), |slice| unsafe {
+                            debug_assert!(self.index < self.source.len);
+                            // SAFETY: We can only be created with a valid index, and because
+                            // we hold a reference to the source, that reference can't have
+                            // changed in any way that would have made this index invalid.
+                            // SAFETY: We guarantee that the storage is valid up to self.len.
+                            slice.slice_mut(self.source.len).get_unchecked_mut(self.index)
+                        })
+                    }
+                )*
+            }
+
+            impl<'a, A: Archetype, #(T~I,)*> Clone for $borrow<'a, A, #(T~I,)*> {
+                #[inline(always)]
+                fn clone(&self) -> Self {
+                    Self {
+                        index: self.index,
+                        source: self.source,
+                    }
+                }
+            }
+
+            impl<'a, A: Archetype, #(T~I,)*> Copy for $borrow<'a, A, #(T~I,)*> {}
         });
     };
 }
 
 // Declare storage for up to 16 components.
 seq!(N in 1..=16 {
-    declare_storage_dynamic_n!(StorageDynamic~N, Slices~N, Entries~N, N);
+    declare_storage_dynamic_n!(StorageDynamic~N, BorrowDynamic~N, Slices~N, Entries~N, N);
 });
 
 // Declare additional storage for up to 32 components.
 #[cfg(feature = "32_components")]
 seq!(N in 17..=32 {
-    declare_storage_dynamic_n!(StorageDynamic~N, Slices~N, Entries~N, N);
+    declare_storage_dynamic_n!(StorageDynamic~N, BorrowDynamic~N, Slices~N, Entries~N, N);
 });
 
 pub struct DataDynamic<T>(NonNull<MaybeUninit<T>>);

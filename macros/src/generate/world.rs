@@ -391,6 +391,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         .map(|component| format_ident!("{}", component.name))
         .collect::<Vec<_>>();
 
+    let ArchetypeBorrow = format_ident!("{}Borrow", archetype_data.name);
     let ArchetypeEntries = format_ident!("{}Entries", archetype_data.name);
     let ArchetypeSlices = format_ident!("{}Slices", archetype_data.name);
 
@@ -398,16 +399,19 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let SlicesN = format_ident!("Slices{}", count_str);
     let ContentArgs = quote!(#Archetype, #(#Component),*);
 
-    let (StorageN, StorageArgs) = match &archetype_data.build_data.as_ref().unwrap().capacity {
-        DataCapacity::Fixed(expr) => {
-            let StorageFixed = format_ident!("StorageFixed{}", count_str);
-            (StorageFixed, quote!(Self, #(#Component,)* { #expr }))
-        }
-        DataCapacity::Dynamic => {
-            let StorageDynamic = format_ident!("StorageDynamic{}", count_str);
-            (StorageDynamic, quote!(Self, #(#Component,)*))
-        }
-    };
+    let (StorageN, BorrowN, StorageArgs) =
+        match &archetype_data.build_data.as_ref().unwrap().capacity {
+            DataCapacity::Fixed(expr) => (
+                format_ident!("StorageFixed{}", count_str),
+                format_ident!("BorrowFixed{}", count_str),
+                quote!(#Archetype, #(#Component,)* { #expr }),
+            ),
+            DataCapacity::Dynamic => (
+                format_ident!("StorageDynamic{}", count_str),
+                format_ident!("BorrowDynamic{}", count_str),
+                quote!(#Archetype, #(#Component,)*),
+            ),
+        };
 
     // Generated subsections
     let with_capacity = match &archetype_data.build_data.as_ref().unwrap().capacity {
@@ -430,6 +434,12 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let get_slice_mut = (0..count)
         .into_iter()
         .map(|idx| format_ident!("get_slice_mut_{}", idx.to_string()));
+    let borrow = (0..count)
+        .into_iter()
+        .map(|idx| format_ident!("borrow_{}", idx.to_string()));
+    let borrow_mut = (0..count)
+        .into_iter()
+        .map(|idx| format_ident!("borrow_mut_{}", idx.to_string()));
     let borrow_slice = (0..count)
         .into_iter()
         .map(|idx| format_ident!("borrow_slice_{}", idx.to_string()));
@@ -522,15 +532,29 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             pub fn resolve<T>(&self, entity: T) -> Option<usize>
             where
-                Self: CanResolve<T>
+                #StorageN<#StorageArgs>: CanResolve<T>
             {
-                <Self as CanResolve<T>>::resolve_for(self, entity)
+                self.data.resolve(entity)
             }
 
             /// If the entity exists in the archetype, this destroys it and returns its components.
             #[inline(always)]
             pub fn destroy(&mut self, entity: Entity<#Archetype>) -> Option<(#(#Component,)*)> {
                 self.data.remove(entity)
+            }
+
+            /// Begins a borrow context for the given entity on this archetype. This will allow
+            /// direct access to that entity's components with runtime borrow checking. This can
+            /// be faster than accessing the components as slices, as it will skip bounds checks.
+            #[inline(always)]
+            pub fn begin_borrow<'a, T>(
+                &'a self,
+                entity: T,
+            ) -> Option<(usize, #ArchetypeBorrow<'a>)>
+            where
+                #StorageN<#StorageArgs>: CanResolve<T>
+            {
+                self.data.begin_borrow(entity).map(|(idx, borrow)| (idx, #ArchetypeBorrow(borrow)))
             }
 
             #[inline(always)]
@@ -600,6 +624,47 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
         }
 
+        #[repr(transparent)]
+        #[derive(Clone, Copy)]
+        pub struct #ArchetypeBorrow<'a>(#BorrowN<'a, #StorageArgs>);
+
+        impl<'a> #ArchetypeBorrow<'a> {
+            #[inline(always)]
+            pub fn entity(&self) -> &Entity<#Archetype> {
+                self.0.entity()
+            }
+
+            #[inline(always)]
+            pub fn borrow<C>(&self) -> Ref<C>
+            where
+                Self: CanBorrow<C>
+            {
+                <Self as CanBorrow<C>>::resolve_borrow(self)
+            }
+
+            #[inline(always)]
+            pub fn borrow_mut<C>(&self) -> RefMut<C>
+            where
+                Self: CanBorrow<C>
+            {
+                <Self as CanBorrow<C>>::resolve_borrow_mut(self)
+            }
+        }
+
+        #(
+            impl<'a> CanBorrow<#Component> for #ArchetypeBorrow<'a> {
+                #[inline(always)]
+                fn resolve_borrow(&self) -> Ref<#Component> {
+                    self.0.#borrow()
+                }
+
+                #[inline(always)]
+                fn resolve_borrow_mut(&self) -> RefMut<#Component> {
+                    self.0.#borrow_mut()
+                }
+            }
+        )*
+
         pub struct #ArchetypeEntries<'a> {
             pub entity: &'a Entity<#Archetype>,
             #(
@@ -631,20 +696,6 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 #(#component: &'a mut [#Component]),*
             ) -> Self {
                 Self { entity, #(#component),* }
-            }
-        }
-
-        impl CanResolve<Entity<#Archetype>> for #Archetype {
-            #[inline(always)]
-            fn resolve_for(&self, entity: Entity<#Archetype>) -> Option<usize> {
-                self.data.resolve(entity)
-            }
-        }
-
-        impl CanResolve<EntityRaw<#Archetype>> for #Archetype {
-            #[inline(always)]
-            fn resolve_for(&self, entity: EntityRaw<#Archetype>) -> Option<usize> {
-                self.data.resolve(entity)
             }
         }
     )
