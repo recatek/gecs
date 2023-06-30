@@ -503,7 +503,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
             /// Returns the generational version of the archetype. Intended for internal use.
             #[inline(always)]
-            pub const fn version(&self) -> Version {
+            pub const fn version(&self) -> VersionArchetype {
                 self.data.version()
             }
 

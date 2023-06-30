@@ -700,7 +700,7 @@ pub mod __internal {
 
     pub use entity::__internal::*;
 
-    pub use version::Version;
+    pub use version::{VersionArchetype, VersionSlot};
 
     pub use archetype::entries::*;
     pub use archetype::slices::*;

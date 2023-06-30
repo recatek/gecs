@@ -2,7 +2,7 @@ use std::mem::MaybeUninit;
 
 use crate::index::{DataIndex, MAX_DATA_CAPACITY, MAX_DATA_INDEX};
 use crate::util::{num_assert_leq, num_assert_lt};
-use crate::version::Version;
+use crate::version::VersionSlot;
 
 // We use the highest order bit to mark which indices are free list.
 // This is necessary because we need to catch if a bad entity handle
@@ -119,7 +119,7 @@ impl SlotIndex {
 #[derive(Clone, Copy)]
 pub(crate) struct Slot {
     index: SlotIndex,
-    version: Version,
+    version: VersionSlot,
 }
 
 impl Slot {
@@ -130,7 +130,7 @@ impl Slot {
 
         Self {
             index: next_free,
-            version: Version::start(),
+            version: VersionSlot::start(),
         }
     }
 
@@ -148,7 +148,7 @@ impl Slot {
 
     /// Get the slot's generational version.
     #[inline(always)]
-    pub(crate) fn version(&self) -> Version {
+    pub(crate) fn version(&self) -> VersionSlot {
         self.version
     }
 

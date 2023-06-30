@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use crate::error::EcsError;
 use crate::index::{DataIndex, MAX_DATA_INDEX};
 use crate::traits::Archetype;
-use crate::version::Version;
+use crate::version::{VersionArchetype, VersionSlot};
 
 // NOTE: While this is extremely unlikely to change, if it does, the proc
 // macros need to be updated manually with the new type assumptions.
@@ -45,7 +45,7 @@ pub struct EntityRaw<A: Archetype> {
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct EntityAny {
     key: u32, // [ slot_index (u24) | archetype_id (u8) ]
-    version: Version,
+    version: VersionSlot,
 }
 
 /// A dynamically typed, unchecked, raw entity index for accelerated lookup.
@@ -65,14 +65,14 @@ pub struct EntityAny {
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct EntityRawAny {
     key: u32, // [ dense_index (u24) | archetype_id (u8) ]
-    version: Version,
+    version: VersionArchetype,
 }
 
 impl<A: Archetype> Entity<A> {
     #[inline(always)]
     pub(crate) fn new(
         slot_index: DataIndex, //.
-        version: Version,
+        version: VersionSlot,
     ) -> Self {
         Self {
             inner: EntityAny::new(slot_index, A::ARCHETYPE_ID, version),
@@ -86,7 +86,7 @@ impl<A: Archetype> Entity<A> {
     }
 
     #[inline(always)]
-    pub(crate) fn version(&self) -> Version {
+    pub(crate) fn version(&self) -> VersionSlot {
         self.inner.version()
     }
 
@@ -131,7 +131,7 @@ impl EntityAny {
     pub(crate) fn new(
         slot_index: DataIndex, //.
         archetype_id: ArchetypeId,
-        version: Version,
+        version: VersionSlot,
     ) -> Self {
         let archetype_id: u32 = archetype_id.into();
         let key = (slot_index.get() << ARCHETYPE_ID_BITS) | archetype_id;
@@ -156,7 +156,7 @@ impl EntityAny {
     }
 
     #[inline(always)]
-    pub(crate) const fn version(&self) -> Version {
+    pub(crate) const fn version(&self) -> VersionSlot {
         self.version
     }
 
@@ -171,7 +171,7 @@ impl<A: Archetype> EntityRaw<A> {
     #[inline(always)]
     pub(crate) fn new(
         dense_index: DataIndex, //.
-        version: Version,
+        version: VersionArchetype,
     ) -> Self {
         Self {
             inner: EntityRawAny::new(dense_index, A::ARCHETYPE_ID, version),
@@ -185,7 +185,7 @@ impl<A: Archetype> EntityRaw<A> {
     }
 
     #[inline(always)]
-    pub(crate) fn version(&self) -> Version {
+    pub(crate) fn version(&self) -> VersionArchetype {
         self.inner.version()
     }
 
@@ -230,7 +230,7 @@ impl EntityRawAny {
     pub(crate) fn new(
         dense_index: DataIndex, //.
         archetype_id: ArchetypeId,
-        version: Version,
+        version: VersionArchetype,
     ) -> Self {
         let archetype_id: u32 = archetype_id.into();
         let key = (dense_index.get() << ARCHETYPE_ID_BITS) | archetype_id;
@@ -255,7 +255,7 @@ impl EntityRawAny {
     }
 
     #[inline(always)]
-    pub(crate) const fn version(&self) -> Version {
+    pub(crate) const fn version(&self) -> VersionArchetype {
         self.version
     }
 
@@ -397,7 +397,7 @@ pub mod __internal {
 
     #[doc(hidden)]
     #[inline(always)]
-    pub fn new_entity_raw<A: Archetype>(index: usize, version: Version) -> EntityRaw<A> {
+    pub fn new_entity_raw<A: Archetype>(index: usize, version: VersionArchetype) -> EntityRaw<A> {
         EntityRaw::new(DataIndex::new_usize(index).unwrap(), version)
     }
 

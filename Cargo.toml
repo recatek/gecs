@@ -13,7 +13,10 @@ categories = ["data-structures", "game-engines"]
 [features]
 default = []
 32_components = []
-wrapping_versions = []
+# Wrap rather than panic when an slot version overflows (used for entity handles).
+wrapping_entity_version = []
+# Wrap rather than panic when an archetype version overflows (used for raw entities).
+wrapping_archetype_version = []
 
 [dependencies]
 gecs_macros = { version = "0.2.2", path = "macros", default_features = false }

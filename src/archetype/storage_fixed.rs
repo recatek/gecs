@@ -11,13 +11,13 @@ use crate::entity::{Entity, EntityRaw};
 use crate::index::{DataIndex, MAX_DATA_CAPACITY};
 use crate::traits::{Archetype, CanResolve};
 use crate::util::{debug_checked_assume, num_assert_leq};
-use crate::version::Version;
+use crate::version::VersionArchetype;
 
 macro_rules! declare_storage_fixed_n {
     ($name:ident, $borrow:ident, $slices:ident, $entries:ident, $n:literal) => {
         seq!(I in 0..$n {
             pub struct $name<A: Archetype, #(T~I,)* const N: usize> {
-                version: Version,
+                version: VersionArchetype,
                 len: usize,
                 free_head: SlotIndex,
                 slots: DataFixed<Slot, N>, // Sparse
@@ -41,7 +41,7 @@ macro_rules! declare_storage_fixed_n {
                     let free_head = slot::populate_free_list(DataIndex::zero(), raw_data);
 
                     Self {
-                        version: Version::start(),
+                        version: VersionArchetype::start(),
                         len: 0,
                         free_head,
                         slots,
@@ -67,7 +67,7 @@ macro_rules! declare_storage_fixed_n {
 
                 /// The overall version for this data structure. Used for raw indices.
                 #[inline(always)]
-                pub const fn version(&self) -> Version {
+                pub const fn version(&self) -> VersionArchetype {
                     self.version
                 }
 
