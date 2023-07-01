@@ -33,9 +33,12 @@ pub fn test_one_of_basic() {
     let entity_b = world.create::<ArchBar>((CompA(1), CompC(10)));
 
     let mut entity_raw = None;
-    ecs_find!(world, entity_a, |raw: &EntityRaw<ArchFoo>| {
+    let found = ecs_find!(world, entity_a, |raw: &EntityRaw<ArchFoo>| -> u32 {
         entity_raw = Some(*raw);
+        6
     });
+
+    assert!(found == Some(6));
 
     test_view_asm1(&mut world, entity_a, 3);
     test_view_asm2(&mut world, entity_a, 3);

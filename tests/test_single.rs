@@ -49,17 +49,17 @@ pub fn test_single_entity() {
     let entity_3 = world.arch_foo.create((CompA(3), CompZ,));
     let entity_4 = world.arch_foo.create((CompA(4), CompZ,));
 
-    assert!(ecs_find!(world, entity_0, |v: &Entity<ArchFoo>| assert!(*v == entity_0)));
-    assert!(ecs_find!(world, entity_1, |v: &Entity<ArchFoo>| assert!(*v == entity_1)));
-    assert!(ecs_find!(world, entity_2, |v: &Entity<ArchFoo>| assert!(*v == entity_2)));
-    assert!(ecs_find!(world, entity_3, |v: &Entity<ArchFoo>| assert!(*v == entity_3)));
-    assert!(ecs_find!(world, entity_4, |v: &Entity<ArchFoo>| assert!(*v == entity_4)));
+    assert!(ecs_find!(world, entity_0, |v: &Entity<ArchFoo>| assert!(*v == entity_0)).is_some());
+    assert!(ecs_find!(world, entity_1, |v: &Entity<ArchFoo>| assert!(*v == entity_1)).is_some());
+    assert!(ecs_find!(world, entity_2, |v: &Entity<ArchFoo>| assert!(*v == entity_2)).is_some());
+    assert!(ecs_find!(world, entity_3, |v: &Entity<ArchFoo>| assert!(*v == entity_3)).is_some());
+    assert!(ecs_find!(world, entity_4, |v: &Entity<ArchFoo>| assert!(*v == entity_4)).is_some());
 
-    assert!(ecs_find_borrow!(world, entity_0, |v: &Entity<ArchFoo>| assert!(*v == entity_0)));
-    assert!(ecs_find_borrow!(world, entity_1, |v: &Entity<ArchFoo>| assert!(*v == entity_1)));
-    assert!(ecs_find_borrow!(world, entity_2, |v: &Entity<ArchFoo>| assert!(*v == entity_2)));
-    assert!(ecs_find_borrow!(world, entity_3, |v: &Entity<ArchFoo>| assert!(*v == entity_3)));
-    assert!(ecs_find_borrow!(world, entity_4, |v: &Entity<ArchFoo>| assert!(*v == entity_4)));
+    assert!(ecs_find_borrow!(world, entity_0, |v: &Entity<ArchFoo>| assert!(*v == entity_0)).is_some());
+    assert!(ecs_find_borrow!(world, entity_1, |v: &Entity<ArchFoo>| assert!(*v == entity_1)).is_some());
+    assert!(ecs_find_borrow!(world, entity_2, |v: &Entity<ArchFoo>| assert!(*v == entity_2)).is_some());
+    assert!(ecs_find_borrow!(world, entity_3, |v: &Entity<ArchFoo>| assert!(*v == entity_3)).is_some());
+    assert!(ecs_find_borrow!(world, entity_4, |v: &Entity<ArchFoo>| assert!(*v == entity_4)).is_some());
 
     assert!(world.arch_foo.destroy(entity_0).is_some());
     assert!(world.arch_foo.destroy(entity_1).is_some());
@@ -79,17 +79,17 @@ pub fn test_single_entity() {
     assert!(entity_3 != entity_3b);
     assert!(entity_4 != entity_4b);
 
-    assert!(ecs_find!(world, entity_0b, |v: &Entity<ArchFoo>| assert!(*v == entity_0b)));
-    assert!(ecs_find!(world, entity_1b, |v: &Entity<ArchFoo>| assert!(*v == entity_1b)));
-    assert!(ecs_find!(world, entity_2b, |v: &Entity<ArchFoo>| assert!(*v == entity_2b)));
-    assert!(ecs_find!(world, entity_3b, |v: &Entity<ArchFoo>| assert!(*v == entity_3b)));
-    assert!(ecs_find!(world, entity_4b, |v: &Entity<ArchFoo>| assert!(*v == entity_4b)));
+    assert!(ecs_find!(world, entity_0b, |v: &Entity<ArchFoo>| assert!(*v == entity_0b)).is_some());
+    assert!(ecs_find!(world, entity_1b, |v: &Entity<ArchFoo>| assert!(*v == entity_1b)).is_some());
+    assert!(ecs_find!(world, entity_2b, |v: &Entity<ArchFoo>| assert!(*v == entity_2b)).is_some());
+    assert!(ecs_find!(world, entity_3b, |v: &Entity<ArchFoo>| assert!(*v == entity_3b)).is_some());
+    assert!(ecs_find!(world, entity_4b, |v: &Entity<ArchFoo>| assert!(*v == entity_4b)).is_some());
 
-    assert!(ecs_find_borrow!(world, entity_0b, |v: &Entity<ArchFoo>| assert!(*v == entity_0b)));
-    assert!(ecs_find_borrow!(world, entity_1b, |v: &Entity<ArchFoo>| assert!(*v == entity_1b)));
-    assert!(ecs_find_borrow!(world, entity_2b, |v: &Entity<ArchFoo>| assert!(*v == entity_2b)));
-    assert!(ecs_find_borrow!(world, entity_3b, |v: &Entity<ArchFoo>| assert!(*v == entity_3b)));
-    assert!(ecs_find_borrow!(world, entity_4b, |v: &Entity<ArchFoo>| assert!(*v == entity_4b)));
+    assert!(ecs_find_borrow!(world, entity_0b, |v: &Entity<ArchFoo>| assert!(*v == entity_0b)).is_some());
+    assert!(ecs_find_borrow!(world, entity_1b, |v: &Entity<ArchFoo>| assert!(*v == entity_1b)).is_some());
+    assert!(ecs_find_borrow!(world, entity_2b, |v: &Entity<ArchFoo>| assert!(*v == entity_2b)).is_some());
+    assert!(ecs_find_borrow!(world, entity_3b, |v: &Entity<ArchFoo>| assert!(*v == entity_3b)).is_some());
+    assert!(ecs_find_borrow!(world, entity_4b, |v: &Entity<ArchFoo>| assert!(*v == entity_4b)).is_some());
 }
 
 #[test]
@@ -103,57 +103,57 @@ pub fn test_single_find() {
     let entity_3 = world.arch_foo.create((CompA(3), CompZ,));
     let entity_4 = world.arch_foo.create((CompA(4), CompZ,));
 
-    assert!(ecs_find!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)));
-    assert!(ecs_find!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)));
-    assert!(ecs_find!(world, entity_2, |v: &CompA| assert_eq!(v.0, 2)));
-    assert!(ecs_find!(world, entity_3, |v: &CompA| assert_eq!(v.0, 3)));
-    assert!(ecs_find!(world, entity_4, |v: &CompA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)).is_some());
+    assert!(ecs_find!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)).is_some());
+    assert!(ecs_find!(world, entity_2, |v: &CompA| assert_eq!(v.0, 2)).is_some());
+    assert!(ecs_find!(world, entity_3, |v: &CompA| assert_eq!(v.0, 3)).is_some());
+    assert!(ecs_find!(world, entity_4, |v: &CompA| assert_eq!(v.0, 4)).is_some());
 
-    assert!(ecs_find_borrow!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_borrow!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_borrow!(world, entity_2, |v: &CompA| assert_eq!(v.0, 2)));
-    assert!(ecs_find_borrow!(world, entity_3, |v: &CompA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_borrow!(world, entity_4, |v: &CompA| assert_eq!(v.0, 4)));
+    assert!(ecs_find_borrow!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)).is_some());
+    assert!(ecs_find_borrow!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)).is_some());
+    assert!(ecs_find_borrow!(world, entity_2, |v: &CompA| assert_eq!(v.0, 2)).is_some());
+    assert!(ecs_find_borrow!(world, entity_3, |v: &CompA| assert_eq!(v.0, 3)).is_some());
+    assert!(ecs_find_borrow!(world, entity_4, |v: &CompA| assert_eq!(v.0, 4)).is_some());
 
-    assert!(ecs_find!(world, entity_0, |v: &mut CompA| assert_eq!(v.0, 0)));
-    assert!(ecs_find!(world, entity_1, |v: &mut CompA| assert_eq!(v.0, 1)));
-    assert!(ecs_find!(world, entity_2, |v: &mut CompA| assert_eq!(v.0, 2)));
-    assert!(ecs_find!(world, entity_3, |v: &mut CompA| assert_eq!(v.0, 3)));
-    assert!(ecs_find!(world, entity_4, |v: &mut CompA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_0, |v: &mut CompA| assert_eq!(v.0, 0)).is_some());
+    assert!(ecs_find!(world, entity_1, |v: &mut CompA| assert_eq!(v.0, 1)).is_some());
+    assert!(ecs_find!(world, entity_2, |v: &mut CompA| assert_eq!(v.0, 2)).is_some());
+    assert!(ecs_find!(world, entity_3, |v: &mut CompA| assert_eq!(v.0, 3)).is_some());
+    assert!(ecs_find!(world, entity_4, |v: &mut CompA| assert_eq!(v.0, 4)).is_some());
 
-    assert!(ecs_find_borrow!(world, entity_0, |v: &mut CompA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_borrow!(world, entity_1, |v: &mut CompA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_borrow!(world, entity_2, |v: &mut CompA| assert_eq!(v.0, 2)));
-    assert!(ecs_find_borrow!(world, entity_3, |v: &mut CompA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_borrow!(world, entity_4, |v: &mut CompA| assert_eq!(v.0, 4)));
+    assert!(ecs_find_borrow!(world, entity_0, |v: &mut CompA| assert_eq!(v.0, 0)).is_some());
+    assert!(ecs_find_borrow!(world, entity_1, |v: &mut CompA| assert_eq!(v.0, 1)).is_some());
+    assert!(ecs_find_borrow!(world, entity_2, |v: &mut CompA| assert_eq!(v.0, 2)).is_some());
+    assert!(ecs_find_borrow!(world, entity_3, |v: &mut CompA| assert_eq!(v.0, 3)).is_some());
+    assert!(ecs_find_borrow!(world, entity_4, |v: &mut CompA| assert_eq!(v.0, 4)).is_some());
 
     world.arch_foo.destroy(entity_2).unwrap();
 
-    assert!(ecs_find!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)));
-    assert!(ecs_find!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)));
-    assert!(ecs_find!(world, entity_3, |v: &CompA| assert_eq!(v.0, 3)));
-    assert!(ecs_find!(world, entity_4, |v: &CompA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)).is_some());
+    assert!(ecs_find!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)).is_some());
+    assert!(ecs_find!(world, entity_3, |v: &CompA| assert_eq!(v.0, 3)).is_some());
+    assert!(ecs_find!(world, entity_4, |v: &CompA| assert_eq!(v.0, 4)).is_some());
 
-    assert!(ecs_find_borrow!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_borrow!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_borrow!(world, entity_3, |v: &CompA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_borrow!(world, entity_4, |v: &CompA| assert_eq!(v.0, 4)));
+    assert!(ecs_find_borrow!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)).is_some());
+    assert!(ecs_find_borrow!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)).is_some());
+    assert!(ecs_find_borrow!(world, entity_3, |v: &CompA| assert_eq!(v.0, 3)).is_some());
+    assert!(ecs_find_borrow!(world, entity_4, |v: &CompA| assert_eq!(v.0, 4)).is_some());
 
-    assert!(ecs_find!(world, entity_0, |v: &mut CompA| assert_eq!(v.0, 0)));
-    assert!(ecs_find!(world, entity_1, |v: &mut CompA| assert_eq!(v.0, 1)));
-    assert!(ecs_find!(world, entity_3, |v: &mut CompA| assert_eq!(v.0, 3)));
-    assert!(ecs_find!(world, entity_4, |v: &mut CompA| assert_eq!(v.0, 4)));
+    assert!(ecs_find!(world, entity_0, |v: &mut CompA| assert_eq!(v.0, 0)).is_some());
+    assert!(ecs_find!(world, entity_1, |v: &mut CompA| assert_eq!(v.0, 1)).is_some());
+    assert!(ecs_find!(world, entity_3, |v: &mut CompA| assert_eq!(v.0, 3)).is_some());
+    assert!(ecs_find!(world, entity_4, |v: &mut CompA| assert_eq!(v.0, 4)).is_some());
 
-    assert!(ecs_find_borrow!(world, entity_0, |v: &mut CompA| assert_eq!(v.0, 0)));
-    assert!(ecs_find_borrow!(world, entity_1, |v: &mut CompA| assert_eq!(v.0, 1)));
-    assert!(ecs_find_borrow!(world, entity_3, |v: &mut CompA| assert_eq!(v.0, 3)));
-    assert!(ecs_find_borrow!(world, entity_4, |v: &mut CompA| assert_eq!(v.0, 4)));
+    assert!(ecs_find_borrow!(world, entity_0, |v: &mut CompA| assert_eq!(v.0, 0)).is_some());
+    assert!(ecs_find_borrow!(world, entity_1, |v: &mut CompA| assert_eq!(v.0, 1)).is_some());
+    assert!(ecs_find_borrow!(world, entity_3, |v: &mut CompA| assert_eq!(v.0, 3)).is_some());
+    assert!(ecs_find_borrow!(world, entity_4, |v: &mut CompA| assert_eq!(v.0, 4)).is_some());
 
-    assert_eq!(ecs_find!(world, entity_2, |_: &CompA| panic!()), false);
-    assert_eq!(ecs_find!(world, entity_2, |_: &mut CompA| panic!()), false);
+    assert!(ecs_find!(world, entity_2, |_: &CompA| panic!()).is_none());
+    assert!(ecs_find!(world, entity_2, |_: &mut CompA| panic!()).is_none());
 
-    assert_eq!(ecs_find_borrow!(world, entity_2, |_: &CompA| panic!()), false);
-    assert_eq!(ecs_find_borrow!(world, entity_2, |_: &mut CompA| panic!()), false);
+    assert!(ecs_find_borrow!(world, entity_2, |_: &CompA| panic!()).is_none());
+    assert!(ecs_find_borrow!(world, entity_2, |_: &mut CompA| panic!()).is_none());
 }
 
 #[test]
@@ -278,17 +278,17 @@ pub fn test_single_destroy_replace() {
     assert_eq!(world.arch_foo.destroy(entity_0).unwrap().0.0, 0);
     assert_eq!(world.arch_foo.len(), 0);
 
-    assert_eq!(ecs_find!(world, entity_0, |_: &CompA| panic!()), false);
-    assert_eq!(ecs_find!(world, entity_1, |_: &CompA| panic!()), false);
-    assert_eq!(ecs_find!(world, entity_2, |_: &CompA| panic!()), false);
-    assert_eq!(ecs_find!(world, entity_3, |_: &CompA| panic!()), false);
-    assert_eq!(ecs_find!(world, entity_4, |_: &CompA| panic!()), false);
+    assert!(ecs_find!(world, entity_0, |_: &CompA| panic!()).is_none());
+    assert!(ecs_find!(world, entity_1, |_: &CompA| panic!()).is_none());
+    assert!(ecs_find!(world, entity_2, |_: &CompA| panic!()).is_none());
+    assert!(ecs_find!(world, entity_3, |_: &CompA| panic!()).is_none());
+    assert!(ecs_find!(world, entity_4, |_: &CompA| panic!()).is_none());
 
-    assert_eq!(ecs_find_borrow!(world, entity_0, |_: &CompA| panic!()), false);
-    assert_eq!(ecs_find_borrow!(world, entity_1, |_: &CompA| panic!()), false);
-    assert_eq!(ecs_find_borrow!(world, entity_2, |_: &CompA| panic!()), false);
-    assert_eq!(ecs_find_borrow!(world, entity_3, |_: &CompA| panic!()), false);
-    assert_eq!(ecs_find_borrow!(world, entity_4, |_: &CompA| panic!()), false);
+    assert!(ecs_find_borrow!(world, entity_0, |_: &CompA| panic!()).is_none());
+    assert!(ecs_find_borrow!(world, entity_1, |_: &CompA| panic!()).is_none());
+    assert!(ecs_find_borrow!(world, entity_2, |_: &CompA| panic!()).is_none());
+    assert!(ecs_find_borrow!(world, entity_3, |_: &CompA| panic!()).is_none());
+    assert!(ecs_find_borrow!(world, entity_4, |_: &CompA| panic!()).is_none());
 
     assert!(world.arch_foo.destroy(entity_0).is_none());
     assert!(world.arch_foo.destroy(entity_1).is_none());
@@ -302,15 +302,15 @@ pub fn test_single_destroy_replace() {
     let entity_3b = world.arch_foo.create((CompA(1003), CompZ,));
     let entity_4b = world.arch_foo.create((CompA(1004), CompZ,));
 
-    assert!(ecs_find!(world, entity_0b, |v: &CompA| assert_eq!(v.0, 1000)));
-    assert!(ecs_find!(world, entity_1b, |v: &CompA| assert_eq!(v.0, 1001)));
-    assert!(ecs_find!(world, entity_2b, |v: &CompA| assert_eq!(v.0, 1002)));
-    assert!(ecs_find!(world, entity_3b, |v: &CompA| assert_eq!(v.0, 1003)));
-    assert!(ecs_find!(world, entity_4b, |v: &CompA| assert_eq!(v.0, 1004)));
+    assert!(ecs_find!(world, entity_0b, |v: &CompA| assert_eq!(v.0, 1000)).is_some());
+    assert!(ecs_find!(world, entity_1b, |v: &CompA| assert_eq!(v.0, 1001)).is_some());
+    assert!(ecs_find!(world, entity_2b, |v: &CompA| assert_eq!(v.0, 1002)).is_some());
+    assert!(ecs_find!(world, entity_3b, |v: &CompA| assert_eq!(v.0, 1003)).is_some());
+    assert!(ecs_find!(world, entity_4b, |v: &CompA| assert_eq!(v.0, 1004)).is_some());
 
-    assert!(ecs_find_borrow!(world, entity_0b, |v: &CompA| assert_eq!(v.0, 1000)));
-    assert!(ecs_find_borrow!(world, entity_1b, |v: &CompA| assert_eq!(v.0, 1001)));
-    assert!(ecs_find_borrow!(world, entity_2b, |v: &CompA| assert_eq!(v.0, 1002)));
-    assert!(ecs_find_borrow!(world, entity_3b, |v: &CompA| assert_eq!(v.0, 1003)));
-    assert!(ecs_find_borrow!(world, entity_4b, |v: &CompA| assert_eq!(v.0, 1004)));
+    assert!(ecs_find_borrow!(world, entity_0b, |v: &CompA| assert_eq!(v.0, 1000)).is_some());
+    assert!(ecs_find_borrow!(world, entity_1b, |v: &CompA| assert_eq!(v.0, 1001)).is_some());
+    assert!(ecs_find_borrow!(world, entity_2b, |v: &CompA| assert_eq!(v.0, 1002)).is_some());
+    assert!(ecs_find_borrow!(world, entity_3b, |v: &CompA| assert_eq!(v.0, 1003)).is_some());
+    assert!(ecs_find_borrow!(world, entity_4b, |v: &CompA| assert_eq!(v.0, 1004)).is_some());
 }

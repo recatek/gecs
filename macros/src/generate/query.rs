@@ -45,6 +45,12 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
     // Keywords
     let maybe_mut = query.params.iter().map(to_maybe_mut).collect::<Vec<_>>();
 
+    // Explicit return value on the query
+    let ret = match &query.ret {
+        Some(ret) => quote!(-> #ret),
+        None => quote!(),
+    };
+
     let mut queries = Vec::<TokenStream>::new();
     for archetype in world_data.archetypes {
         debug_assert!(archetype.build_data.is_none());
@@ -85,32 +91,30 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
-                    let mut closure = |#(#arg: &#maybe_mut #Type),*| #body;
+                    let mut closure = |#(#arg: &#maybe_mut #Type),*| #ret #body;
 
                     let archetype = #get_archetype;
                     let version = archetype.version();
 
                     if #let_resolve {
-                        closure(#(#bind),*);
-                        true
+                        Some(closure(#(#bind),*))
                     } else {
-                        false
+                        None
                     }
                 }
                 #WorldDispatch::#ArchetypeRaw(#resolved_entity) => {
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
-                    let mut closure = |#(#arg: &#maybe_mut #Type),*| #body;
+                    let mut closure = |#(#arg: &#maybe_mut #Type),*| #ret #body;
 
                     let archetype = #get_archetype;
                     let version = archetype.version();
 
                     if #let_resolve {
-                        closure(#(#bind),*);
-                        true
+                        Some(closure(#(#bind),*))
                     } else {
-                        false
+                        None
                     }
                 }
             ));
@@ -121,7 +125,7 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
         {
             match #WorldDispatch::from(#entity) {
                 #(#queries)*
-                _ => false,
+                _ => None,
             }
         }
     ))

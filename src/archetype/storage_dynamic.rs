@@ -213,10 +213,10 @@ macro_rules! declare_storage_dynamic_n {
 
                 /// Creates a borrow context to accelerate accessing borrowed data for an entity.
                 #[inline(always)]
-                pub fn begin_borrow<'a, K>(
-                    &'a self,
+                pub fn begin_borrow<K>(
+                    &self,
                     storage_key: K
-                ) -> Option<$borrow<'a, A, #(T~I,)*>>
+                ) -> Option<$borrow<A, #(T~I,)*>>
                 where
                     Self: CanResolve<K>
                 {

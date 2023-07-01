@@ -1,6 +1,6 @@
 use syn::parse::{Parse, ParseStream};
 use syn::token::{Colon, Comma, Gt, Lt, Mut};
-use syn::{Expr, Ident, LitStr, Token};
+use syn::{Expr, Ident, LitStr, Token, Type};
 
 mod kw {
     syn::custom_keyword!(archetype);
@@ -19,6 +19,7 @@ pub struct ParseQueryFind {
     pub world: Expr,
     pub entity: Expr,
     pub params: Vec<ParseQueryParam>,
+    pub ret: Option<Type>,
     pub body: Expr,
 }
 
@@ -66,6 +67,12 @@ impl Parse for ParseQueryFind {
         let params = parse_params(&input)?;
         input.parse::<Token![|]>()?;
 
+        // Parse a return type, if there is one
+        let ret = match input.parse::<Option<Token![->]>>()? {
+            Some(_) => Some(input.parse::<Type>()?),
+            None => None,
+        };
+
         // Parse the rest of the body, including the braces (if any)
         let body = input.parse::<Expr>()?;
 
@@ -74,6 +81,7 @@ impl Parse for ParseQueryFind {
             world,
             entity,
             params,
+            ret,
             body,
         })
     }

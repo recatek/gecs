@@ -4,6 +4,12 @@
 #![allow(clippy::bool_comparison)] // using "== false" is easier to read in some cases
 #![allow(clippy::len_zero)] // using "len() > 0" is easier to read in some cases
 
+//!
+// TODO DOCS:
+// - ecs_find return type stuff
+// - entityraw
+// - ???
+
 //! A generated entity component system 🦎
 //!
 //! The gecs crate provides a compile-time generated, zero-overhead ECS for simulations
@@ -65,8 +71,9 @@
 //!     assert_eq!(world.archetype::<ArchBar>().len(), 1);
 //!
 //!     // Look up each entity and check its CompB or CompC value.
-//!     assert!(ecs_find!(world, entity_a, |c: &CompB| assert_eq!(c.0, 20)));
-//!     assert!(ecs_find!(world, entity_b, |c: &CompC| assert_eq!(c.0, 40)));
+//!     // We use the is_some() check here to make sure the entity was indeed found.
+//!     assert!(ecs_find!(world, entity_a, |c: &CompB| assert_eq!(c.0, 20)).is_some());
+//!     assert!(ecs_find!(world, entity_b, |c: &CompC| assert_eq!(c.0, 40)).is_some());
 //!
 //!     // Add to entity_a's CompA value.
 //!     ecs_find!(world, entity_a, |c: &mut CompA| { c.0 += 1; });
@@ -85,8 +92,8 @@
 //!     assert!(world.destroy(entity_a).is_some());
 //!     assert!(world.destroy(entity_b).is_some());
 //!
-//!     // Try to look up a stale entity handle -- this will return false.
-//!     assert_eq!(ecs_find!(world, entity_a, |_: &Entity<ArchFoo>| { panic!() }), false);
+//!     // Try to look up a stale entity handle -- this will return None.
+//!     assert!(ecs_find!(world, entity_a, |_: &Entity<ArchFoo>| { panic!() }).is_none());
 //! }
 //! ```
 
@@ -268,7 +275,7 @@ mod macros {
     /// fn main() {
     ///     let mut world = World::default();
     ///     let entity = world.create::<ArchFoo>((CompA, CompB));
-    ///     assert!(ecs_find!(world, entity, || {}));
+    ///     assert!(ecs_find!(world, entity, || {}).is_some());
     /// }
     /// ```
     ///
@@ -419,12 +426,12 @@ mod macros {
     /// // If you need to use a non-mut reference, see the ecs_find_borrow! macro.
     /// fn add_three(world: &mut World, entity: Entity<ArchFoo>) -> bool {
     ///     // The result will be true if the entity was found and operated on.
-    ///     ecs_find!(world, entity, |comp_a: &mut CompA| { comp_a.0 += 3; })
+    ///     ecs_find!(world, entity, |comp_a: &mut CompA| { comp_a.0 += 3; }).is_some()
     /// }
     ///
     /// fn add_three_any(world: &mut World, entity: EntityAny) -> bool {
     ///     // The query syntax is the same for both Entity<A> and EntityAny.
-    ///     ecs_find!(world, entity, |comp_a: &mut CompA| { comp_a.0 += 3; })
+    ///     ecs_find!(world, entity, |comp_a: &mut CompA| { comp_a.0 += 3; }).is_some()
     /// }
     ///
     /// fn main() {
@@ -433,14 +440,14 @@ mod macros {
     ///     let entity_a = world.create::<ArchFoo>((CompA(0), CompB(0)));
     ///     let entity_b = world.create::<ArchBar>((CompA(0), CompC(0)));
     ///
-    ///     assert!(ecs_find!(world, entity_a, |c: &CompA| assert_eq!(c.0, 0)));
-    ///     assert!(ecs_find!(world, entity_b, |c: &CompA| assert_eq!(c.0, 0)));
+    ///     assert!(ecs_find!(world, entity_a, |c: &CompA| assert_eq!(c.0, 0)).is_some());
+    ///     assert!(ecs_find!(world, entity_b, |c: &CompA| assert_eq!(c.0, 0)).is_some());
     ///
     ///     assert!(add_three(&mut world, entity_a));
     ///     assert!(add_three_any(&mut world, entity_b.into())); // Convert to an EntityAny
     ///
-    ///     assert!(ecs_find!(world, entity_a, |c: &CompA| assert_eq!(c.0, 3)));
-    ///     assert!(ecs_find!(world, entity_b, |c: &CompA| assert_eq!(c.0, 3)));
+    ///     assert!(ecs_find!(world, entity_a, |c: &CompA| assert_eq!(c.0, 3)).is_some());
+    ///     assert!(ecs_find!(world, entity_b, |c: &CompA| assert_eq!(c.0, 3)).is_some());
     /// }
     /// ```
     #[macro_export]
@@ -479,7 +486,7 @@ mod macros {
     ///     let child = world.create::<ArchFoo>((CompA(1), CompB(0), Parent(Some(parent))));
     ///
     ///     // Assert that we found the parent, and that its CompB value is 0.
-    ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 0)));
+    ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 0)).is_some());
     ///
     ///     ecs_iter_borrow!(world, |child_a: &CompA, parent: &Parent| {
     ///         if let Some(parent_entity) = parent.0 {
@@ -492,7 +499,7 @@ mod macros {
     ///     });
     ///
     ///     // Assert that we found the parent, and that its CompB value is now 1.
-    ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 1)));
+    ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 1)).is_some());
     /// }
     /// ```
     #[macro_export]
