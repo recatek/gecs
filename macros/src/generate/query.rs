@@ -67,10 +67,10 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
             #[rustfmt::skip]
             let let_resolve = match mode {
                 FetchMode::Borrow => quote!(
-                    let Some((idx, borrow)) = archetype.begin_borrow(#resolved_entity)
+                    let Some(borrow) = archetype.begin_borrow(#resolved_entity)
                 ),
                 FetchMode::Mut => quote!(
-                    let Some((idx, entries)) = archetype.get_all_entries_mut(#resolved_entity)
+                    let Some(entries) = archetype.get_all_entries_mut(#resolved_entity)
                 ),
             };
 
@@ -143,13 +143,13 @@ fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
             quote!(entries.entity)
         }
         ParseQueryParamType::EntityRaw(_) => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(entries.index(), version))
         }
         ParseQueryParamType::EntityRawAny => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version).into())
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(entries.index(), version).into())
         }
         ParseQueryParamType::EntityRawWild => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(entries.index(), version))
         }
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
@@ -176,13 +176,13 @@ fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
             quote!(borrow.entity())
         }
         ParseQueryParamType::EntityRaw(_) => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(borrow.index(), version))
         }
         ParseQueryParamType::EntityRawAny => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version).into())
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(borrow.index(), version).into())
         }
         ParseQueryParamType::EntityRawWild => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(borrow.index(), version))
         }
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")

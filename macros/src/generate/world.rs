@@ -550,18 +550,18 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             pub fn begin_borrow<'a, T>(
                 &'a self,
                 entity: T,
-            ) -> Option<(usize, #ArchetypeBorrow<'a>)>
+            ) -> Option<#ArchetypeBorrow<'a>>
             where
                 #StorageN<#StorageArgs>: CanResolve<T>
             {
-                self.data.begin_borrow(entity).map(|(idx, borrow)| (idx, #ArchetypeBorrow(borrow)))
+                self.data.begin_borrow(entity).map(#ArchetypeBorrow)
             }
 
             #[inline(always)]
             pub fn get_all_entries_mut<'a, K>(
                 &'a mut self,
                 entity_key: K
-            ) -> Option<(usize, #ArchetypeEntries<'a>)>
+            ) -> Option<#ArchetypeEntries<'a>>
             where
                 #StorageN<#StorageArgs>: CanResolve<K>
             {
@@ -630,6 +630,11 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
         impl<'a> #ArchetypeBorrow<'a> {
             #[inline(always)]
+            pub fn index(&self) -> usize {
+                self.0.index()
+            }
+
+            #[inline(always)]
             pub fn entity(&self) -> &Entity<#Archetype> {
                 self.0.entity()
             }
@@ -666,6 +671,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         )*
 
         pub struct #ArchetypeEntries<'a> {
+            index: usize,
             pub entity: &'a Entity<#Archetype>,
             #(
                 pub #component: &'a mut #Component,
@@ -679,13 +685,21 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             )*
         }
 
+        impl<'a> #ArchetypeEntries<'a> {
+            #[inline(always)]
+            pub fn index(&self) -> usize {
+                self.index
+            }
+        }
+
         impl<'a> #EntriesN<'a, #ContentArgs> for #ArchetypeEntries<'a> {
             #[inline(always)]
             fn new(
+                index: usize,
                 entity: &'a Entity<#Archetype>,
                 #(#component: &'a mut #Component),*
             ) -> Self {
-                Self { entity, #(#component),* }
+                Self { index, entity, #(#component),* }
             }
         }
 

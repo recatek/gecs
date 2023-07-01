@@ -216,12 +216,12 @@ macro_rules! declare_storage_dynamic_n {
                 pub fn begin_borrow<'a, K>(
                     &'a self,
                     storage_key: K
-                ) -> Option<(usize, $borrow<'a, A, #(T~I,)*>)>
+                ) -> Option<$borrow<'a, A, #(T~I,)*>>
                 where
                     Self: CanResolve<K>
                 {
                     if let Some(index) = <Self as CanResolve<K>>::resolve_for(self, storage_key) {
-                        Some((index, $borrow { index, source: self }))
+                        Some($borrow { index, source: self })
                     } else {
                         None
                     }
@@ -232,7 +232,7 @@ macro_rules! declare_storage_dynamic_n {
                 pub fn get_all_entries_mut<'a, E: $entries<'a, A, #(T~I,)*>, K>(
                     &'a mut self,
                     storage_key: K,
-                ) -> Option<(usize, E)>
+                ) -> Option<E>
                 where
                     Self: CanResolve<K>
                 {
@@ -241,8 +241,8 @@ macro_rules! declare_storage_dynamic_n {
                             // SAFETY: We guarantee that if we successfully resolve, then index < self.len.
                             // SAFETY: We guarantee that the storage is valid up to self.len.
                             Some((
-                                index,
                                 E::new(
+                                    index,
                                     self.entities.slice(self.len).get_unchecked(index),
                                     #(self.d~I.get_mut().slice_mut(self.len).get_unchecked_mut(index),)*
                                 )
@@ -469,6 +469,11 @@ macro_rules! declare_storage_dynamic_n {
             }
 
             impl<'a, A: Archetype, #(T~I,)*> $borrow<'a, A, #(T~I,)*> {
+                #[inline(always)]
+                pub fn index(&self) -> usize {
+                    self.index
+                }
+
                 #[inline(always)]
                 pub fn entity(&self) -> &Entity<A> {
                     unsafe {
