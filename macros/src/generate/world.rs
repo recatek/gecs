@@ -690,7 +690,37 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             pub fn index(&self) -> usize {
                 self.index
             }
+
+            #[inline(always)]
+            pub fn component<C>(&self) -> &C
+            where
+                Self: EntriesHasComponent<C>
+            {
+                <Self as EntriesHasComponent<C>>::resolve_component(self)
+            }
+
+            #[inline(always)]
+            pub fn component_mut<C>(&mut self) -> &mut C
+            where
+                Self: EntriesHasComponent<C>
+            {
+                <Self as EntriesHasComponent<C>>::resolve_component_mut(self)
+            }
         }
+
+        #(
+            impl<'a> EntriesHasComponent<#Component> for #ArchetypeEntries<'a> {
+                #[inline(always)]
+                fn resolve_component(&self) -> &#Component {
+                    self.#component
+                }
+
+                #[inline(always)]
+                fn resolve_component_mut(&mut self) -> &mut #Component {
+                    self.#component
+                }
+            }
+        )*
 
         impl<'a> #EntriesN<'a, #ContentArgs> for #ArchetypeEntries<'a> {
             #[inline(always)]
@@ -735,22 +765,4 @@ fn with_capacity_new(archetype_data: &DataArchetype) -> TokenStream {
 
 fn to_snake(name: &String) -> String {
     name.from_case(Case::Pascal).to_case(Case::Snake)
-}
-
-fn top_most_ancestor_of_call_site_span() -> String {
-    #![allow(dead_code, unstable_name_collisions)]
-    /// for code without the `proc_macro_span` feature
-    trait ParentSpanPolyfill {
-        fn parent(&self) -> Option<::proc_macro::Span> {
-            None
-        }
-    }
-    impl ParentSpanPolyfill for ::proc_macro::Span {}
-
-    let mut span = ::proc_macro::Span::call_site();
-    while let Some(parent_span) = span.parent() {
-        span = parent_span;
-    }
-
-    format!("{span:?}")
 }

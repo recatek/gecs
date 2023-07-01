@@ -685,6 +685,7 @@ pub mod prelude {
 
     pub use entity::{ArchetypeId, Entity, EntityAny, EntityRaw, EntityRawAny};
 
+    pub use traits::EntriesHasComponent;
     pub use traits::{Archetype, CanBorrow, CanResolve};
     pub use traits::{ArchetypeContainer, HasArchetype};
     pub use traits::{ComponentContainer, HasComponent};
@@ -707,6 +708,7 @@ pub mod __internal {
     pub use archetype::storage_dynamic::*;
     pub use archetype::storage_fixed::*;
 
+    pub use traits::EntriesHasComponent;
     pub use traits::{Archetype, CanBorrow, CanResolve};
     pub use traits::{ArchetypeContainer, HasArchetype};
     pub use traits::{ComponentContainer, HasComponent};
