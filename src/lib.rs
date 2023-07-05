@@ -692,10 +692,11 @@ pub mod prelude {
 
     pub use entity::{ArchetypeId, Entity, EntityAny, EntityRaw, EntityRawAny};
 
-    pub use traits::EntriesHasComponent;
-    pub use traits::{Archetype, CanBorrow, CanResolve};
-    pub use traits::{ArchetypeContainer, HasArchetype};
-    pub use traits::{ComponentContainer, HasComponent};
+    pub use traits::CanBorrow;
+    pub use traits::{Archetype, ArchetypeHas};
+    pub use traits::{ArchetypeCanResolve, StorageCanResolve};
+    pub use traits::{View, ViewHas};
+    pub use traits::{WorldBase, WorldHas};
 }
 
 #[doc(hidden)]
@@ -710,13 +711,14 @@ pub mod __internal {
 
     pub use version::{VersionArchetype, VersionSlot};
 
-    pub use archetype::entries::*;
     pub use archetype::slices::*;
     pub use archetype::storage_dynamic::*;
     pub use archetype::storage_fixed::*;
+    pub use archetype::view::*;
 
-    pub use traits::EntriesHasComponent;
-    pub use traits::{Archetype, CanBorrow, CanResolve};
-    pub use traits::{ArchetypeContainer, HasArchetype};
-    pub use traits::{ComponentContainer, HasComponent};
+    pub use traits::CanBorrow;
+    pub use traits::{Archetype, ArchetypeHas};
+    pub use traits::{ArchetypeCanResolve, StorageCanResolve};
+    pub use traits::{View, ViewHas};
+    pub use traits::{WorldBase, WorldHas};
 }

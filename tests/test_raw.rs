@@ -46,6 +46,14 @@ pub fn test_one_of_basic() {
     test_view_asm4(&mut world, 3);
 }
 
+pub fn test<A: Archetype>(arch: &mut A, entity: EntityRaw<A>)
+where
+    for<'a> A::View<'a>: ViewHas<CompA>,
+{
+    let mut view = arch.view(entity).unwrap();
+    let comp_a = view.component::<CompA>();
+}
+
 #[inline(never)]
 pub fn test_view_asm1(world: &mut World, entity: Entity<ArchFoo>, value: u32) {
     ecs_find!(world, entity, |a: &mut CompA| { a.0 = value });

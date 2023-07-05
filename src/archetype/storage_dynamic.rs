@@ -6,17 +6,17 @@ use std::slice;
 
 use seq_macro::seq;
 
-use crate::archetype::entries::*;
 use crate::archetype::slices::*;
 use crate::archetype::slot::{self, Slot, SlotIndex};
+use crate::archetype::view::*;
 use crate::entity::{Entity, EntityRaw};
 use crate::index::{DataIndex, MAX_DATA_CAPACITY};
-use crate::traits::{Archetype, CanResolve};
+use crate::traits::{Archetype, StorageCanResolve};
 use crate::util::{debug_checked_assume, num_assert_leq};
 use crate::version::VersionArchetype;
 
 macro_rules! declare_storage_dynamic_n {
-    ($name:ident, $borrow:ident, $slices:ident, $entries:ident, $n:literal) => {
+    ($name:ident, $borrow:ident, $slices:ident, $view:ident, $n:literal) => {
         seq!(I in 0..$n {
             pub struct $name<A: Archetype, #(T~I,)*> {
                 version: VersionArchetype,
@@ -206,9 +206,9 @@ macro_rules! declare_storage_dynamic_n {
                 #[inline(always)]
                 pub fn resolve<T>(&self, storage_key: T) -> Option<usize>
                 where
-                    Self: CanResolve<T>
+                    Self: StorageCanResolve<T>
                 {
-                    <Self as CanResolve<T>>::resolve_for(self, storage_key)
+                    <Self as StorageCanResolve<T>>::resolve_for(self, storage_key)
                 }
 
                 /// Creates a borrow context to accelerate accessing borrowed data for an entity.
@@ -218,25 +218,25 @@ macro_rules! declare_storage_dynamic_n {
                     storage_key: K
                 ) -> Option<$borrow<A, #(T~I,)*>>
                 where
-                    Self: CanResolve<K>
+                    Self: StorageCanResolve<K>
                 {
-                    if let Some(index) = <Self as CanResolve<K>>::resolve_for(self, storage_key) {
+                    if let Some(index) = <Self as StorageCanResolve<K>>::resolve_for(self, storage_key) {
                         Some($borrow { index, source: self })
                     } else {
                         None
                     }
                 }
 
-                /// Populates an entries struct with our stored data for the given storage key.
+                /// Populates a view struct with our stored data for the given storage key.
                 #[inline(always)]
-                pub fn get_all_entries_mut<'a, E: $entries<'a, A, #(T~I,)*>, K>(
+                pub fn get_view_mut<'a, E: $view<'a, A, #(T~I,)*>, K>(
                     &'a mut self,
                     storage_key: K,
                 ) -> Option<E>
                 where
-                    Self: CanResolve<K>
+                    Self: StorageCanResolve<K>
                 {
-                    if let Some(index) = <Self as CanResolve<K>>::resolve_for(self, storage_key) {
+                    if let Some(index) = <Self as StorageCanResolve<K>>::resolve_for(self, storage_key) {
                         unsafe {
                             // SAFETY: We guarantee that if we successfully resolve, then index < self.len.
                             // SAFETY: We guarantee that the storage is valid up to self.len.
@@ -278,7 +278,7 @@ macro_rules! declare_storage_dynamic_n {
                 }
 
                 #(
-                    /// Gets a slice of the given component index.
+                     /// Gets a slice of the given component index.
                     #[inline(always)]
                     pub fn get_slice_~I(&mut self) -> &[T~I] {
                         unsafe {
@@ -362,7 +362,7 @@ macro_rules! declare_storage_dynamic_n {
                     }
                 }
 
-                /// Grows the storage structure to accommodate more entries.
+                /// Grows the storage structure to accommodate more view.
                 ///
                 /// This wipes the current free list and rebuilds it, including the list head.
                 #[inline(always)]
@@ -401,7 +401,7 @@ macro_rules! declare_storage_dynamic_n {
                 }
             }
 
-            impl<A: Archetype, #(T~I,)*> CanResolve<Entity<A>> for $name<A, #(T~I,)*> {
+            impl<A: Archetype, #(T~I,)*> StorageCanResolve<Entity<A>> for $name<A, #(T~I,)*> {
                 #[inline(always)]
                 fn resolve_for(&self, entity: Entity<A>) -> Option<usize> {
                     // The dense index from resolve_slot is guaranteed to be within bounds.
@@ -423,7 +423,7 @@ macro_rules! declare_storage_dynamic_n {
                 }
             }
 
-            impl<A: Archetype, #(T~I,)*> CanResolve<EntityRaw<A>> for $name<A, #(T~I,)*> {
+            impl<A: Archetype, #(T~I,)*> StorageCanResolve<EntityRaw<A>> for $name<A, #(T~I,)*> {
                 #[inline(always)]
                 fn resolve_for(&self, raw: EntityRaw<A>) -> Option<usize> {
                     let dense_index = raw.dense_index().get() as usize;
@@ -530,13 +530,13 @@ macro_rules! declare_storage_dynamic_n {
 
 // Declare storage for up to 16 components.
 seq!(N in 1..=16 {
-    declare_storage_dynamic_n!(StorageDynamic~N, BorrowDynamic~N, Slices~N, Entries~N, N);
+    declare_storage_dynamic_n!(StorageDynamic~N, BorrowDynamic~N, Slices~N, View~N, N);
 });
 
 // Declare additional storage for up to 32 components.
 #[cfg(feature = "32_components")]
 seq!(N in 17..=32 {
-    declare_storage_dynamic_n!(StorageDynamic~N, BorrowDynamic~N, Slices~N, Entries~N, N);
+    declare_storage_dynamic_n!(StorageDynamic~N, BorrowDynamic~N, Slices~N, View~N, N);
 });
 
 pub struct DataDynamic<T>(NonNull<MaybeUninit<T>>);

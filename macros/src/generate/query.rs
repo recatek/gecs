@@ -76,7 +76,7 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
                     let Some(borrow) = archetype.begin_borrow(#resolved_entity)
                 ),
                 FetchMode::Mut => quote!(
-                    let Some(entries) = archetype.get_all_entries_mut(#resolved_entity)
+                    let Some(view) = archetype.get_view_mut(#resolved_entity)
                 ),
             };
 
@@ -135,25 +135,25 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
 fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
     match &param.param_type {
         ParseQueryParamType::Component(ident) => { 
-            let ident = to_snake_ident(ident); quote!(entries.#ident)
+            let ident = to_snake_ident(ident); quote!(view.#ident)
         }
         ParseQueryParamType::Entity(_) => {
-            quote!(entries.entity)
+            quote!(view.entity)
         }
         ParseQueryParamType::EntityAny => {
-            quote!(entries.entity.into())
+            quote!(view.entity.into())
         }
         ParseQueryParamType::EntityWild => {
-            quote!(entries.entity)
+            quote!(view.entity)
         }
         ParseQueryParamType::EntityRaw(_) => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(entries.index(), version))
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(view.index(), version))
         }
         ParseQueryParamType::EntityRawAny => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(entries.index(), version).into())
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(view.index(), version).into())
         }
         ParseQueryParamType::EntityRawWild => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(entries.index(), version))
+            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(view.index(), version))
         }
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")

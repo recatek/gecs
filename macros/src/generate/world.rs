@@ -142,10 +142,10 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 }
             }
 
-            impl ArchetypeContainer for #World {}
+            impl WorldBase for #World {}
 
             #(
-                impl HasArchetype<#Archetype> for #World {
+                impl WorldHas<#Archetype> for #World {
                     #[inline(always)]
                     fn resolve_create(&mut self, data: <#Archetype as Archetype>::Components)
                         -> Entity<#Archetype>
@@ -392,10 +392,10 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         .collect::<Vec<_>>();
 
     let ArchetypeBorrow = format_ident!("{}Borrow", archetype_data.name);
-    let ArchetypeEntries = format_ident!("{}Entries", archetype_data.name);
+    let ArchetypeView = format_ident!("{}View", archetype_data.name);
     let ArchetypeSlices = format_ident!("{}Slices", archetype_data.name);
 
-    let EntriesN = format_ident!("Entries{}", count_str);
+    let ViewN = format_ident!("View{}", count_str);
     let SlicesN = format_ident!("Slices{}", count_str);
     let ContentArgs = quote!(#Archetype, #(#Component),*);
 
@@ -532,7 +532,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             pub fn resolve<T>(&self, entity: T) -> Option<usize>
             where
-                #StorageN<#StorageArgs>: CanResolve<T>
+                #StorageN<#StorageArgs>: StorageCanResolve<T>
             {
                 self.data.resolve(entity)
             }
@@ -552,20 +552,20 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 entity: T,
             ) -> Option<#ArchetypeBorrow<'a>>
             where
-                #StorageN<#StorageArgs>: CanResolve<T>
+                #StorageN<#StorageArgs>: StorageCanResolve<T>
             {
                 self.data.begin_borrow(entity).map(#ArchetypeBorrow)
             }
 
             #[inline(always)]
-            pub fn get_all_entries_mut<'a, K>(
+            pub fn get_view_mut<'a, K>(
                 &'a mut self,
                 entity_key: K
-            ) -> Option<#ArchetypeEntries<'a>>
+            ) -> Option<#ArchetypeView<'a>>
             where
-                #StorageN<#StorageArgs>: CanResolve<K>
+                #StorageN<#StorageArgs>: StorageCanResolve<K>
             {
-                self.data.get_all_entries_mut(entity_key)
+                self.data.get_view_mut(entity_key)
             }
 
             /// Returns mutable slices to all data for all entities in the archetype. To get the
@@ -584,10 +584,8 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             )*
         }
 
-        impl ComponentContainer for #Archetype {}
-
         #(
-            impl HasComponent<#Component> for #Archetype {
+            impl ArchetypeHas<#Component> for #Archetype {
                 #[inline(always)]
                 fn resolve_get_slice(&mut self) -> &[#Component] {
                     self.data.#get_slice()
@@ -615,7 +613,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             const ARCHETYPE_ID: u8 = #ARCHETYPE_ID;
 
             type Components = (#(#Component,)*);
-            type Entries<'a> = #ArchetypeEntries<'a>;
+            type View<'a> = #ArchetypeView<'a>;
             type Slices<'a> = #ArchetypeSlices<'a>;
 
             #[inline(always)]
@@ -670,7 +668,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
         )*
 
-        pub struct #ArchetypeEntries<'a> {
+        pub struct #ArchetypeView<'a> {
             index: usize,
             pub entity: &'a Entity<#Archetype>,
             #(
@@ -685,7 +683,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             )*
         }
 
-        impl<'a> #ArchetypeEntries<'a> {
+        impl<'a> #ArchetypeView<'a> {
             #[inline(always)]
             pub fn index(&self) -> usize {
                 self.index
@@ -694,22 +692,24 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             pub fn component<C>(&self) -> &C
             where
-                Self: EntriesHasComponent<C>
+                Self: ViewHas<C>
             {
-                <Self as EntriesHasComponent<C>>::resolve_component(self)
+                <Self as ViewHas<C>>::resolve_component(self)
             }
 
             #[inline(always)]
             pub fn component_mut<C>(&mut self) -> &mut C
             where
-                Self: EntriesHasComponent<C>
+                Self: ViewHas<C>
             {
-                <Self as EntriesHasComponent<C>>::resolve_component_mut(self)
+                <Self as ViewHas<C>>::resolve_component_mut(self)
             }
         }
 
+        impl<'a> View for #ArchetypeView<'a> {}
+
         #(
-            impl<'a> EntriesHasComponent<#Component> for #ArchetypeEntries<'a> {
+            impl<'a> ViewHas<#Component> for #ArchetypeView<'a> {
                 #[inline(always)]
                 fn resolve_component(&self) -> &#Component {
                     self.#component
@@ -722,7 +722,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
         )*
 
-        impl<'a> #EntriesN<'a, #ContentArgs> for #ArchetypeEntries<'a> {
+        impl<'a> #ViewN<'a, #ContentArgs> for #ArchetypeView<'a> {
             #[inline(always)]
             fn new(
                 index: usize,
@@ -740,6 +740,30 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 #(#component: &'a mut [#Component]),*
             ) -> Self {
                 Self { entity, #(#component),* }
+            }
+        }
+
+        impl<'a> ArchetypeCanResolve<'a, #ArchetypeView<'a>, Entity<#Archetype>> for #Archetype {
+            #[inline(always)]
+            fn resolve_for(&self, key: Entity<#Archetype>) -> Option<usize> {
+                self.data.resolve(key)
+            }
+
+            #[inline(always)]
+            fn resolve_view(&'a mut self, key: Entity<#Archetype>) -> Option<#ArchetypeView<'a>> {
+                self.data.get_view_mut(key)
+            }
+        }
+
+        impl<'a> ArchetypeCanResolve<'a, #ArchetypeView<'a>, EntityRaw<#Archetype>> for #Archetype {
+            #[inline(always)]
+            fn resolve_for(&self, key: EntityRaw<#Archetype>) -> Option<usize> {
+                self.data.resolve(key)
+            }
+
+            #[inline(always)]
+            fn resolve_view(&'a mut self, key: EntityRaw<#Archetype>) -> Option<#ArchetypeView<'a>> {
+                self.data.get_view_mut(key)
             }
         }
     )
