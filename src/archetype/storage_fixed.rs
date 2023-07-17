@@ -9,7 +9,7 @@ use crate::archetype::slot::{self, Slot, SlotIndex};
 use crate::archetype::view::*;
 use crate::entity::{Entity, EntityRaw};
 use crate::index::{DataIndex, MAX_DATA_CAPACITY};
-use crate::traits::{Archetype, StorageCanResolve};
+use crate::traits::{Archetype, EntityKey, StorageCanResolve};
 use crate::util::{debug_checked_assume, num_assert_leq};
 use crate::version::VersionArchetype;
 
@@ -188,42 +188,42 @@ macro_rules! declare_storage_fixed_n {
                     Some(result)
                 }
 
-                /// Resolves a storage key to an index in the storage data slices.
+                /// Resolves an entity key to an index in the storage data slices.
                 /// This index is guaranteed to be in bounds and point to valid data.
                 #[inline(always)]
-                pub fn resolve<T>(&self, storage_key: T) -> Option<usize>
+                pub fn resolve<K: EntityKey>(&self, entity: K) -> Option<usize>
                 where
-                    Self: StorageCanResolve<T>
+                    Self: StorageCanResolve<K>
                 {
-                    <Self as StorageCanResolve<T>>::resolve_for(self, storage_key)
+                    <Self as StorageCanResolve<K>>::resolve_for(self, entity)
                 }
 
                 /// Creates a borrow context to accelerate accessing borrowed data for an entity.
                 #[inline(always)]
-                pub fn begin_borrow<K>(
+                pub fn begin_borrow<K: EntityKey>(
                     &self,
-                    storage_key: K
+                    entity: K
                 ) -> Option<$borrow<A, #(T~I,)* N>>
                 where
                     Self: StorageCanResolve<K>
                 {
-                    if let Some(index) = <Self as StorageCanResolve<K>>::resolve_for(self, storage_key) {
+                    if let Some(index) = <Self as StorageCanResolve<K>>::resolve_for(self, entity) {
                         Some($borrow { index, source: self })
                     } else {
                         None
                     }
                 }
 
-                /// Populates a view struct with our stored data for the given storage key.
+                /// Populates a view struct with our stored data for the given entity key.
                 #[inline(always)]
-                pub fn get_view_mut<'a, E: $view<'a, A, #(T~I,)*>, K>(
+                pub fn get_view_mut<'a, E: $view<'a, A, #(T~I,)*>, K: EntityKey>(
                     &'a mut self,
-                    storage_key: K,
+                    entity: K,
                 ) -> Option<E>
                 where
                     Self: StorageCanResolve<K>
                 {
-                    if let Some(index) = <Self as StorageCanResolve<K>>::resolve_for(self, storage_key) {
+                    if let Some(index) = <Self as StorageCanResolve<K>>::resolve_for(self, entity) {
                         unsafe {
                             // SAFETY: We guarantee that if we successfully resolve, then index < self.len.
                             // SAFETY: We guarantee that the storage is valid up to self.len.

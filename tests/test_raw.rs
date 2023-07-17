@@ -27,7 +27,7 @@ ecs_world! {
 #[test]
 #[rustfmt::skip]
 pub fn test_one_of_basic() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let entity_a = world.create::<ArchFoo>((CompA(1), CompB(10)));
     let entity_b = world.create::<ArchBar>((CompA(1), CompC(10)));
@@ -46,30 +46,35 @@ pub fn test_one_of_basic() {
     test_view_asm4(&mut world, 3);
 }
 
-pub fn test<A: Archetype>(arch: &mut A, entity: EntityRaw<A>)
+pub fn test1(world: &mut EcsWorld, entity: EntityRaw<ArchFoo>) {
+    let arch = world.archetype_mut::<ArchFoo>();
+    test(arch, entity);
+}
+
+pub fn test<'a, A: Archetype>(arch: &'a mut A, entity: EntityRaw<A>)
 where
-    for<'a> A::View<'a>: ViewHas<CompA>,
+    A::View<'a>: ViewHas<CompA>,
 {
     let mut view = arch.view(entity).unwrap();
     let comp_a = view.component::<CompA>();
 }
 
 #[inline(never)]
-pub fn test_view_asm1(world: &mut World, entity: Entity<ArchFoo>, value: u32) {
+pub fn test_view_asm1(world: &mut EcsWorld, entity: Entity<ArchFoo>, value: u32) {
     ecs_find!(world, entity, |a: &mut CompA| { a.0 = value });
 }
 
 #[inline(never)]
-pub fn test_view_asm2(world: &mut World, entity: Entity<ArchFoo>, value: u32) {
+pub fn test_view_asm2(world: &mut EcsWorld, entity: Entity<ArchFoo>, value: u32) {
     ecs_find_borrow!(world, entity, |a: &mut CompA| { a.0 = value });
 }
 
 #[inline(never)]
-pub fn test_view_asm3(world: &mut World, value: u32) {
+pub fn test_view_asm3(world: &mut EcsWorld, value: u32) {
     ecs_iter!(world, |a: &mut CompA| { a.0 = value });
 }
 
 #[inline(never)]
-pub fn test_view_asm4(world: &mut World, value: u32) {
+pub fn test_view_asm4(world: &mut EcsWorld, value: u32) {
     ecs_iter_borrow!(world, |a: &mut CompA| { a.0 = value });
 }

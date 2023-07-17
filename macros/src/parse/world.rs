@@ -159,7 +159,7 @@ impl Parse for ParseEcsWorld {
             .into_iter()
             .collect::<Vec<_>>();
 
-        let mut name = format_ident!("World");
+        let mut name = format_ident!("EcsWorld");
         let mut archetypes = Vec::new();
 
         for item in items {

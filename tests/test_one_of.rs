@@ -27,7 +27,7 @@ ecs_world! {
 #[test]
 #[rustfmt::skip]
 fn test_one_of_basic() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let entity_a = world.archetype_mut::<ArchFoo>().create((CompA(1), CompB(10)));
     let entity_b = world.archetype_mut::<ArchBar>().create((CompA(1), CompC(10)));

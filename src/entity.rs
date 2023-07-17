@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::error::EcsError;
 use crate::index::{DataIndex, MAX_DATA_INDEX};
-use crate::traits::Archetype;
+use crate::traits::{Archetype, EntityKey};
 use crate::version::{VersionArchetype, VersionSlot};
 
 // NOTE: While this is extremely unlikely to change, if it does, the proc
@@ -109,6 +109,22 @@ impl<A: Archetype> Entity<A> {
         }
     }
 
+    /// Creates new a typed `Entity` from an `EntityAny` without checking its archetype.
+    ///
+    /// While this is not an unsafe operation in the Rust sense (all bounds checks are still
+    /// enforced), this should generally be avoided when possible. The intended use of this
+    /// function is to skip redundant checks when using raw archetype IDs in a `match`
+    /// statement. Improper use may result in logic errors from incorrect data access.
+    #[inline(always)]
+    pub fn from_any_unchecked(entity: EntityAny) -> Self {
+        debug_assert!(entity.archetype_id() == A::ARCHETYPE_ID);
+
+        Self {
+            inner: entity,
+            _type: PhantomData,
+        }
+    }
+
     /// Converts this `Entity<A>` directly into an `EntityAny`.
     ///
     /// Useful for situations where type inference can't deduce a conversion.
@@ -201,6 +217,22 @@ impl<A: Archetype> EntityRaw<A> {
         if entity.archetype_id() != A::ARCHETYPE_ID {
             panic!("invalid entity conversion");
         }
+
+        Self {
+            inner: entity,
+            _type: PhantomData,
+        }
+    }
+
+    /// Creates new a typed `EntityRaw` from an `EntityRawAny` without checking its archetype.
+    ///
+    /// While this is not an unsafe operation in the Rust sense (all bounds checks are still
+    /// enforced), this should generally be avoided when possible. The intended use of this
+    /// function is to skip redundant checks when using raw archetype IDs in a `match`
+    /// statement. Improper use may result in logic errors from incorrect data access.
+    #[inline(always)]
+    pub fn from_any_unchecked(entity: EntityRawAny) -> Self {
+        debug_assert!(entity.archetype_id() == A::ARCHETYPE_ID);
 
         Self {
             inner: entity,
@@ -334,11 +366,6 @@ impl<A: Archetype> TryFrom<EntityRawAny> for EntityRaw<A> {
     }
 }
 
-// #[doc(hidden)]
-// pub trait CanEntityConvert<T> {
-
-// }
-
 // Derive boilerplate until https://github.com/rust-lang/rust/issues/26925 is resolved
 
 impl<A: Archetype> Clone for Entity<A> {
@@ -391,6 +418,22 @@ impl<A: Archetype> Copy for EntityRaw<A> {}
 impl<A: Archetype> Eq for Entity<A> {}
 impl<A: Archetype> Eq for EntityRaw<A> {}
 
+impl<A: Archetype> EntityKey for Entity<A> {
+    type DestroyOutput = Option<A::Components>;
+}
+
+impl<A: Archetype> EntityKey for EntityRaw<A> {
+    type DestroyOutput = Option<A::Components>;
+}
+
+impl EntityKey for EntityAny {
+    type DestroyOutput = bool;
+}
+
+impl EntityKey for EntityRawAny {
+    type DestroyOutput = bool;
+}
+
 #[doc(hidden)]
 pub mod __internal {
     use super::*;
@@ -399,37 +442,5 @@ pub mod __internal {
     #[inline(always)]
     pub fn new_entity_raw<A: Archetype>(index: usize, version: VersionArchetype) -> EntityRaw<A> {
         EntityRaw::new(DataIndex::new_usize(index).unwrap(), version)
-    }
-
-    /// Creates new a typed `Entity` from an `EntityAny` without checking its archetype.
-    ///
-    /// While this is not a true unsafe operation (bounds checks are still enforced), this
-    /// should generally only be used by internal macro-generated functions, as improper use
-    /// may result in logic errors from incorrect data access.
-    #[inline(always)]
-    #[doc(hidden)]
-    pub fn entity_from_any_unchecked<A: Archetype>(entity: EntityAny) -> Entity<A> {
-        debug_assert!(entity.archetype_id() == A::ARCHETYPE_ID);
-
-        Entity {
-            inner: entity,
-            _type: PhantomData,
-        }
-    }
-
-    /// Creates new a typed `EntityRaw` from an `EntityRawAny` without checking its archetype.
-    ///
-    /// While this is not a true unsafe operation (bounds checks are still enforced), this
-    /// should generally only be used by internal macro-generated functions, as improper use
-    /// may result in logic errors from incorrect data access.
-    #[inline(always)]
-    #[doc(hidden)]
-    pub fn entity_raw_from_any_unchecked<A: Archetype>(entity: EntityRawAny) -> EntityRaw<A> {
-        debug_assert!(entity.archetype_id() == A::ARCHETYPE_ID);
-
-        EntityRaw {
-            inner: entity,
-            _type: PhantomData,
-        }
     }
 }

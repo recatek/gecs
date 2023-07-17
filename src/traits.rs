@@ -3,7 +3,7 @@ use std::cell::{Ref, RefMut};
 use crate::entity::{ArchetypeId, Entity, EntityRaw};
 
 /// A set of helper functions for accessing archetypes from a world via turbofish.
-pub trait WorldBase: Sized {
+pub trait World: Sized {
     /// Creates a new entity with the given components in the archetype, if there's room.
     ///
     /// Returns a handle for accessing the new entity.
@@ -32,11 +32,11 @@ pub trait WorldBase: Sized {
 
     /// If the entity exists in the archetype, this destroys it and returns its components.
     #[inline(always)]
-    fn destroy<A: Archetype>(&mut self, entity: Entity<A>) -> Option<A::Components>
+    fn destroy<K: EntityKey>(&mut self, entity: K) -> K::DestroyOutput
     where
-        Self: WorldHas<A>,
+        Self: WorldCanResolve<K>,
     {
-        <Self as WorldHas<A>>::resolve_destroy(self, entity)
+        <Self as WorldCanResolve<K>>::resolve_destroy(self, entity)
     }
 
     /// Gets a reference to the archetype of the given type from the world.
@@ -87,7 +87,7 @@ where
 
     /// Returns a view containing mutable references to all of this entity's components.
     #[inline(always)]
-    fn view<'a, K>(&'a mut self, entity: K) -> Option<Self::View<'a>>
+    fn view<'a, K: EntityKey>(&'a mut self, entity: K) -> Option<Self::View<'a>>
     where
         Self: ArchetypeCanResolve<'a, Self::View<'a>, K>,
     {
@@ -151,7 +151,7 @@ where
 ///
 /// Used for functions that take an ECS world as a generic type.
 ///
-/// See [`WorldBase`] for the methods that this enables on a type.
+/// See [`World`] for the methods that this enables on a type.
 ///
 /// Note that macros like `ecs_iter!` do not currently support these kinds of generics.
 /// This is primarily an advanced feature as it requires manual ECS manipulation.
@@ -177,7 +177,7 @@ where
 ///
 /// # fn main() {} // Not actually running anything here
 /// ```
-pub trait WorldHas<A: Archetype>: WorldBase {
+pub trait WorldHas<A: Archetype>: World {
     #[doc(hidden)]
     fn resolve_create(&mut self, data: A::Components) -> Entity<A>;
     #[doc(hidden)]
@@ -227,8 +227,6 @@ pub trait WorldHas<A: Archetype>: WorldBase {
 ///
 /// # fn main() {} // Not actually running anything here
 /// ```
-///
-///
 pub trait ArchetypeHas<C>: Archetype {
     #[doc(hidden)]
     fn resolve_get_slice(&mut self) -> &[C];
@@ -272,14 +270,23 @@ pub trait CanBorrow<T> {
     fn resolve_borrow_mut(&self) -> RefMut<T>;
 }
 
-pub trait ArchetypeCanResolve<'a, View, K> {
-    #[doc(hidden)]
-    fn resolve_for(&self, key: K) -> Option<usize>;
-    #[doc(hidden)]
-    fn resolve_view(&'a mut self, key: K) -> Option<View>;
+pub trait EntityKey {
+    type DestroyOutput;
 }
 
-pub trait StorageCanResolve<K> {
+pub trait WorldCanResolve<K: EntityKey> {
     #[doc(hidden)]
-    fn resolve_for(&self, key: K) -> Option<usize>;
+    fn resolve_destroy(&mut self, entity: K) -> K::DestroyOutput;
+}
+
+pub trait ArchetypeCanResolve<'a, View, K: EntityKey> {
+    #[doc(hidden)]
+    fn resolve_for(&self, entity: K) -> Option<usize>;
+    #[doc(hidden)]
+    fn resolve_view(&'a mut self, entity: K) -> Option<View>;
+}
+
+pub trait StorageCanResolve<K: EntityKey> {
+    #[doc(hidden)]
+    fn resolve_for(&self, entity: K) -> Option<usize>;
 }

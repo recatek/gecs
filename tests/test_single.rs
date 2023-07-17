@@ -25,7 +25,7 @@ pub fn test_archetype_id() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_create() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     world.arch_foo.create((CompA(0), CompZ,));
     world.arch_foo.create((CompA(1), CompZ,));
@@ -41,7 +41,7 @@ pub fn test_single_create() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_entity() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let entity_0 = world.arch_foo.create((CompA(0), CompZ,));
     let entity_1 = world.arch_foo.create((CompA(1), CompZ,));
@@ -95,7 +95,7 @@ pub fn test_single_entity() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_find() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let entity_0 = world.arch_foo.create((CompA(0), CompZ,));
     let entity_1 = world.arch_foo.create((CompA(1), CompZ,));
@@ -159,7 +159,7 @@ pub fn test_single_find() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_iter() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let _entity_0 = world.arch_foo.create((CompA(0), CompZ,));
     let _entity_1 = world.arch_foo.create((CompA(1), CompZ,));
@@ -205,7 +205,7 @@ pub fn test_single_iter() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_iter_write() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let _entity_0 = world.arch_foo.create((CompA(0), CompZ,));
     let _entity_1 = world.arch_foo.create((CompA(1), CompZ,));
@@ -253,7 +253,7 @@ pub fn test_single_iter_write() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_destroy_replace() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let entity_0 = world.arch_foo.create((CompA(0), CompZ,));
     let entity_1 = world.arch_foo.create((CompA(1), CompZ,));

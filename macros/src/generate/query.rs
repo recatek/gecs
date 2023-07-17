@@ -31,7 +31,7 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
     // TODO PERF: We could avoid binding entirely if we know that the params have no OneOf.
 
     // Types
-    let WorldDispatch = format_ident!("{}DispatchInternal", world_data.name);
+    let SelectInternalWorld = format_ident!("__SelectInternal{}", world_data.name);
 
     // Variables and fields
     let world = &query.world;
@@ -87,7 +87,7 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
             };
 
             queries.push(quote!(
-                #WorldDispatch::#Archetype(#resolved_entity) => {
+                #SelectInternalWorld::#Archetype(#resolved_entity) => {
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
@@ -102,7 +102,7 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
                         None
                     }
                 }
-                #WorldDispatch::#ArchetypeRaw(#resolved_entity) => {
+                #SelectInternalWorld::#ArchetypeRaw(#resolved_entity) => {
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
@@ -121,14 +121,21 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
         }
     }
 
-    Ok(quote!(
-        {
-            match #WorldDispatch::from(#entity) {
-                #(#queries)*
-                _ => None,
+    if queries.is_empty() {
+        Err(syn::Error::new_spanned(
+            world,
+            "query matched no archetypes in world",
+        ))
+    } else {
+        Ok(quote!(
+            {
+                match #SelectInternalWorld::from(#entity) {
+                    #(#queries)*
+                    _ => None,
+                }
             }
-        }
-    ))
+        ))
+    }
 }
 
 #[rustfmt::skip]
@@ -264,7 +271,15 @@ pub fn generate_query_iter(mode: FetchMode, query: ParseQueryIter) -> syn::Resul
             ));
         }
     }
-    Ok(quote!(#(#queries)*))
+
+    if queries.is_empty() {
+        Err(syn::Error::new_spanned(
+            world,
+            "query matched no archetypes in world",
+        ))
+    } else {
+        Ok(quote!(#(#queries)*))
+    }
 }
 
 #[rustfmt::skip]

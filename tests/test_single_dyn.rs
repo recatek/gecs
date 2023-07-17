@@ -15,7 +15,7 @@ ecs_world! {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_dyn_create() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     world.arch_foo.create((CompA(0), CompZ,));
     world.arch_foo.create((CompA(1), CompZ,));
@@ -29,7 +29,7 @@ pub fn test_single_dyn_create() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_dyn_create_with_capacity_zero() {
-    let mut world = World::with_capacity(0);
+    let mut world = EcsWorld::with_capacity(0);
 
     world.arch_foo.create((CompA(0), CompZ,));
     world.arch_foo.create((CompA(1), CompZ,));
@@ -43,7 +43,7 @@ pub fn test_single_dyn_create_with_capacity_zero() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_dyn_create_with_capacity_all() {
-    let mut world = World::with_capacity(5);
+    let mut world = EcsWorld::with_capacity(5);
 
     world.arch_foo.create((CompA(0), CompZ,));
     world.arch_foo.create((CompA(1), CompZ,));
@@ -57,7 +57,7 @@ pub fn test_single_dyn_create_with_capacity_all() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_dyn_entity() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let entity_0 = world.arch_foo.create((CompA(0), CompZ,));
     let entity_1 = world.arch_foo.create((CompA(1), CompZ,));
@@ -111,7 +111,7 @@ pub fn test_single_dyn_entity() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_dyn_entity_with_capacity() {
-    let mut world = World::with_capacity(5);
+    let mut world = EcsWorld::with_capacity(5);
 
     let entity_0 = world.arch_foo.create((CompA(0), CompZ,));
     let entity_1 = world.arch_foo.create((CompA(1), CompZ,));
@@ -165,7 +165,7 @@ pub fn test_single_dyn_entity_with_capacity() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_dyn_find() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let entity_0 = world.arch_foo.create((CompA(0), CompZ,));
     let entity_1 = world.arch_foo.create((CompA(1), CompZ,));
@@ -229,7 +229,7 @@ pub fn test_single_dyn_find() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_dyn_iter() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let _entity_0 = world.arch_foo.create((CompA(0), CompZ,));
     let _entity_1 = world.arch_foo.create((CompA(1), CompZ,));
@@ -275,7 +275,7 @@ pub fn test_single_dyn_iter() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_dyn_iter_write() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let _entity_0 = world.arch_foo.create((CompA(0), CompZ,));
     let _entity_1 = world.arch_foo.create((CompA(1), CompZ,));
@@ -323,7 +323,7 @@ pub fn test_single_dyn_iter_write() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_dyn_destroy_replace() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let entity_0 = world.arch_foo.create((CompA(0), CompZ,));
     let entity_1 = world.arch_foo.create((CompA(1), CompZ,));

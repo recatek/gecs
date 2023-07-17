@@ -60,7 +60,7 @@
 //! }
 //!
 //! fn main() {
-//!     let mut world = World::default(); // Initialize an empty new ECS world.
+//!     let mut world = EcsWorld::default(); // Initialize an empty new ECS world.
 //!
 //!     // Add entities to the world by populating their components and receive their handles.
 //!     let entity_a = world.create::<ArchFoo>((CompA(1), CompB(20)));
@@ -138,7 +138,7 @@ mod macros {
     /// ecs_name!(Name);
     /// ```
     /// The `ecs_name!` inner pseudo-macro is used for setting the name (in PascalCase) of the
-    /// ECS world struct. Without this declaration, the world's name will default to `World`.
+    /// ECS world struct. Without this declaration, the world's name will default to `EcsWorld`.
     ///
     /// ## ecs_archetype!
     ///
@@ -215,7 +215,7 @@ mod macros {
     ///
     /// fn main() {
     ///     // Create a new world. Because ArchBaz is the only dynamic archetype, we only need to
-    ///     // set one capacity in World creation (the parameter is named capacity_arch_baz). The
+    ///     // set one capacity in world creation (the parameter is named capacity_arch_baz). The
     ///     // other fixed-size archetypes will always be created sized to their full capacity.
     ///     let mut world = MyWorld::with_capacity(30);
     ///
@@ -273,7 +273,7 @@ mod macros {
     /// use my_world::prelude::*;
     ///
     /// fn main() {
-    ///     let mut world = World::default();
+    ///     let mut world = EcsWorld::default();
     ///     let entity = world.create::<ArchFoo>((CompA, CompB));
     ///     assert!(ecs_find!(world, entity, || {}).is_some());
     /// }
@@ -345,7 +345,7 @@ mod macros {
     /// }
     ///
     /// fn main() {
-    ///     let mut world = World::default();
+    ///     let mut world = EcsWorld::default();
     ///
     ///     let entity_a = world.archetype_mut::<ArchFoo>().create((CompA, CompC));
     ///     let entity_b = world.archetype_mut::<ArchBar>().create((CompA, CompB, CompC));
@@ -424,18 +424,18 @@ mod macros {
     /// }
     ///
     /// // If you need to use a non-mut reference, see the ecs_find_borrow! macro.
-    /// fn add_three(world: &mut World, entity: Entity<ArchFoo>) -> bool {
+    /// fn add_three(world: &mut EcsWorld, entity: Entity<ArchFoo>) -> bool {
     ///     // The result will be true if the entity was found and operated on.
     ///     ecs_find!(world, entity, |comp_a: &mut CompA| { comp_a.0 += 3; }).is_some()
     /// }
     ///
-    /// fn add_three_any(world: &mut World, entity: EntityAny) -> bool {
+    /// fn add_three_any(world: &mut EcsWorld, entity: EntityAny) -> bool {
     ///     // The query syntax is the same for both Entity<A> and EntityAny.
     ///     ecs_find!(world, entity, |comp_a: &mut CompA| { comp_a.0 += 3; }).is_some()
     /// }
     ///
     /// fn main() {
-    ///     let mut world = World::default();
+    ///     let mut world = EcsWorld::default();
     ///
     ///     let entity_a = world.create::<ArchFoo>((CompA(0), CompB(0)));
     ///     let entity_b = world.create::<ArchBar>((CompA(0), CompC(0)));
@@ -480,7 +480,7 @@ mod macros {
     /// }
     ///
     /// fn main() {
-    ///     let mut world = World::default();
+    ///     let mut world = EcsWorld::default();
     ///
     ///     let parent = world.create::<ArchFoo>((CompA(0), CompB(0), Parent(None)));
     ///     let child = world.create::<ArchFoo>((CompA(1), CompB(0), Parent(Some(parent))));
@@ -555,7 +555,7 @@ mod macros {
     /// }
     ///
     /// fn main() {
-    ///     let mut world = World::default();
+    ///     let mut world = EcsWorld::default();
     ///
     ///     let mut vec_a = Vec::<EntityAny>::new();
     ///     let mut vec_b = Vec::<EntityAny>::new();
@@ -650,7 +650,7 @@ mod macros {
 /// }
 ///
 /// fn main() {
-///     let mut world = World::default();
+///     let mut world = EcsWorld::default();
 ///
 ///     let entity_a = world.archetype_mut::<ArchFoo>().create((CompA(1), CompB(10)));
 ///     let entity_b = world.archetype_mut::<ArchBar>().create((CompA(1), CompC(10)));
@@ -685,6 +685,7 @@ pub struct OneOf {
 pub use gecs_macros::{ecs_component_id, ecs_world};
 
 /// `use gecs::prelude::*;` to import common macros, traits, and types.
+#[rustfmt::skip]
 pub mod prelude {
     use super::*;
 
@@ -692,14 +693,16 @@ pub mod prelude {
 
     pub use entity::{ArchetypeId, Entity, EntityAny, EntityRaw, EntityRawAny};
 
-    pub use traits::CanBorrow;
+    pub use traits::{CanBorrow, EntityKey};
+    pub use traits::{WorldCanResolve, ArchetypeCanResolve, StorageCanResolve};
+
+    pub use traits::{World, WorldHas};
     pub use traits::{Archetype, ArchetypeHas};
-    pub use traits::{ArchetypeCanResolve, StorageCanResolve};
     pub use traits::{View, ViewHas};
-    pub use traits::{WorldBase, WorldHas};
 }
 
 #[doc(hidden)]
+#[rustfmt::skip]
 pub mod __internal {
     use super::*;
 
@@ -716,9 +719,10 @@ pub mod __internal {
     pub use archetype::storage_fixed::*;
     pub use archetype::view::*;
 
-    pub use traits::CanBorrow;
+    pub use traits::{CanBorrow, EntityKey};
+    pub use traits::{WorldCanResolve, ArchetypeCanResolve, StorageCanResolve};
+
+    pub use traits::{World, WorldHas};
     pub use traits::{Archetype, ArchetypeHas};
-    pub use traits::{ArchetypeCanResolve, StorageCanResolve};
     pub use traits::{View, ViewHas};
-    pub use traits::{WorldBase, WorldHas};
 }

@@ -34,7 +34,7 @@ ecs_world! {
 #[test]
 #[rustfmt::skip]
 fn test_component_id() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let entity_a = world.archetype_mut::<ArchFoo>().create((CompA, CompC));
     let entity_b = world.archetype_mut::<ArchBar>().create((CompA, CompB, CompC));

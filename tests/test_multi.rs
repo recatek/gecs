@@ -36,7 +36,7 @@ pub fn test_archetype_id() {
 #[test]
 #[rustfmt::skip]
 pub fn test_multi_create_direct() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     world.archetype_mut::<ArchFoo>().create((CompA(0), CompB(10)));
     world.archetype_mut::<ArchFoo>().create((CompA(1), CompB(11)));
@@ -57,7 +57,7 @@ pub fn test_multi_create_direct() {
 #[test]
 #[rustfmt::skip]
 pub fn test_multi_create_indirect() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     world.create::<ArchFoo>((CompA(0), CompB(10)));
     world.create::<ArchFoo>((CompA(1), CompB(11)));
@@ -78,7 +78,7 @@ pub fn test_multi_create_indirect() {
 #[test]
 #[rustfmt::skip]
 pub fn test_multi_find() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let entity_0 = world.create::<ArchFoo>((CompA(0), CompB(10)));
     let entity_1 = world.create::<ArchFoo>((CompA(1), CompB(11)));
@@ -453,7 +453,7 @@ pub fn test_multi_find() {
 #[test]
 #[rustfmt::skip]
 pub fn test_multi_iter() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let _entity_0 = world.create::<ArchFoo>((CompA(0), CompB(10)));
     let _entity_1 = world.create::<ArchFoo>((CompA(1), CompB(11)));
@@ -554,7 +554,7 @@ pub fn test_multi_iter() {
 #[test]
 #[rustfmt::skip]
 pub fn test_multi_iter_write() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let _entity_0 = world.create::<ArchFoo>((CompA(0), CompB(10)));
     let _entity_1 = world.create::<ArchFoo>((CompA(1), CompB(11)));
@@ -659,7 +659,7 @@ pub fn test_multi_iter_write() {
 #[test]
 #[rustfmt::skip]
 pub fn test_multi_replace() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
     let entity_0 = world.create::<ArchFoo>((CompA(0), CompB(10)));
     let entity_1 = world.create::<ArchFoo>((CompA(1), CompB(11)));
