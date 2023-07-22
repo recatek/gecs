@@ -1,6 +1,6 @@
 [package]
 name = "gecs"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["recatek"]
 description = "A generated entity component system."
 edition = "2021"
@@ -19,6 +19,6 @@ wrapping_entity_version = []
 wrapping_entity_raw_version = []
 
 [dependencies]
-gecs_macros = { version = "0.2.2", path = "macros", default_features = false }
+gecs_macros = { version = "0.3.0", path = "macros", default_features = false }
 
 seq-macro = { version = "0.3" } # For building "variadic" storage
