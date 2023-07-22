@@ -618,6 +618,16 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 fn resolve_borrow_slice_mut(&self) -> RefMut<[#Component]> {
                     self.data.#borrow_slice_mut()
                 }
+
+                #[inline(always)]
+                fn resolve_borrow<'a>(borrow: &'a #ArchetypeBorrow<'a>) -> Ref<'a, #Component> {
+                    borrow.0.#borrow()
+                }
+
+                #[inline(always)]
+                fn resolve_borrow_mut<'a>(borrow: &'a #ArchetypeBorrow<'a>) -> RefMut<'a, #Component> {
+                    borrow.0.#borrow_mut()
+                }
             }
         )*
 
@@ -627,6 +637,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
             type Components = (#(#Component,)*);
             type View<'a> = #ArchetypeView<'a>;
+            type Borrow<'a> = #ArchetypeBorrow<'a>;
             type Slices<'a> = #ArchetypeSlices<'a>;
 
             #[inline(always)]
@@ -653,33 +664,19 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             pub fn borrow<C>(&self) -> Ref<C>
             where
-                Self: CanBorrow<C>
+                #Archetype: for<'c> ArchetypeHas<C, Borrow<'c> = #ArchetypeBorrow<'c>>
             {
-                <Self as CanBorrow<C>>::resolve_borrow(self)
+                #Archetype::resolve_borrow(self)
             }
 
             #[inline(always)]
             pub fn borrow_mut<C>(&self) -> RefMut<C>
             where
-                Self: CanBorrow<C>
+                #Archetype: for<'c> ArchetypeHas<C, Borrow<'c> = #ArchetypeBorrow<'c>>
             {
-                <Self as CanBorrow<C>>::resolve_borrow_mut(self)
+                #Archetype::resolve_borrow_mut(self)
             }
         }
-
-        #(
-            impl<'a> CanBorrow<#Component> for #ArchetypeBorrow<'a> {
-                #[inline(always)]
-                fn resolve_borrow(&self) -> Ref<#Component> {
-                    self.0.#borrow()
-                }
-
-                #[inline(always)]
-                fn resolve_borrow_mut(&self) -> RefMut<#Component> {
-                    self.0.#borrow_mut()
-                }
-            }
-        )*
 
         pub struct #ArchetypeView<'a> {
             index: usize,

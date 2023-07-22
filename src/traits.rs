@@ -2,7 +2,12 @@ use std::cell::{Ref, RefMut};
 
 use crate::entity::{ArchetypeId, Entity, EntityRaw};
 
-/// A set of helper functions for accessing archetypes from a world via turbofish.
+/// The base trait for an ECS world in gecs.
+///
+/// This can be used in generic functions to access archetypes or create/destroy entities.
+///
+/// The `World` trait should be implemented only by the `ecs_world!` macro.
+/// This is not intended for manual implementation by any user data structures.
 pub trait World: Sized {
     /// Creates a new entity with the given components in the archetype, if there's room.
     ///
@@ -30,7 +35,17 @@ pub trait World: Sized {
         <Self as WorldHas<A>>::resolve_try_create(self, components)
     }
 
-    /// If the entity exists in the archetype, this destroys it and returns its components.
+    /// If the entity exists in the archetype, this destroys it.
+    ///
+    /// This can be called with either `EntityAny` or `Entity<A>` (for some archetype `A`).
+    ///
+    /// # Returns
+    ///
+    /// If called on an `EntityAny`, this will return a `bool` -- `true` if the entity
+    /// found and was destroyed, or false otherwise.
+    ///
+    /// If called on an `Entity<A>`, this will return an `Option<(C0, C1, ... CN)>` of the
+    /// destroyed entity's components if it was found and destroyed.
     #[inline(always)]
     fn destroy<K: EntityKey>(&mut self, entity: K) -> K::DestroyOutput
     where
@@ -62,8 +77,8 @@ pub trait World: Sized {
 ///
 /// This can be used in generic functions to get type and component information.
 ///
-/// The `Archetype` trait should be used only by the `ecs_world!` macro --
-/// it is not intended to be manually implemented by any user data structures.
+/// The `Archetype` trait should be implemented only by the `ecs_world!` macro.
+/// This is not intended for manual implementation by any user data structures.
 pub trait Archetype
 where
     Self: Sized,
@@ -77,6 +92,8 @@ where
     type Components;
     /// The slices type when accessing all of this archetype's slices simultaneously.
     type Slices<'a>;
+    /// The borrow type when performing sequential borrows of an entity's components.
+    type Borrow<'a>;
     /// The view type when accessing a single entity's components simultaneously.
     type View<'a>: View
     where
@@ -147,9 +164,9 @@ where
     }
 }
 
-/// A trait promising that an archetype container (i.e. world) has an archetype.
+/// A trait promising that an ECS world has the given archetype.
 ///
-/// Used for functions that take an ECS world as a generic type.
+/// Used for where bounds on functions that take an ECS world as a generic type.
 ///
 /// See [`World`] for the methods that this enables on a type.
 ///
@@ -184,18 +201,17 @@ pub trait WorldHas<A: Archetype>: World {
     fn resolve_try_create(&mut self, data: A::Components) -> Option<Entity<A>>;
     #[doc(hidden)]
     fn resolve_destroy(&mut self, entity: Entity<A>) -> Option<A::Components>;
-
     #[doc(hidden)]
     fn resolve_archetype(&self) -> &A;
     #[doc(hidden)]
     fn resolve_archetype_mut(&mut self) -> &mut A;
 }
 
-/// A trait promising that an component container (i.e. archetype) has a component.
+/// A trait promising that an archetype has a given component.
 ///
-/// Used for functions that take an ECS world or archetype as a generic type.
+/// Used for where bounds on functions that take an archetype as a generic type.
 ///
-/// See [`ComponentContainer`] for the methods that this enables on a type.
+/// See [`Archetype`] for the methods that this enables on a type.
 ///
 /// Note that macros like `ecs_iter!` do not currently support these kinds of generics.
 /// This is primarily an advanced feature as it requires manual ECS manipulation.
@@ -236,8 +252,18 @@ pub trait ArchetypeHas<C>: Archetype {
     fn resolve_borrow_slice(&self) -> Ref<[C]>;
     #[doc(hidden)]
     fn resolve_borrow_slice_mut(&self) -> RefMut<[C]>;
+    #[doc(hidden)]
+    fn resolve_borrow<'a>(borrow: &'a Self::Borrow<'a>) -> Ref<'a, C>;
+    #[doc(hidden)]
+    fn resolve_borrow_mut<'a>(borrow: &'a Self::Borrow<'a>) -> RefMut<'a, C>;
 }
 
+/// A `View` is a reference to a specific entity's components within an archetype.
+///
+/// This can be used in generic functions to access components from entity handles.
+///
+/// The `View` trait should be implemented only by the `ecs_world!` macro.
+/// This is not intended for manual implementation by any user data structures.
 pub trait View {
     #[inline(always)]
     fn component<C>(&self) -> &C
@@ -256,22 +282,53 @@ pub trait View {
     }
 }
 
-pub trait ViewHas<C> {
+/// A trait promising that an entity view has a given component.
+///
+/// Used for where bounds on functions that take a view as a generic type.
+///
+/// See [`View`] for the methods that this enables on a type.
+///
+/// Note that macros like `ecs_iter!` do not currently support these kinds of generics.
+/// This is primarily an advanced feature as it requires manual ECS manipulation.
+///
+/// # Example
+///
+/// ```
+/// use gecs::prelude::*;
+///
+/// pub struct CompA(pub u32);
+/// pub struct CompB(pub u32);
+///
+/// ecs_world! {
+///     // Declare archetype ArchFoo with capacity 100 and one component: CompA
+///     ecs_archetype!(ArchFoo, 100, CompA, CompB);
+///     ecs_archetype!(ArchBar, 100, CompA, CompB);
+/// }
+///
+/// fn generic_access_comp_a<V>(view: &mut V) -> u32
+/// where
+///     V: ViewHas<CompA> + ViewHas<CompB>,
+/// {
+///     view.component::<CompA>().0 + view.component::<CompB>().0
+/// }
+///
+/// fn generic_access(world: &mut EcsWorld, foo: Entity<ArchFoo>, bar: Entity<ArchBar>) {
+///     let mut view_foo = world.archetype_mut::<ArchFoo>().view(foo).unwrap();
+///     let val_foo = generic_access_comp_a(&mut view_foo);
+///
+///     let mut view_bar = world.archetype_mut::<ArchBar>().view(bar).unwrap();
+///     let val_bar = generic_access_comp_a(&mut view_bar);
+///
+///     println!("{} {}", val_foo, val_bar);
+/// }
+///
+/// # fn main() {} // Not actually running anything here
+/// ```
+pub trait ViewHas<C>: View {
     #[doc(hidden)]
     fn resolve_component(&self) -> &C;
     #[doc(hidden)]
     fn resolve_component_mut(&mut self) -> &mut C;
-}
-
-pub trait CanBorrow<T> {
-    #[doc(hidden)]
-    fn resolve_borrow(&self) -> Ref<T>;
-    #[doc(hidden)]
-    fn resolve_borrow_mut(&self) -> RefMut<T>;
-}
-
-pub trait EntityKey {
-    type DestroyOutput;
 }
 
 pub trait WorldCanResolve<K: EntityKey> {
@@ -286,6 +343,12 @@ pub trait ArchetypeCanResolve<'a, View, K: EntityKey> {
     fn resolve_view(&'a mut self, entity: K) -> Option<View>;
 }
 
+#[doc(hidden)]
+pub trait EntityKey {
+    type DestroyOutput;
+}
+
+#[doc(hidden)]
 pub trait StorageCanResolve<K: EntityKey> {
     #[doc(hidden)]
     fn resolve_for(&self, entity: K) -> Option<usize>;

@@ -26,55 +26,48 @@ ecs_world! {
 
 #[test]
 #[rustfmt::skip]
-pub fn test_one_of_basic() {
+pub fn test_raw_basic() {
     let mut world = EcsWorld::default();
 
     let entity_a = world.create::<ArchFoo>((CompA(1), CompB(10)));
-    let entity_b = world.create::<ArchBar>((CompA(1), CompC(10)));
+    let entity_b = world.create::<ArchBar>((CompA(2), CompC(20)));
 
-    let mut entity_raw = None;
-    let found = ecs_find!(world, entity_a, |raw: &EntityRaw<ArchFoo>| -> u32 {
-        entity_raw = Some(*raw);
-        6
-    });
+    let entity_raw_a = ecs_find!(world, entity_a, |raw: &EntityRaw<ArchFoo>| {
+        *raw
+    }).unwrap();
 
-    assert!(found == Some(6));
+    let entity_raw_b = ecs_find!(world, entity_b, |raw: &EntityRaw<ArchBar>| {
+        *raw
+    }).unwrap();
 
-    test_view_asm1(&mut world, entity_a, 3);
-    test_view_asm2(&mut world, entity_a, 3);
-    test_view_asm3(&mut world, 3);
-    test_view_asm4(&mut world, 3);
-}
+    assert!(ecs_find!(world, entity_raw_a, |a: &CompA, b: &CompB| {
+        assert_eq!(a.0, 1);
+        assert_eq!(b.0, 10);
+    }).is_some());
 
-pub fn test1(world: &mut EcsWorld, entity: EntityRaw<ArchFoo>) {
-    let arch = world.archetype_mut::<ArchFoo>();
-    test(arch, entity);
-}
+    assert!(ecs_find!(world, entity_raw_b, |a: &CompA, c: &CompC| {
+        assert_eq!(a.0, 2);
+        assert_eq!(c.0, 20);
+    }).is_some());
 
-pub fn test<'a, A: Archetype>(arch: &'a mut A, entity: EntityRaw<A>)
-where
-    A::View<'a>: ViewHas<CompA>,
-{
-    let mut view = arch.view(entity).unwrap();
-    let comp_a = view.component::<CompA>();
-}
+    // Adding a new entity doesn't invalidate dense indices
+    let entity_c = world.create::<ArchFoo>((CompA(3), CompB(30)));
+    let entity_d = world.create::<ArchBar>((CompA(4), CompC(40)));
 
-#[inline(never)]
-pub fn test_view_asm1(world: &mut EcsWorld, entity: Entity<ArchFoo>, value: u32) {
-    ecs_find!(world, entity, |a: &mut CompA| { a.0 = value });
-}
+    assert!(ecs_find!(world, entity_raw_a, |a: &CompA, b: &CompB| {
+        assert_eq!(a.0, 1);
+        assert_eq!(b.0, 10);
+    }).is_some());
 
-#[inline(never)]
-pub fn test_view_asm2(world: &mut EcsWorld, entity: Entity<ArchFoo>, value: u32) {
-    ecs_find_borrow!(world, entity, |a: &mut CompA| { a.0 = value });
-}
+    assert!(ecs_find!(world, entity_raw_b, |a: &CompA, c: &CompC| {
+        assert_eq!(a.0, 2);
+        assert_eq!(c.0, 20);
+    }).is_some());
 
-#[inline(never)]
-pub fn test_view_asm3(world: &mut EcsWorld, value: u32) {
-    ecs_iter!(world, |a: &mut CompA| { a.0 = value });
-}
+    // Destroying an entity invalidates dense indices
+    world.destroy(entity_c);
+    world.destroy(entity_d);
 
-#[inline(never)]
-pub fn test_view_asm4(world: &mut EcsWorld, value: u32) {
-    ecs_iter_borrow!(world, |a: &mut CompA| { a.0 = value });
+    assert!(ecs_find!(world, entity_raw_a, |_: &CompA| {}).is_none());
+    assert!(ecs_find!(world, entity_raw_b, |_: &CompA| {}).is_none());
 }

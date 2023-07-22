@@ -4,12 +4,6 @@
 #![allow(clippy::bool_comparison)] // using "== false" is easier to read in some cases
 #![allow(clippy::len_zero)] // using "len() > 0" is easier to read in some cases
 
-//!
-// TODO DOCS:
-// - ecs_find return type stuff
-// - entityraw
-// - ???
-
 //! A generated entity component system 🦎
 //!
 //! The gecs crate provides a compile-time generated, zero-overhead ECS for simulations
@@ -383,7 +377,8 @@ mod macros {
     /// on it, if that entity is found in archetype storage. It takes the following arguments:
     ///
     /// - `world`: The world (as an expression) that you want to query.
-    /// - `entity`: The entity handle you want to look up. May be an `Entity<A>` or `EntityAny`.
+    /// - `entity`: The entity handle you want to look up. May be an `Entity<A>`, `EntityRaw<A>`,
+    ///   `EntityAny`, or `EntityRawAny` handle.
     /// - `|comp_a: &CompA, comp_b: &mut CompB, ...| { ... }`: A closure containing the operation
     ///   to perform on the current entity's data. The parameters of the closure determine what
     ///   components for the entity that this query will access and how. Any component can be
@@ -391,7 +386,9 @@ mod macros {
     ///   that are known at compile-time to have all components requested in the query closure.
     ///     - Note that this closure is always treated as a `&mut FnMut`.
     ///
-    /// The `ecs_find!` macro returns `true` if the entity was found, or false otherwise.
+    /// The `ecs_find!` macro returns an `Option` type of the return value of the closure (which
+    /// may be `Option<()>` if the closure has no return). The value will be `Some` if the entity
+    /// was found, or `None` otherwise.
     ///
     /// # Special Arguments
     ///
@@ -400,9 +397,12 @@ mod macros {
     /// - `&Entity<A>`/`&EntityAny`: Returns the current entity being accessed by the closure.
     ///   This is somewhat redundant for `ecs_find!` queries, but useful for `ecs_iter!` loops.
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
-    /// - `&Entity<_>`: When used with the special `_` wildcard, each execution of this query
-    ///   will return a typed `Entity<A>` handle for the exact archetype matched for this
-    ///   specific execution. This can be used to optimize switched behavior by type.
+    /// - `&EntityRaw<A>`/`EntityRawAny`: As above, but using raw handles to the direct position
+    ///   of the entity in its archetype. This can accelerate lookup, but may be invalidated
+    ///   if the archetype changes. See [`EntityRawAny`] for more information.
+    /// - `&Entity<_>`/`&EntityRaw<_>`: When used with the special `_` wildcard, each execution
+    ///   of this query will return a typed (raw) entity handle for the exact archetype matched
+    ///   for this specific execution. This can be used to optimize switched behavior by type.
     /// - `&OneOf<A, B, ...>` or `&mut OneOf<A, B, ...>`: See [`OneOf`](crate::OneOf).
     ///
     /// In query closures, a special `MatchedArchetype` type alias is set to the currently
@@ -531,9 +531,12 @@ mod macros {
     /// - `&Entity<A>`/`&EntityAny`: Returns the current entity being accessed by the closure.
     ///   This is somewhat redundant for `ecs_find!` queries, but useful for `ecs_iter!` loops.
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
-    /// - `&Entity<_>`: When used with the special `_` wildcard, each execution of this query
-    ///   will return a typed `Entity<A>` handle for the exact archetype matched for this
-    ///   specific execution. This can be used to optimize switched behavior by type.
+    /// - `&EntityRaw<A>`/`EntityRawAny`: As above, but using raw handles to the direct position
+    ///   of the entity in its archetype. This can accelerate lookup, but may be invalidated
+    ///   if the archetype changes. See [`EntityRawAny`] for more information.
+    /// - `&Entity<_>`/`&EntityRaw<_>`: When used with the special `_` wildcard, each execution
+    ///   of this query will return a typed (raw) entity handle for the exact archetype matched
+    ///   for this specific execution. This can be used to optimize switched behavior by type.
     /// - `&OneOf<A, B, ...>` or `&mut OneOf<A, B, ...>`: See [`OneOf`](crate::OneOf).
     ///
     /// In query closures, a special `MatchedArchetype` type alias is set to the currently
@@ -693,7 +696,7 @@ pub mod prelude {
 
     pub use entity::{ArchetypeId, Entity, EntityAny, EntityRaw, EntityRawAny};
 
-    pub use traits::{CanBorrow, EntityKey};
+    pub use traits::EntityKey;
     pub use traits::{WorldCanResolve, ArchetypeCanResolve, StorageCanResolve};
 
     pub use traits::{World, WorldHas};
@@ -719,7 +722,7 @@ pub mod __internal {
     pub use archetype::storage_fixed::*;
     pub use archetype::view::*;
 
-    pub use traits::{CanBorrow, EntityKey};
+    pub use traits::EntityKey;
     pub use traits::{WorldCanResolve, ArchetypeCanResolve, StorageCanResolve};
 
     pub use traits::{World, WorldHas};

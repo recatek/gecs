@@ -67,10 +67,10 @@ impl VersionArchetype {
     #[inline(always)]
     pub(crate) fn next(&self) -> VersionArchetype {
         VersionArchetype {
-            #[cfg(feature = "wrapping_archetype_version")]
+            #[cfg(feature = "wrapping_entity_raw_version")]
             version: NonZeroU32::new(u32::max(self.version.get().wrapping_add(1), VERSION_START))
                 .unwrap(),
-            #[cfg(not(feature = "wrapping_archetype_version"))]
+            #[cfg(not(feature = "wrapping_entity_raw_version"))]
             version: self
                 .version //.
                 .checked_add(1)

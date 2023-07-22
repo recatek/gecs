@@ -16,7 +16,7 @@ default = []
 # Wrap rather than panic when an slot version overflows (used for entity handles).
 wrapping_entity_version = []
 # Wrap rather than panic when an archetype version overflows (used for raw entities).
-wrapping_archetype_version = []
+wrapping_entity_raw_version = []
 
 [dependencies]
 gecs_macros = { version = "0.2.2", path = "macros", default_features = false }
