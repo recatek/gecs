@@ -1,15 +1,8 @@
 use std::mem::MaybeUninit;
-use std::num::NonZeroU32;
 
-use crate::error::EcsError;
 use crate::index::{DataIndex, MAX_DATA_CAPACITY, MAX_DATA_INDEX};
 use crate::util::{num_assert_leq, num_assert_lt};
-
-// This is a slightly messy hack to create a NonZeroU32 constant.
-const VERSION_START: NonZeroU32 = match NonZeroU32::new(1) {
-    Some(v) => v,
-    None => [][0],
-};
+use crate::version::VersionSlot;
 
 // We use the highest order bit to mark which indices are free list.
 // This is necessary because we need to catch if a bad entity handle
@@ -101,7 +94,7 @@ impl SlotIndex {
     #[inline(always)]
     pub(crate) fn get_data(&self) -> Option<DataIndex> {
         debug_assert!(self.is_free() == false);
-        DataIndex::new(self.0)
+        DataIndex::new_u32(self.0)
     }
 
     /// Returns the free list index this slot points to.
@@ -112,7 +105,7 @@ impl SlotIndex {
         // DataIndex. We test this in verify_free_list_end_is_invalid_data_index.
 
         debug_assert!(self.is_free());
-        DataIndex::new(!FREE_BIT & self.0)
+        DataIndex::new_u32(!FREE_BIT & self.0)
     }
 
     /// Assigns a slot to some non-free data index.
@@ -126,7 +119,7 @@ impl SlotIndex {
 #[derive(Clone, Copy)]
 pub(crate) struct Slot {
     index: SlotIndex,
-    version: NonZeroU32,
+    version: VersionSlot,
 }
 
 impl Slot {
@@ -137,7 +130,7 @@ impl Slot {
 
         Self {
             index: next_free,
-            version: VERSION_START,
+            version: VersionSlot::start(),
         }
     }
 
@@ -155,7 +148,7 @@ impl Slot {
 
     /// Get the slot's generational version.
     #[inline(always)]
-    pub(crate) fn version(&self) -> NonZeroU32 {
+    pub(crate) fn version(&self) -> VersionSlot {
         self.version
     }
 
@@ -170,21 +163,10 @@ impl Slot {
     /// Releases a slot and increments its version, invalidating all handles.
     /// Returns an `EcsError::VersionOverflow` if the version increment overflows.
     #[inline(always)]
-    pub(crate) fn release(&mut self, index_next_free: SlotIndex) -> Result<(), EcsError> {
+    pub(crate) fn release(&mut self, index_next_free: SlotIndex) {
         debug_assert!(self.is_free() == false);
         self.index = index_next_free;
-
-        // Increment the version to invalidate all previous handles to this slot.
-        // This prevents bad access from stale entity handles after moving the data.
-        if let Some(version) = self.version.checked_add(1) {
-            self.version = version;
-            Ok(())
-        } else {
-            // The version could overflow after u32::MAX rewrites. This is very unlikely,
-            // but irrecoverable for this slot if it happens. We can't wrap, since that
-            // could make some stale entity handles valid again. We just have to fail.
-            Err(EcsError::VersionOverflow)
-        }
+        self.version = self.version.next();
     }
 }
 
@@ -192,5 +174,5 @@ impl Slot {
 // If this isn't true, then we can't trust the FREE_LIST_END value.
 #[test]
 fn verify_free_list_end_is_invalid_data_index() {
-    assert!(DataIndex::new(!FREE_BIT & FREE_LIST_END).is_none());
+    assert!(DataIndex::new_u32(!FREE_BIT & FREE_LIST_END).is_none());
 }

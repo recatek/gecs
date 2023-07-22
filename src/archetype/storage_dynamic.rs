@@ -8,15 +8,18 @@ use seq_macro::seq;
 
 use crate::archetype::slices::*;
 use crate::archetype::slot::{self, Slot, SlotIndex};
-use crate::entity::Entity;
+use crate::archetype::view::*;
+use crate::entity::{Entity, EntityRaw};
 use crate::index::{DataIndex, MAX_DATA_CAPACITY};
-use crate::traits::Archetype;
+use crate::traits::{Archetype, EntityKey, StorageCanResolve};
 use crate::util::{debug_checked_assume, num_assert_leq};
+use crate::version::VersionArchetype;
 
 macro_rules! declare_storage_dynamic_n {
-    ($name:ident, $slices:ident, $n:literal) => {
+    ($name:ident, $borrow:ident, $slices:ident, $view:ident, $n:literal) => {
         seq!(I in 0..$n {
             pub struct $name<A: Archetype, #(T~I,)*> {
+                version: VersionArchetype,
                 len: usize,
                 capacity: usize,
                 free_head: SlotIndex,
@@ -48,6 +51,7 @@ macro_rules! declare_storage_dynamic_n {
                     let free_head = slot::populate_free_list(DataIndex::zero(), raw_data);
 
                     Self {
+                        version: VersionArchetype::start(),
                         len: 0,
                         capacity,
                         free_head,
@@ -72,6 +76,12 @@ macro_rules! declare_storage_dynamic_n {
                     self.capacity
                 }
 
+                /// The overall version for this data structure. Used for raw indices.
+                #[inline(always)]
+                pub const fn version(&self) -> VersionArchetype {
+                    self.version
+                }
+
                 /// Reserves a slot in the map pointing to the given dense index.
                 /// Returns an entity handle if successful, or None if we're full.
                 #[inline(always)]
@@ -80,7 +90,6 @@ macro_rules! declare_storage_dynamic_n {
 
                     if self.len >= self.capacity() {
                         // If we're full, we should also be at the end of the slot free list.
-                        // WARNING: This changes if we decide to orphan version-overflow slots!
                         debug_assert!(self.free_head.is_free_list_end());
 
                         if self.grow() == false {
@@ -90,7 +99,6 @@ macro_rules! declare_storage_dynamic_n {
 
                     unsafe {
                         // SAFETY: We will never hit the the free list end if we're below capacity
-                        // WARNING: This changes if we decide to orphan version-overflow slots!
                         let slot_index = self.free_head.get_next_free().unwrap_unchecked();
                         // SAFETY: We never let self.len be greater than MAX_DATA_CAPACITY.
                         let dense_index = DataIndex::new_unchecked(self.len as u32);
@@ -120,28 +128,10 @@ macro_rules! declare_storage_dynamic_n {
                     }
                 }
 
-                /// Resolves an entity to an index in the storage data slices.
-                /// This index is guaranteed to be in bounds and point to valid data.
-                #[inline(always)]
-                pub fn resolve(&self, entity: Entity<A>) -> Option<usize> {
-                    let (_, dense_index) = match self.resolve_slot(entity) {
-                        None => { return None; }
-                        Some(found) => found,
-                    };
-
-                    let dense_index_usize = dense_index.get() as usize;
-
-                    unsafe {
-                        // SAFETY: resolve_slot guarantees this index is valid.
-                        // We assume this to help avoid bounds checks later on.
-                        debug_checked_assume!(dense_index_usize < self.len);
-                    }
-
-                    Some(dense_index_usize)
-                }
-
                 /// Removes the given entity from storage if it exists there.
                 /// Returns the removed entity's components, if any.
+                ///
+                /// This effectively destroys the entity by invalidating all handles to it.
                 ///
                 /// # Panics
                 ///
@@ -151,6 +141,8 @@ macro_rules! declare_storage_dynamic_n {
                 /// happen if the exact same lookup slot was rewritten 4.2 billion times.
                 #[inline(always)]
                 pub fn remove(&mut self, entity: Entity<A>) -> Option<(#(T~I,)*)> {
+                    debug_assert!(self.len <= self.capacity());
+
                     let (slot_index, dense_index) = match self.resolve_slot(entity) {
                         None => { return None; }
                         Some(found) => found,
@@ -162,13 +154,12 @@ macro_rules! declare_storage_dynamic_n {
                         let dense_index_usize: usize = dense_index.get() as usize;
 
                         debug_assert!(self.len > 0);
-                        debug_assert!(self.len <= self.capacity());
                         debug_assert!(slot_index_usize <= self.capacity());
                         debug_assert!(dense_index_usize < self.len);
 
                         let entities = self.entities.slice(self.len);
                         debug_assert!(entities.len() == self.len);
-                        debug_assert!(entities[dense_index_usize].index() == entity.index());
+                        debug_assert!(entities[dense_index_usize].slot_index() == entity.slot_index());
                         debug_assert!(entities[dense_index_usize].version() == entity.version());
 
                         // SAFETY: We know self.len > 0 because we got Some from resolve_slot.
@@ -176,7 +167,7 @@ macro_rules! declare_storage_dynamic_n {
                         // SAFETY: We know the entity slice has a length of self.len.
                         let last_entity = *entities.get_unchecked(last_dense_index);
                         // SAFETY: We guarantee that stored entities point to valid slots.
-                        let last_slot_index: usize = last_entity.index().get() as usize;
+                        let last_slot_index: usize = last_entity.slot_index().get() as usize;
 
                         // Perform the swap_remove on our data to drop the target entity.
                         // SAFETY: We guarantee that non-free slots point to valid dense data.
@@ -195,30 +186,79 @@ macro_rules! declare_storage_dynamic_n {
                         // Return the target slot to the free list
                         slots
                             .get_unchecked_mut(slot_index_usize) // SAFETY: See declaration.
-                            .release(self.free_head)
-                            .expect("slot version overflow"); // Wow, 4 billion slot writes!
-                        // NOTE: We could orphan this slot instead, but this would break the
-                        // assumptions we make elsewhere (see the WARNING in try_push, etc.)
-                        // that the end of the free list and len == capacity are synonymous.
-                        // Enabling slot orphaning would create a lot of edge cases to fix.
+                            .release(self.free_head);
+
+                        // Advance this storage's overall version (for add/removes).
+                        self.version = self.version.next();
 
                         result
                     };
 
-                    // TODO: We shouldn't add a slot to the free list if its version number
-                    // is maxed out. It would be better to orphan that slot to avoid issues.
-
                     // Update the free list head
-                    self.free_head = SlotIndex::new_free(entity.index());
+                    self.free_head = SlotIndex::new_free(entity.slot_index());
                     self.len -= 1;
 
                     Some(result)
                 }
 
+                /// Resolves an entity key to an index in the storage data slices.
+                /// This index is guaranteed to be in bounds and point to valid data.
+                #[inline(always)]
+                pub fn resolve<K: EntityKey>(&self, entity: K) -> Option<usize>
+                where
+                    Self: StorageCanResolve<K>
+                {
+                    <Self as StorageCanResolve<K>>::resolve_for(self, entity)
+                }
+
+                /// Creates a borrow context to accelerate accessing borrowed data for an entity.
+                #[inline(always)]
+                pub fn begin_borrow<K: EntityKey>(
+                    &self,
+                    entity: K
+                ) -> Option<$borrow<A, #(T~I,)*>>
+                where
+                    Self: StorageCanResolve<K>
+                {
+                    if let Some(index) = <Self as StorageCanResolve<K>>::resolve_for(self, entity) {
+                        Some($borrow { index, source: self })
+                    } else {
+                        None
+                    }
+                }
+
+                /// Populates a view struct with our stored data for the given entity key.
+                #[inline(always)]
+                pub fn get_view_mut<'a, E: $view<'a, A, #(T~I,)*>, K: EntityKey>(
+                    &'a mut self,
+                    entity: K,
+                ) -> Option<E>
+                where
+                    Self: StorageCanResolve<K>
+                {
+                    if let Some(index) = <Self as StorageCanResolve<K>>::resolve_for(self, entity) {
+                        unsafe {
+                            // SAFETY: We guarantee that if we successfully resolve, then index < self.len.
+                            // SAFETY: We guarantee that the storage is valid up to self.len.
+                            Some((
+                                E::new(
+                                    index,
+                                    self.entities.slice(self.len).get_unchecked(index),
+                                    #(self.d~I.get_mut().slice_mut(self.len).get_unchecked_mut(index),)*
+                                )
+                            ))
+                        }
+                    } else {
+                        None
+                    }
+                }
+
                 /// Populates a slice struct with slices to our stored data.
                 #[inline(always)]
-                pub fn get_all_slices<'a, S: $slices<'a, A, #(T~I,)*>>(&'a mut self,) -> S {
+                pub fn get_all_slices_mut<'a, S: $slices<'a, A, #(T~I,)*>>(&'a mut self,) -> S
+                {
                     unsafe {
+                        debug_checked_assume!(self.len <= MAX_DATA_CAPACITY as usize);
                         // SAFETY: We guarantee that the storage is valid up to self.len.
                         S::new(
                             self.entities.slice(self.len),
@@ -231,25 +271,28 @@ macro_rules! declare_storage_dynamic_n {
                 #[inline(always)]
                 pub fn get_slice_entities(&self) -> &[Entity<A>] {
                     unsafe {
+                        debug_checked_assume!(self.len <= MAX_DATA_CAPACITY as usize);
                         // SAFETY: We guarantee that the storage is valid up to self.len.
                         self.entities.slice(self.len)
                     }
                 }
 
                 #(
-                    /// Gets a slice of the given component index.
+                     /// Gets a slice of the given component index.
                     #[inline(always)]
                     pub fn get_slice_~I(&mut self) -> &[T~I] {
                         unsafe {
+                            debug_checked_assume!(self.len <= MAX_DATA_CAPACITY as usize);
                             // SAFETY: We guarantee that the storage is valid up to self.len.
                             self.d~I.get_mut().slice(self.len)
                         }
                     }
 
-                    /// Gets a slice of the given component index.
+                    /// Gets a mutable slice of the given component index.
                     #[inline(always)]
                     pub fn get_slice_mut_~I(&mut self) -> &mut [T~I] {
                         unsafe {
+                            debug_checked_assume!(self.len <= MAX_DATA_CAPACITY as usize);
                             // SAFETY: We guarantee that the storage is valid up to self.len.
                             self.d~I.get_mut().slice_mut(self.len)
                         }
@@ -259,6 +302,7 @@ macro_rules! declare_storage_dynamic_n {
                     #[inline(always)]
                     pub fn borrow_slice_~I(&self) -> Ref<[T~I]> {
                         Ref::map(self.d~I.borrow(), |slice| unsafe {
+                            debug_checked_assume!(self.len <= MAX_DATA_CAPACITY as usize);
                             // SAFETY: We guarantee that the storage is valid up to self.len.
                             slice.slice(self.len)
                         })
@@ -268,6 +312,7 @@ macro_rules! declare_storage_dynamic_n {
                     #[inline(always)]
                     pub fn borrow_slice_mut_~I(&self) -> RefMut<[T~I]> {
                         RefMut::map(self.d~I.borrow_mut(), |slice| unsafe {
+                            debug_checked_assume!(self.len <= MAX_DATA_CAPACITY as usize);
                             // SAFETY: We guarantee that the storage is valid up to self.len.
                             slice.slice_mut(self.len)
                         })
@@ -284,7 +329,7 @@ macro_rules! declare_storage_dynamic_n {
                     }
 
                     // Get the index into the slot array from the entity.
-                    let slot_index = entity.index();
+                    let slot_index = entity.slot_index();
 
                     unsafe {
                         let slot_index_usize = slot_index.get() as usize;
@@ -292,8 +337,9 @@ macro_rules! declare_storage_dynamic_n {
                         // NOTE: It's a little silly, but we don't actually know if this entity
                         // was created by this map, so we can't assume internal consistency here.
                         // We'll just have to take the small hit for bounds checking on the index.
+                        debug_assert!(slot_index_usize < self.capacity(), "invalid entity handle");
                         if slot_index_usize >= self.capacity() {
-                            panic!("entity handle is invalid for this archetype");
+                            return None;
                         }
 
                         // SAFETY: We know that the slot storage is valid up to our capacity.
@@ -316,7 +362,7 @@ macro_rules! declare_storage_dynamic_n {
                     }
                 }
 
-                /// Grows the storage structure to accommodate more entries.
+                /// Grows the storage structure to accommodate more view.
                 ///
                 /// This wipes the current free list and rebuilds it, including the list head.
                 #[inline(always)]
@@ -355,6 +401,41 @@ macro_rules! declare_storage_dynamic_n {
                 }
             }
 
+            impl<A: Archetype, #(T~I,)*> StorageCanResolve<Entity<A>> for $name<A, #(T~I,)*> {
+                #[inline(always)]
+                fn resolve_for(&self, entity: Entity<A>) -> Option<usize> {
+                    // The dense index from resolve_slot is guaranteed to be within bounds.
+                    let (_, dense_index) = match self.resolve_slot(entity) {
+                        None => { return None; }
+                        Some(found) => found,
+                    };
+
+                    let dense_index_usize = dense_index.get() as usize;
+
+                    unsafe {
+                        // SAFETY: This is checked when we create and grow.
+                        debug_checked_assume!(self.len <= MAX_DATA_CAPACITY as usize);
+                        // SAFETY: This is guaranteed by resolve_slot.
+                        debug_checked_assume!(self.len >= dense_index_usize);
+                    }
+
+                    Some(dense_index_usize)
+                }
+            }
+
+            impl<A: Archetype, #(T~I,)*> StorageCanResolve<EntityRaw<A>> for $name<A, #(T~I,)*> {
+                #[inline(always)]
+                fn resolve_for(&self, raw: EntityRaw<A>) -> Option<usize> {
+                    let dense_index = raw.dense_index().get() as usize;
+
+                    // We need to guarantee that the resulting index is in bounds.
+                    match (raw.version() == self.version()) && (dense_index < self.len) {
+                        true => Some(dense_index),
+                        false => None,
+                    }
+                }
+            }
+
             impl<A: Archetype, #(T~I,)*> Drop
                 for $name<A, #(T~I,)*>
             {
@@ -381,22 +462,87 @@ macro_rules! declare_storage_dynamic_n {
                     $name::new()
                 }
             }
+
+            pub struct $borrow<'a, A: Archetype, #(T~I,)*> {
+                index: usize,
+                source: &'a $name<A, #(T~I,)*>,
+            }
+
+            impl<'a, A: Archetype, #(T~I,)*> $borrow<'a, A, #(T~I,)*> {
+                #[inline(always)]
+                pub fn index(&self) -> usize {
+                    self.index
+                }
+
+                #[inline(always)]
+                pub fn entity(&self) -> &Entity<A> {
+                    unsafe {
+                        // SAFETY: We can only be created with a valid index, and because
+                        // we hold a reference to the source, that reference can't have
+                        // changed in any way that would have made this index invalid.
+                        self.source.get_slice_entities().get_unchecked(self.index)
+                    }
+                }
+
+                #(
+                    /// Borrows the element of the given component index.
+                    #[inline(always)]
+                    pub fn borrow_~I(&self) -> Ref<T~I> {
+                        Ref::map(self.source.d~I.borrow(), |slice| unsafe {
+                            debug_assert!(self.index < self.source.len);
+                            // SAFETY: We can only be created with a valid index, and because
+                            // we hold a reference to the source, that reference can't have
+                            // changed in any way that would have made this index invalid.
+                            // SAFETY: We guarantee that the storage is valid up to self.len.
+                            slice.slice(self.source.len).get_unchecked(self.index)
+                        })
+                    }
+
+                    /// Mutably borrows the element of the given component index.
+                    #[inline(always)]
+                    pub fn borrow_mut_~I(&self) -> RefMut<T~I> {
+                        RefMut::map(self.source.d~I.borrow_mut(), |slice| unsafe {
+                            debug_assert!(self.index < self.source.len);
+                            // SAFETY: We can only be created with a valid index, and because
+                            // we hold a reference to the source, that reference can't have
+                            // changed in any way that would have made this index invalid.
+                            // SAFETY: We guarantee that the storage is valid up to self.len.
+                            slice.slice_mut(self.source.len).get_unchecked_mut(self.index)
+                        })
+                    }
+                )*
+            }
+
+            impl<'a, A: Archetype, #(T~I,)*> Clone for $borrow<'a, A, #(T~I,)*> {
+                #[inline(always)]
+                fn clone(&self) -> Self {
+                    Self {
+                        index: self.index,
+                        source: self.source,
+                    }
+                }
+            }
+
+            impl<'a, A: Archetype, #(T~I,)*> Copy for $borrow<'a, A, #(T~I,)*> {}
         });
     };
 }
 
 // Declare storage for up to 16 components.
 seq!(N in 1..=16 {
-    declare_storage_dynamic_n!(StorageDynamic~N, Slices~N, N);
+    declare_storage_dynamic_n!(StorageDynamic~N, BorrowDynamic~N, Slices~N, View~N, N);
 });
 
 // Declare additional storage for up to 32 components.
 #[cfg(feature = "32_components")]
 seq!(N in 17..=32 {
-    declare_storage_dynamic_n!(StorageDynamic~N, Slices~N, N);
+    declare_storage_dynamic_n!(StorageDynamic~N, BorrowDynamic~N, Slices~N, View~N, N);
 });
 
 pub struct DataDynamic<T>(NonNull<MaybeUninit<T>>);
+
+unsafe impl<T> Send for DataDynamic<T> where T: Send {}
+unsafe impl<T> Sync for DataDynamic<T> where T: Sync {}
 
 impl<T> DataDynamic<T> {
     /// Allocates a new data array with the given capacity, if any.

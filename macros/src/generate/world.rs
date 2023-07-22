@@ -6,6 +6,7 @@ use xxhash_rust::xxh3::xxh3_128;
 use crate::data::{DataArchetype, DataCapacity, DataWorld};
 
 #[allow(non_snake_case)] // Allow for type-like names to make quote!() clearer
+#[allow(unused_variables)] // For unused feature-controlled generation elements
 pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     let world_snake = to_snake(&world_data.name);
     let unique_hash = xxh3_128(raw_input.as_bytes());
@@ -18,12 +19,21 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
     // Types and traits
     let World = format_ident!("{}", world_data.name);
-    let EntityWorld = format_ident!("Entity{}", world_data.name);
-    let EntityWorldExt = format_ident!("Entity{}Ext", world_data.name);
+
+    let Select = format_ident!("Select");
+    let SelectRaw = format_ident!("SelectRaw");
+
+    let SelectInternalWorld = format_ident!("__SelectInternal{}", world_data.name);
+
     let Archetype = world_data
         .archetypes
         .iter()
         .map(|archetype| format_ident!("{}", archetype.name))
+        .collect::<Vec<_>>();
+    let ArchetypeRaw = world_data
+        .archetypes
+        .iter()
+        .map(|archetype| format_ident!("{}Raw", archetype.name))
         .collect::<Vec<_>>();
 
     // Variables and fields
@@ -32,6 +42,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         .iter()
         .map(|archetype| format_ident!("{}", to_snake(&archetype.name)))
         .collect::<Vec<_>>();
+    let num_archetypes = world_data.archetypes.len();
 
     // Generated subsections
     let section_archetype = world_data
@@ -57,8 +68,11 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     let __ecs_iter_borrow_unique = format_ident!("__ecs_iter_borrow_{}", unique_hash);
 
     quote!(
-        pub use #ecs_world_sealed::{#World, #EntityWorld, #EntityWorldExt};
         #( pub use #ecs_world_sealed::#Archetype; )*
+        pub use #ecs_world_sealed::{#World, #Select, #SelectRaw};
+
+        #[doc(hidden)]
+        pub use #ecs_world_sealed::{#SelectInternalWorld};
 
         mod #ecs_world_sealed {
             use super::*;
@@ -87,13 +101,18 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                     }
                 }
 
+                /// Returns the total number of archetypes in this world.
+                pub const fn num_archetypes() -> usize {
+                    #num_archetypes
+                }
+
                 /// Creates a new world with per-archetype capacities.
                 ///
                 /// Expects a capacity value for every dynamic archetype.
                 ///
                 /// This will allocate all archetypes to either their fixed size, or the given
                 /// dynamic capacity. If a given dynamic capacity is 0, that archetype will not
-                /// allocate until an entity is pushed into it.
+                /// allocate until an entity is created in it.
                 ///
                 /// # Panics
                 ///
@@ -106,61 +125,46 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 }
 
 
-                /// Removes a given entity of any type from the world, if it exists.
+                /// Destroys the given entity and removes it from the world, if it exists.
                 ///
-                /// Return `true` if the entity was successfully removed, or `false` otherwise.
+                /// Return `true` if the entity was successfully destroyed, or `false` otherwise.
                 ///
-                /// Unlike other remove functions, this does not return the removed components.
+                /// Unlike other destroy functions, this does not return the entity's components.
                 /// If you need the returned components from an `EntityAny`, use the entity's
                 /// `resolve` type disambiguator and a match statement to get an `Entity<A>`.
-                pub fn remove_any(&mut self, entity: EntityAny) -> bool {
+                pub fn destroy_any(&mut self, entity: EntityAny) -> bool {
                     match entity.into() {
                         #(
-                            #EntityWorld::#Archetype(entity) =>
-                                self.#archetype.remove(entity).is_some(),
+                            #Select::#Archetype(entity) =>
+                                self.#archetype.destroy(entity).is_some(),
                         )*
                     }
                 }
             }
 
-            impl ArchetypeContainer for #World {}
+            impl World for #World {}
 
             #(
-                impl HasArchetype<#Archetype> for #World {
+                impl WorldHas<#Archetype> for #World {
                     #[inline(always)]
-                    fn resolve_len(&self) -> usize {
-                        self.#archetype.len()
-                    }
-
-                    #[inline(always)]
-                    fn resolve_capacity(&self) -> usize {
-                        self.#archetype.capacity()
-                    }
-
-                    #[inline(always)]
-                    fn resolve_is_empty(&self) -> bool {
-                        self.#archetype.is_empty()
-                    }
-
-                    #[inline(always)]
-                    fn resolve_push(&mut self, data: <#Archetype as Archetype>::Components)
+                    fn resolve_create(&mut self, data: <#Archetype as Archetype>::Components)
                         -> Entity<#Archetype>
                     {
-                        self.#archetype.push(data)
+                        self.#archetype.create(data)
                     }
 
                     #[inline(always)]
-                    fn resolve_try_push(&mut self, data: <#Archetype as Archetype>::Components)
+                    fn resolve_try_create(&mut self, data: <#Archetype as Archetype>::Components)
                         -> Option<Entity<#Archetype>>
                     {
-                        self.#archetype.try_push(data)
+                        self.#archetype.try_create(data)
                     }
 
                     #[inline(always)]
-                    fn resolve_remove(&mut self, entity: Entity<#Archetype>)
+                    fn resolve_destroy(&mut self, entity: Entity<#Archetype>)
                         -> Option<<#Archetype as Archetype>::Components>
                     {
-                        self.#archetype.remove(entity)
+                        self.#archetype.destroy(entity)
                     }
 
                     #[inline(always)]
@@ -176,44 +180,146 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             )*
 
             #[derive(Clone, Copy)]
-            pub enum #EntityWorld {
+            pub enum #Select {
                 #( #Archetype(Entity<#Archetype>), )*
             }
 
-            pub trait #EntityWorldExt {
-                fn resolve(self) -> #EntityWorld;
+            #[derive(Clone, Copy)]
+            pub enum #SelectRaw {
+                #( #Archetype(EntityRaw<#Archetype>), )*
             }
 
+            // Combined dispatch table for resolving both key types.
+            #[doc(hidden)]
+            pub enum #SelectInternalWorld {
+                #( #Archetype(Entity<#Archetype>), )*
+                #( #ArchetypeRaw(EntityRaw<#Archetype>), )*
+            }
+
+            // Resolve dispatch implementation ----------------------------------------------------
+
             #(
-                impl #EntityWorldExt for Entity<#Archetype> {
+                impl From<Entity<#Archetype>> for #Select {
                     #[inline(always)]
-                    fn resolve(self) -> #EntityWorld {
-                        self.into()
+                    fn from(entity: Entity<#Archetype>) -> Self {
+                        #Select::#Archetype(entity)
                     }
                 }
 
-                impl From<Entity<#Archetype>> for #EntityWorld {
+                impl From<&Entity<#Archetype>> for #Select {
+                    #[inline(always)]
+                    fn from(entity: &Entity<#Archetype>) -> Self {
+                        #Select::#Archetype(*entity)
+                    }
+                }
+
+                impl From<EntityRaw<#Archetype>> for #SelectRaw {
+                    #[inline(always)]
+                    fn from(entity: EntityRaw<#Archetype>) -> Self {
+                        #SelectRaw::#Archetype(entity)
+                    }
+                }
+
+                impl From<&EntityRaw<#Archetype>> for #SelectRaw {
+                    #[inline(always)]
+                    fn from(entity: &EntityRaw<#Archetype>) -> Self {
+                        #SelectRaw::#Archetype(*entity)
+                    }
+                }
+
+                impl From<Entity<#Archetype>> for #SelectInternalWorld {
                     #[inline(always)]
                     fn from(entity: Entity<#Archetype>) -> Self {
-                        #EntityWorld::#Archetype(entity)
+                        #SelectInternalWorld::#Archetype(entity)
+                    }
+                }
+
+                impl From<EntityRaw<#Archetype>> for #SelectInternalWorld {
+                    #[inline(always)]
+                    fn from(entity: EntityRaw<#Archetype>) -> Self {
+                        #SelectInternalWorld::#ArchetypeRaw(entity)
+                    }
+                }
+
+                impl WorldCanResolve<Entity<#Archetype>> for #World {
+                    #[inline(always)]
+                    fn resolve_destroy(
+                        &mut self,
+                        entity: Entity<#Archetype>
+                    ) -> Option<<#Archetype as Archetype>::Components> {
+                        self.archetype_mut::<#Archetype>().destroy(entity)
                     }
                 }
             )*
 
-            impl #EntityWorldExt for EntityAny {
+            impl WorldCanResolve<EntityAny> for #World {
                 #[inline(always)]
-                fn resolve(self) -> #EntityWorld {
-                    self.into()
+                fn resolve_destroy(
+                    &mut self,
+                    entity: EntityAny,
+                ) -> bool {
+                    match entity.into() {
+                        #(
+                            #Select::#Archetype(entity) =>
+                                self.#archetype.destroy(entity).is_some(),
+                        )*
+                    }
                 }
             }
 
-            impl From<EntityAny> for #EntityWorld {
+            impl From<EntityAny> for #Select {
                 #[inline(always)]
                 fn from(entity: EntityAny) -> Self {
                     match entity.archetype_id() {
                         #(
                             #Archetype::ARCHETYPE_ID => {
-                                #EntityWorld::#Archetype(Entity::from_any(entity))
+                                // We can use from_any_unchecked because we just checked the archetype
+                                #Select::#Archetype(Entity::<#Archetype>::from_any_unchecked(entity))
+                            },
+                        )*
+                        _ => panic!("invalid entity type"),
+                    }
+                }
+            }
+
+            impl From<EntityRawAny> for #SelectRaw {
+                #[inline(always)]
+                fn from(entity: EntityRawAny) -> Self {
+                    match entity.archetype_id() {
+                        #(
+                            #Archetype::ARCHETYPE_ID => {
+                                // We can use from_any_unchecked because we just checked the archetype
+                                #SelectRaw::#Archetype(EntityRaw::<#Archetype>::from_any_unchecked(entity))
+                            },
+                        )*
+                        _ => panic!("invalid entity type"),
+                    }
+                }
+            }
+
+            impl From<EntityAny> for #SelectInternalWorld {
+                #[inline(always)]
+                fn from(entity: EntityAny) -> Self {
+                    match entity.archetype_id() {
+                        #(
+                            #Archetype::ARCHETYPE_ID => {
+                                // We can use from_any_unchecked because we just checked the archetype
+                                #SelectInternalWorld::#Archetype(Entity::<#Archetype>::from_any_unchecked(entity))
+                            },
+                        )*
+                        _ => panic!("invalid entity type"),
+                    }
+                }
+            }
+
+            impl From<EntityRawAny> for #SelectInternalWorld {
+                #[inline(always)]
+                fn from(entity: EntityRawAny) -> Self {
+                    match entity.archetype_id() {
+                        #(
+                            #Archetype::ARCHETYPE_ID => {
+                                // We can use from_any_unchecked because we just checked the archetype
+                                #SelectInternalWorld::#ArchetypeRaw(EntityRaw::<#Archetype>::from_any_unchecked(entity))
                             },
                         )*
                         _ => panic!("invalid entity type"),
@@ -254,13 +360,13 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             }
         }
 
-        #[doc(hidden)]
+        #[doc(inline)]
         pub use #__ecs_find_unique as ecs_find;
-        #[doc(hidden)]
+        #[doc(inline)]
         pub use #__ecs_find_borrow_unique as ecs_find_borrow;
-        #[doc(hidden)]
+        #[doc(inline)]
         pub use #__ecs_iter_unique as ecs_iter;
-        #[doc(hidden)]
+        #[doc(inline)]
         pub use #__ecs_iter_borrow_unique as ecs_iter_borrow;
     )
 }
@@ -286,20 +392,27 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         .map(|component| format_ident!("{}", component.name))
         .collect::<Vec<_>>();
 
+    let ArchetypeBorrow = format_ident!("{}Borrow", archetype_data.name);
+    let ArchetypeView = format_ident!("{}View", archetype_data.name);
     let ArchetypeSlices = format_ident!("{}Slices", archetype_data.name);
-    let ArchetypeSlicesType = format_ident!("Slices{}", count_str);
-    let ArchetypeSlicesArgs = quote!(#Archetype, #(#Component),*);
 
-    let (StorageType, StorageArgs) = match &archetype_data.build_data.as_ref().unwrap().capacity {
-        DataCapacity::Fixed(expr) => {
-            let StorageFixed = format_ident!("StorageFixed{}", count_str);
-            (StorageFixed, quote!(Self, #(#Component,)* { #expr }))
-        }
-        DataCapacity::Dynamic => {
-            let StorageDynamic = format_ident!("StorageDynamic{}", count_str);
-            (StorageDynamic, quote!(Self, #(#Component,)*))
-        }
-    };
+    let ViewN = format_ident!("View{}", count_str);
+    let SlicesN = format_ident!("Slices{}", count_str);
+    let ContentArgs = quote!(#Archetype, #(#Component),*);
+
+    let (StorageN, BorrowN, StorageArgs) =
+        match &archetype_data.build_data.as_ref().unwrap().capacity {
+            DataCapacity::Fixed(expr) => (
+                format_ident!("StorageFixed{}", count_str),
+                format_ident!("BorrowFixed{}", count_str),
+                quote!(#Archetype, #(#Component,)* { #expr }),
+            ),
+            DataCapacity::Dynamic => (
+                format_ident!("StorageDynamic{}", count_str),
+                format_ident!("BorrowDynamic{}", count_str),
+                quote!(#Archetype, #(#Component,)*),
+            ),
+        };
 
     // Generated subsections
     let with_capacity = match &archetype_data.build_data.as_ref().unwrap().capacity {
@@ -310,7 +423,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             /// If the given capacity would result in zero size, this will not allocate.
             #[inline(always)]
             pub fn with_capacity(capacity: usize) -> Self {
-                Self { data: #StorageType::with_capacity(capacity) }
+                Self { data: #StorageN::with_capacity(capacity) }
             }
         ),
     };
@@ -322,6 +435,12 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let get_slice_mut = (0..count)
         .into_iter()
         .map(|idx| format_ident!("get_slice_mut_{}", idx.to_string()));
+    let borrow = (0..count)
+        .into_iter()
+        .map(|idx| format_ident!("borrow_{}", idx.to_string()));
+    let borrow_mut = (0..count)
+        .into_iter()
+        .map(|idx| format_ident!("borrow_mut_{}", idx.to_string()));
     let borrow_slice = (0..count)
         .into_iter()
         .map(|idx| format_ident!("borrow_slice_{}", idx.to_string()));
@@ -345,18 +464,18 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         #[derive(Default)]
         #[repr(transparent)]
         pub struct #Archetype {
-            data: #StorageType<#StorageArgs>,
+            pub data: #StorageN<#StorageArgs>,
         }
 
         impl #Archetype {
             /// Constructs a new, empty archetype.
             ///
             /// If the archetype uses dynamic storage, this archetype will not allocate until
-            /// an entity is pushed into it. Otherwise, for static storage, the full capacity
+            /// an entity is added to it. Otherwise, for static storage, the full capacity
             /// will be allocated on creation of the archetype.
             #[inline(always)]
             pub fn new() -> Self {
-                Self { data: #StorageType::new() }
+                Self { data: #StorageN::new() }
             }
 
             #with_capacity // Only generated for dynamic storage
@@ -383,44 +502,90 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 self.data.is_empty()
             }
 
-            /// Adds a new entity with the given component data to the archetype, if there's room.
+            /// Returns the generational version of the archetype. Intended for internal use.
+            #[inline(always)]
+            pub const fn version(&self) -> VersionArchetype {
+                self.data.version()
+            }
+
+            /// Creates a new entity with the given components in the archetype, if there's room.
             ///
             /// Returns a handle for accessing the new entity.
             ///
             /// # Panics
             ///
-            /// Panics if the archetype is full. For a panic-free version, use `try_push` instead.
+            /// Panics if the archetype is full. For a panic-free version, use `try_create`.
             #[inline(always)]
-            pub fn push(&mut self, data: (#(#Component,)*)) -> Entity<#Archetype> {
+            pub fn create(
+                &mut self,
+                data: (#(#Component,)*)
+            ) -> Entity<#Archetype> {
                 self.data.try_push(data).expect("failed to push to full archetype")
             }
 
-            /// Adds a new entity with the given component data to the archetype, if there's room.
+            /// Creates a new entity with the given components in the archetype, if there's room.
             ///
             /// Returns a handle for accessing the new entity, or `None` if the archetype is full.
             #[inline(always)]
-            pub fn try_push(&mut self, data: (#(#Component,)*)) -> Option<Entity<#Archetype>> {
+            pub fn try_create(
+                &mut self,
+                data: (#(#Component,)*)
+            ) -> Option<Entity<#Archetype>> {
                 self.data.try_push(data)
             }
 
             /// If the entity exists in the archetype, this returns its dense data slice index.
             /// The returned index is guaranteed to be within bounds of the dense data slices.
             #[inline(always)]
-            pub fn resolve(&self, entity: Entity<#Archetype>) -> Option<usize> {
+            pub fn resolve<K: EntityKey>(
+                &self,
+                entity: K
+            ) -> Option<usize>
+            where
+                #StorageN<#StorageArgs>: StorageCanResolve<K>
+            {
                 self.data.resolve(entity)
             }
 
-            /// If the entity exists in the archetype, this removes it and returns its components.
+            /// If the entity exists in the archetype, this destroys it and returns its components.
             #[inline(always)]
-            pub fn remove(&mut self, entity: Entity<#Archetype>) -> Option<(#(#Component,)*)> {
+            pub fn destroy(
+                &mut self,
+                entity: Entity<#Archetype>
+            ) -> Option<(#(#Component,)*)> {
                 self.data.remove(entity)
+            }
+
+            /// Begins a borrow context for the given entity on this archetype. This will allow
+            /// direct access to that entity's components with runtime borrow checking. This can
+            /// be faster than accessing the components as slices, as it will skip bounds checks.
+            #[inline(always)]
+            pub fn begin_borrow<'a, K: EntityKey>(
+                &'a self,
+                entity: K,
+            ) -> Option<#ArchetypeBorrow<'a>>
+            where
+                #StorageN<#StorageArgs>: StorageCanResolve<K>
+            {
+                self.data.begin_borrow(entity).map(#ArchetypeBorrow)
+            }
+
+            #[inline(always)]
+            pub fn get_view_mut<'a, K: EntityKey>(
+                &'a mut self,
+                entity_key: K
+            ) -> Option<#ArchetypeView<'a>>
+            where
+                #StorageN<#StorageArgs>: StorageCanResolve<K>
+            {
+                self.data.get_view_mut(entity_key)
             }
 
             /// Returns mutable slices to all data for all entities in the archetype. To get the
             /// data index for a specific entity using this function, use the `resolve` function.
             #[inline(always)]
-            pub fn get_all_slices(&mut self) -> #ArchetypeSlices {
-                self.data.get_all_slices()
+            pub fn get_all_slices_mut(&mut self) -> #ArchetypeSlices {
+                self.data.get_all_slices_mut()
             }
 
             #(
@@ -432,10 +597,8 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             )*
         }
 
-        impl ComponentContainer for #Archetype { }
-
         #(
-            impl HasComponent<#Component> for #Archetype {
+            impl ArchetypeHas<#Component> for #Archetype {
                 #[inline(always)]
                 fn resolve_get_slice(&mut self) -> &[#Component] {
                     self.data.#get_slice()
@@ -455,6 +618,16 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 fn resolve_borrow_slice_mut(&self) -> RefMut<[#Component]> {
                     self.data.#borrow_slice_mut()
                 }
+
+                #[inline(always)]
+                fn resolve_borrow<'a>(borrow: &'a #ArchetypeBorrow<'a>) -> Ref<'a, #Component> {
+                    borrow.0.#borrow()
+                }
+
+                #[inline(always)]
+                fn resolve_borrow_mut<'a>(borrow: &'a #ArchetypeBorrow<'a>) -> RefMut<'a, #Component> {
+                    borrow.0.#borrow_mut()
+                }
             }
         )*
 
@@ -463,6 +636,9 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             const ARCHETYPE_ID: u8 = #ARCHETYPE_ID;
 
             type Components = (#(#Component,)*);
+            type View<'a> = #ArchetypeView<'a>;
+            type Borrow<'a> = #ArchetypeBorrow<'a>;
+            type Slices<'a> = #ArchetypeSlices<'a>;
 
             #[inline(always)]
             fn get_slice_entities(&self) -> &[Entity<#Archetype>] {
@@ -470,20 +646,134 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
         }
 
+        #[repr(transparent)]
+        #[derive(Clone, Copy)]
+        pub struct #ArchetypeBorrow<'a>(#BorrowN<'a, #StorageArgs>);
+
+        impl<'a> #ArchetypeBorrow<'a> {
+            #[inline(always)]
+            pub fn index(&self) -> usize {
+                self.0.index()
+            }
+
+            #[inline(always)]
+            pub fn entity(&self) -> &Entity<#Archetype> {
+                self.0.entity()
+            }
+
+            #[inline(always)]
+            pub fn borrow<C>(&self) -> Ref<C>
+            where
+                #Archetype: for<'c> ArchetypeHas<C, Borrow<'c> = #ArchetypeBorrow<'c>>
+            {
+                #Archetype::resolve_borrow(self)
+            }
+
+            #[inline(always)]
+            pub fn borrow_mut<C>(&self) -> RefMut<C>
+            where
+                #Archetype: for<'c> ArchetypeHas<C, Borrow<'c> = #ArchetypeBorrow<'c>>
+            {
+                #Archetype::resolve_borrow_mut(self)
+            }
+        }
+
+        pub struct #ArchetypeView<'a> {
+            index: usize,
+            pub entity: &'a Entity<#Archetype>,
+            #(
+                pub #component: &'a mut #Component,
+            )*
+        }
+
         pub struct #ArchetypeSlices<'a> {
-            pub entities: &'a [Entity<#Archetype>],
+            pub entity: &'a [Entity<#Archetype>],
             #(
                 pub #component: &'a mut [#Component],
             )*
         }
 
-        impl<'a> #ArchetypeSlicesType<'a, #ArchetypeSlicesArgs> for #ArchetypeSlices<'a> {
+        impl<'a> #ArchetypeView<'a> {
+            #[inline(always)]
+            pub fn index(&self) -> usize {
+                self.index
+            }
+
+            #[inline(always)]
+            pub fn component<C>(&self) -> &C
+            where
+                Self: ViewHas<C>
+            {
+                <Self as ViewHas<C>>::resolve_component(self)
+            }
+
+            #[inline(always)]
+            pub fn component_mut<C>(&mut self) -> &mut C
+            where
+                Self: ViewHas<C>
+            {
+                <Self as ViewHas<C>>::resolve_component_mut(self)
+            }
+        }
+
+        impl<'a> View for #ArchetypeView<'a> {}
+
+        #(
+            impl<'a> ViewHas<#Component> for #ArchetypeView<'a> {
+                #[inline(always)]
+                fn resolve_component(&self) -> &#Component {
+                    self.#component
+                }
+
+                #[inline(always)]
+                fn resolve_component_mut(&mut self) -> &mut #Component {
+                    self.#component
+                }
+            }
+        )*
+
+        impl<'a> #ViewN<'a, #ContentArgs> for #ArchetypeView<'a> {
             #[inline(always)]
             fn new(
-                entities: &'a [Entity<#Archetype>],
+                index: usize,
+                entity: &'a Entity<#Archetype>,
+                #(#component: &'a mut #Component),*
+            ) -> Self {
+                Self { index, entity, #(#component),* }
+            }
+        }
+
+        impl<'a> #SlicesN<'a, #ContentArgs> for #ArchetypeSlices<'a> {
+            #[inline(always)]
+            fn new(
+                entity: &'a [Entity<#Archetype>],
                 #(#component: &'a mut [#Component]),*
             ) -> Self {
-                Self { entities, #(#component),* }
+                Self { entity, #(#component),* }
+            }
+        }
+
+        impl<'a> ArchetypeCanResolve<'a, #ArchetypeView<'a>, Entity<#Archetype>> for #Archetype {
+            #[inline(always)]
+            fn resolve_for(&self, key: Entity<#Archetype>) -> Option<usize> {
+                self.data.resolve(key)
+            }
+
+            #[inline(always)]
+            fn resolve_view(&'a mut self, key: Entity<#Archetype>) -> Option<#ArchetypeView<'a>> {
+                self.data.get_view_mut(key)
+            }
+        }
+
+        impl<'a> ArchetypeCanResolve<'a, #ArchetypeView<'a>, EntityRaw<#Archetype>> for #Archetype {
+            #[inline(always)]
+            fn resolve_for(&self, key: EntityRaw<#Archetype>) -> Option<usize> {
+                self.data.resolve(key)
+            }
+
+            #[inline(always)]
+            fn resolve_view(&'a mut self, key: EntityRaw<#Archetype>) -> Option<#ArchetypeView<'a>> {
+                self.data.get_view_mut(key)
             }
         }
     )
@@ -509,22 +799,4 @@ fn with_capacity_new(archetype_data: &DataArchetype) -> TokenStream {
 
 fn to_snake(name: &String) -> String {
     name.from_case(Case::Pascal).to_case(Case::Snake)
-}
-
-fn top_most_ancestor_of_call_site_span() -> String {
-    #![allow(dead_code, unstable_name_collisions)]
-    /// for code without the `proc_macro_span` feature
-    trait ParentSpanPolyfill {
-        fn parent(&self) -> Option<::proc_macro::Span> {
-            None
-        }
-    }
-    impl ParentSpanPolyfill for ::proc_macro::Span {}
-
-    let mut span = ::proc_macro::Span::call_site();
-    while let Some(parent_span) = span.parent() {
-        span = parent_span;
-    }
-
-    format!("{span:?}")
 }

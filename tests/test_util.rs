@@ -34,11 +34,11 @@ ecs_world! {
 #[test]
 #[rustfmt::skip]
 fn test_component_id() {
-    let mut world = World::default();
+    let mut world = EcsWorld::default();
 
-    let entity_a = world.archetype_mut::<ArchFoo>().push((CompA, CompC));
-    let entity_b = world.archetype_mut::<ArchBar>().push((CompA, CompB, CompC));
-    let entity_c = world.archetype_mut::<ArchBaz>().push((CompA, CompB, CompC));
+    let entity_a = world.archetype_mut::<ArchFoo>().create((CompA, CompC));
+    let entity_b = world.archetype_mut::<ArchBar>().create((CompA, CompB, CompC));
+    let entity_c = world.archetype_mut::<ArchBaz>().create((CompA, CompB, CompC));
 
     ecs_find!(world, entity_a, |_: &CompC| {
         assert_eq!(ecs_component_id!(CompC), 1);
