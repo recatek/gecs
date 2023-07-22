@@ -19,9 +19,18 @@ impl DataIndex {
 
     /// Creates a new `DataIndex` if the given index is within bounds.
     #[inline(always)]
-    pub(crate) const fn new(index: u32) -> Option<Self> {
+    pub(crate) const fn new_u32(index: u32) -> Option<Self> {
         match index < MAX_DATA_CAPACITY {
             true => Some(Self(index)),
+            false => None,
+        }
+    }
+
+    /// Creates a new `DataIndex` if the given index is within bounds.
+    #[inline(always)]
+    pub(crate) const fn new_usize(index: usize) -> Option<Self> {
+        match index < MAX_DATA_CAPACITY as usize {
+            true => Some(Self(index as u32)),
             false => None,
         }
     }

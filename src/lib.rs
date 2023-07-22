@@ -54,19 +54,20 @@
 //! }
 //!
 //! fn main() {
-//!     let mut world = World::default(); // Initialize an empty new ECS world.
+//!     let mut world = EcsWorld::default(); // Initialize an empty new ECS world.
 //!
 //!     // Add entities to the world by populating their components and receive their handles.
 //!     let entity_a = world.create::<ArchFoo>((CompA(1), CompB(20)));
 //!     let entity_b = world.create::<ArchBar>((CompA(3), CompC(40)));
 //!
 //!     // Each archetype now has one entity.
-//!     assert_eq!(world.len::<ArchFoo>(), 1);
-//!     assert_eq!(world.len::<ArchBar>(), 1);
+//!     assert_eq!(world.archetype::<ArchFoo>().len(), 1);
+//!     assert_eq!(world.archetype::<ArchBar>().len(), 1);
 //!
 //!     // Look up each entity and check its CompB or CompC value.
-//!     assert!(ecs_find!(world, entity_a, |c: &CompB| assert_eq!(c.0, 20)));
-//!     assert!(ecs_find!(world, entity_b, |c: &CompC| assert_eq!(c.0, 40)));
+//!     // We use the is_some() check here to make sure the entity was indeed found.
+//!     assert!(ecs_find!(world, entity_a, |c: &CompB| assert_eq!(c.0, 20)).is_some());
+//!     assert!(ecs_find!(world, entity_b, |c: &CompC| assert_eq!(c.0, 40)).is_some());
 //!
 //!     // Add to entity_a's CompA value.
 //!     ecs_find!(world, entity_a, |c: &mut CompA| { c.0 += 1; });
@@ -85,8 +86,8 @@
 //!     assert!(world.destroy(entity_a).is_some());
 //!     assert!(world.destroy(entity_b).is_some());
 //!
-//!     // Try to look up a stale entity handle -- this will return false.
-//!     assert_eq!(ecs_find!(world, entity_a, |_: &Entity<ArchFoo>| { panic!() }), false);
+//!     // Try to look up a stale entity handle -- this will return None.
+//!     assert!(ecs_find!(world, entity_a, |_: &Entity<ArchFoo>| { panic!() }).is_none());
 //! }
 //! ```
 
@@ -102,6 +103,9 @@ pub mod error;
 
 /// Traits for working with ECS types as generics.
 pub mod traits;
+
+/// A checked generational version.
+pub mod version;
 
 #[cfg(doc)]
 mod macros {
@@ -128,7 +132,7 @@ mod macros {
     /// ecs_name!(Name);
     /// ```
     /// The `ecs_name!` inner pseudo-macro is used for setting the name (in PascalCase) of the
-    /// ECS world struct. Without this declaration, the world's name will default to `World`.
+    /// ECS world struct. Without this declaration, the world's name will default to `EcsWorld`.
     ///
     /// ## ecs_archetype!
     ///
@@ -205,7 +209,7 @@ mod macros {
     ///
     /// fn main() {
     ///     // Create a new world. Because ArchBaz is the only dynamic archetype, we only need to
-    ///     // set one capacity in World creation (the parameter is named capacity_arch_baz). The
+    ///     // set one capacity in world creation (the parameter is named capacity_arch_baz). The
     ///     // other fixed-size archetypes will always be created sized to their full capacity.
     ///     let mut world = MyWorld::with_capacity(30);
     ///
@@ -214,13 +218,13 @@ mod macros {
     ///     let entity_a = world.try_create::<ArchFoo>((CompA(0), CompB(1))).unwrap();
     ///
     ///     // The length of the archetype should now be 1.
-    ///     assert_eq!(world.len::<ArchFoo>(), 1);
+    ///     assert_eq!(world.archetype::<ArchFoo>().len(), 1);
     ///
     ///     // Destroy the entity (we don't need to turbofish because this is an Entity<ArchFoo>).
     ///     world.destroy(entity_a);
     ///
-    ///     assert_eq!(world.len::<ArchFoo>(), 0);
-    ///     assert!(world.is_empty::<ArchFoo>());
+    ///     assert_eq!(world.archetype::<ArchFoo>().len(), 0);
+    ///     assert!(world.archetype::<ArchFoo>().is_empty());
     ///
     ///     // Use of #[cfg]-conditionals.
     ///     #[cfg(feature = "some_feature")] world.create::<ArchBar>((CompA(2), CompB(3), CompC(4)));
@@ -263,9 +267,9 @@ mod macros {
     /// use my_world::prelude::*;
     ///
     /// fn main() {
-    ///     let mut world = World::default();
+    ///     let mut world = EcsWorld::default();
     ///     let entity = world.create::<ArchFoo>((CompA, CompB));
-    ///     assert!(ecs_find!(world, entity, || {}));
+    ///     assert!(ecs_find!(world, entity, || {}).is_some());
     /// }
     /// ```
     ///
@@ -335,7 +339,7 @@ mod macros {
     /// }
     ///
     /// fn main() {
-    ///     let mut world = World::default();
+    ///     let mut world = EcsWorld::default();
     ///
     ///     let entity_a = world.archetype_mut::<ArchFoo>().create((CompA, CompC));
     ///     let entity_b = world.archetype_mut::<ArchBar>().create((CompA, CompB, CompC));
@@ -373,7 +377,8 @@ mod macros {
     /// on it, if that entity is found in archetype storage. It takes the following arguments:
     ///
     /// - `world`: The world (as an expression) that you want to query.
-    /// - `entity`: The entity handle you want to look up. May be an `Entity<A>` or `EntityAny`.
+    /// - `entity`: The entity handle you want to look up. May be an `Entity<A>`, `EntityRaw<A>`,
+    ///   `EntityAny`, or `EntityRawAny` handle.
     /// - `|comp_a: &CompA, comp_b: &mut CompB, ...| { ... }`: A closure containing the operation
     ///   to perform on the current entity's data. The parameters of the closure determine what
     ///   components for the entity that this query will access and how. Any component can be
@@ -381,7 +386,9 @@ mod macros {
     ///   that are known at compile-time to have all components requested in the query closure.
     ///     - Note that this closure is always treated as a `&mut FnMut`.
     ///
-    /// The `ecs_find!` macro returns `true` if the entity was found, or false otherwise.
+    /// The `ecs_find!` macro returns an `Option` type of the return value of the closure (which
+    /// may be `Option<()>` if the closure has no return). The value will be `Some` if the entity
+    /// was found, or `None` otherwise.
     ///
     /// # Special Arguments
     ///
@@ -390,9 +397,12 @@ mod macros {
     /// - `&Entity<A>`/`&EntityAny`: Returns the current entity being accessed by the closure.
     ///   This is somewhat redundant for `ecs_find!` queries, but useful for `ecs_iter!` loops.
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
-    /// - `&Entity<_>`: When used with the special `_` wildcard, each execution of this query
-    ///   will return a typed `Entity<A>` handle for the exact archetype matched for this
-    ///   specific execution. This can be used to optimize switched behavior by type.
+    /// - `&EntityRaw<A>`/`EntityRawAny`: As above, but using raw handles to the direct position
+    ///   of the entity in its archetype. This can accelerate lookup, but may be invalidated
+    ///   if the archetype changes. See [`EntityRawAny`] for more information.
+    /// - `&Entity<_>`/`&EntityRaw<_>`: When used with the special `_` wildcard, each execution
+    ///   of this query will return a typed (raw) entity handle for the exact archetype matched
+    ///   for this specific execution. This can be used to optimize switched behavior by type.
     /// - `&OneOf<A, B, ...>` or `&mut OneOf<A, B, ...>`: See [`OneOf`](crate::OneOf).
     ///
     /// In query closures, a special `MatchedArchetype` type alias is set to the currently
@@ -414,30 +424,30 @@ mod macros {
     /// }
     ///
     /// // If you need to use a non-mut reference, see the ecs_find_borrow! macro.
-    /// fn add_three(world: &mut World, entity: Entity<ArchFoo>) -> bool {
+    /// fn add_three(world: &mut EcsWorld, entity: Entity<ArchFoo>) -> bool {
     ///     // The result will be true if the entity was found and operated on.
-    ///     ecs_find!(world, entity, |comp_a: &mut CompA| { comp_a.0 += 3; })
+    ///     ecs_find!(world, entity, |comp_a: &mut CompA| { comp_a.0 += 3; }).is_some()
     /// }
     ///
-    /// fn add_three_any(world: &mut World, entity: EntityAny) -> bool {
+    /// fn add_three_any(world: &mut EcsWorld, entity: EntityAny) -> bool {
     ///     // The query syntax is the same for both Entity<A> and EntityAny.
-    ///     ecs_find!(world, entity, |comp_a: &mut CompA| { comp_a.0 += 3; })
+    ///     ecs_find!(world, entity, |comp_a: &mut CompA| { comp_a.0 += 3; }).is_some()
     /// }
     ///
     /// fn main() {
-    ///     let mut world = World::default();
+    ///     let mut world = EcsWorld::default();
     ///
     ///     let entity_a = world.create::<ArchFoo>((CompA(0), CompB(0)));
     ///     let entity_b = world.create::<ArchBar>((CompA(0), CompC(0)));
     ///
-    ///     assert!(ecs_find!(world, entity_a, |c: &CompA| assert_eq!(c.0, 0)));
-    ///     assert!(ecs_find!(world, entity_b, |c: &CompA| assert_eq!(c.0, 0)));
+    ///     assert!(ecs_find!(world, entity_a, |c: &CompA| assert_eq!(c.0, 0)).is_some());
+    ///     assert!(ecs_find!(world, entity_b, |c: &CompA| assert_eq!(c.0, 0)).is_some());
     ///
     ///     assert!(add_three(&mut world, entity_a));
     ///     assert!(add_three_any(&mut world, entity_b.into())); // Convert to an EntityAny
     ///
-    ///     assert!(ecs_find!(world, entity_a, |c: &CompA| assert_eq!(c.0, 3)));
-    ///     assert!(ecs_find!(world, entity_b, |c: &CompA| assert_eq!(c.0, 3)));
+    ///     assert!(ecs_find!(world, entity_a, |c: &CompA| assert_eq!(c.0, 3)).is_some());
+    ///     assert!(ecs_find!(world, entity_b, |c: &CompA| assert_eq!(c.0, 3)).is_some());
     /// }
     /// ```
     #[macro_export]
@@ -470,13 +480,13 @@ mod macros {
     /// }
     ///
     /// fn main() {
-    ///     let mut world = World::default();
+    ///     let mut world = EcsWorld::default();
     ///
     ///     let parent = world.create::<ArchFoo>((CompA(0), CompB(0), Parent(None)));
     ///     let child = world.create::<ArchFoo>((CompA(1), CompB(0), Parent(Some(parent))));
     ///
     ///     // Assert that we found the parent, and that its CompB value is 0.
-    ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 0)));
+    ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 0)).is_some());
     ///
     ///     ecs_iter_borrow!(world, |child_a: &CompA, parent: &Parent| {
     ///         if let Some(parent_entity) = parent.0 {
@@ -489,7 +499,7 @@ mod macros {
     ///     });
     ///
     ///     // Assert that we found the parent, and that its CompB value is now 1.
-    ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 1)));
+    ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 1)).is_some());
     /// }
     /// ```
     #[macro_export]
@@ -521,9 +531,12 @@ mod macros {
     /// - `&Entity<A>`/`&EntityAny`: Returns the current entity being accessed by the closure.
     ///   This is somewhat redundant for `ecs_find!` queries, but useful for `ecs_iter!` loops.
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
-    /// - `&Entity<_>`: When used with the special `_` wildcard, each execution of this query
-    ///   will return a typed `Entity<A>` handle for the exact archetype matched for this
-    ///   specific execution. This can be used to optimize switched behavior by type.
+    /// - `&EntityRaw<A>`/`EntityRawAny`: As above, but using raw handles to the direct position
+    ///   of the entity in its archetype. This can accelerate lookup, but may be invalidated
+    ///   if the archetype changes. See [`EntityRawAny`] for more information.
+    /// - `&Entity<_>`/`&EntityRaw<_>`: When used with the special `_` wildcard, each execution
+    ///   of this query will return a typed (raw) entity handle for the exact archetype matched
+    ///   for this specific execution. This can be used to optimize switched behavior by type.
     /// - `&OneOf<A, B, ...>` or `&mut OneOf<A, B, ...>`: See [`OneOf`](crate::OneOf).
     ///
     /// In query closures, a special `MatchedArchetype` type alias is set to the currently
@@ -545,7 +558,7 @@ mod macros {
     /// }
     ///
     /// fn main() {
-    ///     let mut world = World::default();
+    ///     let mut world = EcsWorld::default();
     ///
     ///     let mut vec_a = Vec::<EntityAny>::new();
     ///     let mut vec_b = Vec::<EntityAny>::new();
@@ -640,7 +653,7 @@ mod macros {
 /// }
 ///
 /// fn main() {
-///     let mut world = World::default();
+///     let mut world = EcsWorld::default();
 ///
 ///     let entity_a = world.archetype_mut::<ArchFoo>().create((CompA(1), CompB(10)));
 ///     let entity_b = world.archetype_mut::<ArchBar>().create((CompA(1), CompC(10)));
@@ -675,18 +688,24 @@ pub struct OneOf {
 pub use gecs_macros::{ecs_component_id, ecs_world};
 
 /// `use gecs::prelude::*;` to import common macros, traits, and types.
+#[rustfmt::skip]
 pub mod prelude {
     use super::*;
 
     pub use gecs_macros::{ecs_component_id, ecs_world};
 
-    pub use entity::{ArchetypeId, Entity, EntityAny};
-    pub use traits::Archetype;
-    pub use traits::{ArchetypeContainer, ComponentContainer};
-    pub use traits::{HasArchetype, HasComponent};
+    pub use entity::{ArchetypeId, Entity, EntityAny, EntityRaw, EntityRawAny};
+
+    pub use traits::EntityKey;
+    pub use traits::{WorldCanResolve, ArchetypeCanResolve, StorageCanResolve};
+
+    pub use traits::{World, WorldHas};
+    pub use traits::{Archetype, ArchetypeHas};
+    pub use traits::{View, ViewHas};
 }
 
 #[doc(hidden)]
+#[rustfmt::skip]
 pub mod __internal {
     use super::*;
 
@@ -694,11 +713,19 @@ pub mod __internal {
     pub use gecs_macros::{__ecs_find, __ecs_find_borrow};
     pub use gecs_macros::{__ecs_iter, __ecs_iter_borrow};
 
+    pub use entity::__internal::*;
+
+    pub use version::{VersionArchetype, VersionSlot};
+
     pub use archetype::slices::*;
     pub use archetype::storage_dynamic::*;
     pub use archetype::storage_fixed::*;
+    pub use archetype::view::*;
 
-    pub use traits::Archetype;
-    pub use traits::{ArchetypeContainer, ComponentContainer};
-    pub use traits::{HasArchetype, HasComponent};
+    pub use traits::EntityKey;
+    pub use traits::{WorldCanResolve, ArchetypeCanResolve, StorageCanResolve};
+
+    pub use traits::{World, WorldHas};
+    pub use traits::{Archetype, ArchetypeHas};
+    pub use traits::{View, ViewHas};
 }
