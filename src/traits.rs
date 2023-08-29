@@ -331,11 +331,17 @@ pub trait ViewHas<C>: View {
     fn resolve_component_mut(&mut self) -> &mut C;
 }
 
+/// Trait promising that a given ECS world can resolve a type of entity key.
+///
+/// This is used for the destroy function, and implemented for `EntityAny` and `Entity<A>`.
 pub trait WorldCanResolve<K: EntityKey> {
     #[doc(hidden)]
     fn resolve_destroy(&mut self, entity: K) -> K::DestroyOutput;
 }
 
+/// Trait promising that a given archetype can resolve a type of entity key.
+///
+/// This is implemented for `EntityAny`, `EntityRawAny`, `Entity<A>`, and `EntityRaw<A>`.
 pub trait ArchetypeCanResolve<'a, View, K: EntityKey> {
     #[doc(hidden)]
     fn resolve_for(&self, entity: K) -> Option<usize>;

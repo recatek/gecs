@@ -362,7 +362,7 @@ macro_rules! declare_storage_dynamic_n {
                     }
                 }
 
-                /// Grows the storage structure to accommodate more view.
+                /// Grows the storage structure to accommodate more data.
                 ///
                 /// This wipes the current free list and rebuilds it, including the list head.
                 #[inline(always)]
