@@ -53,19 +53,20 @@ ecs_world! {
 }
 
 fn main() {
-    let mut world = World::default(); // Initialize an empty new ECS world.
+    let mut world = EcsWorld::default(); // Initialize an empty new ECS world.
 
     // Add entities to the world by populating their components and receive their handles.
     let entity_a = world.create::<ArchFoo>((CompA(1), CompB(20)));
     let entity_b = world.create::<ArchBar>((CompA(3), CompC(40)));
 
     // Each archetype now has one entity.
-    assert_eq!(world.len::<ArchFoo>(), 1);
-    assert_eq!(world.len::<ArchBar>(), 1);
+    assert_eq!(world.archetype::<ArchFoo>().len(), 1);
+    assert_eq!(world.archetype::<ArchBar>().len(), 1);
 
     // Look up each entity and check its CompB or CompC value.
-    assert!(ecs_find!(world, entity_a, |c: &CompB| assert_eq!(c.0, 20)));
-    assert!(ecs_find!(world, entity_b, |c: &CompC| assert_eq!(c.0, 40)));
+    // We use the is_some() check here to make sure the entity was indeed found.
+    assert!(ecs_find!(world, entity_a, |c: &CompB| assert_eq!(c.0, 20)).is_some());
+    assert!(ecs_find!(world, entity_b, |c: &CompC| assert_eq!(c.0, 40)).is_some());
 
     // Add to entity_a's CompA value.
     ecs_find!(world, entity_a, |c: &mut CompA| { c.0 += 1; });
@@ -84,8 +85,8 @@ fn main() {
     assert!(world.destroy(entity_a).is_some());
     assert!(world.destroy(entity_b).is_some());
 
-    // Try to look up a stale entity handle -- this will return false.
-    assert_eq!(ecs_find!(world, entity_a, |_: &Entity<ArchFoo>| { panic!() }), false);
+    // Try to look up a stale entity handle -- this will return None.
+    assert!(ecs_find!(world, entity_a, |_: &Entity<ArchFoo>| { panic!() }).is_none());
 }
 ```
 License
