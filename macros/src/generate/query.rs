@@ -31,7 +31,8 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
     // TODO PERF: We could avoid binding entirely if we know that the params have no OneOf.
 
     // Types
-    let SelectInternalWorld = format_ident!("__SelectInternal{}", world_data.name);
+    let ArchetypeSelectInternalWorld =
+        format_ident!("__ArchetypeSelectInternal{}", world_data.name);
 
     // Variables and fields
     let world = &query.world;
@@ -87,7 +88,7 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
             };
 
             queries.push(quote!(
-                #SelectInternalWorld::#Archetype(#resolved_entity) => {
+                #ArchetypeSelectInternalWorld::#Archetype(#resolved_entity) => {
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
@@ -102,7 +103,7 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
                         None
                     }
                 }
-                #SelectInternalWorld::#ArchetypeRaw(#resolved_entity) => {
+                #ArchetypeSelectInternalWorld::#ArchetypeRaw(#resolved_entity) => {
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
@@ -129,7 +130,7 @@ pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Resul
     } else {
         Ok(quote!(
             {
-                match #SelectInternalWorld::from(#entity) {
+                match #ArchetypeSelectInternalWorld::try_from(#entity).expect("invalid entity type") {
                     #(#queries)*
                     _ => None,
                 }

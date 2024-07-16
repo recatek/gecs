@@ -20,10 +20,12 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     // Types and traits
     let World = format_ident!("{}", world_data.name);
 
-    let Select = format_ident!("Select");
-    let SelectRaw = format_ident!("SelectRaw");
+    let ArchetypeSelectId = format_ident!("ArchetypeSelectId");
+    let ArchetypeSelectEntity = format_ident!("ArchetypeSelectEntity");
+    let ArchetypeSelectEntityRaw = format_ident!("ArchetypeSelectEntityRaw");
 
-    let SelectInternalWorld = format_ident!("__SelectInternal{}", world_data.name);
+    let ArchetypeSelectInternalWorld =
+        format_ident!("__ArchetypeSelectInternal{}", world_data.name);
 
     let Archetype = world_data
         .archetypes
@@ -69,10 +71,10 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
     quote!(
         #( pub use #ecs_world_sealed::#Archetype; )*
-        pub use #ecs_world_sealed::{#World, #Select, #SelectRaw};
+        pub use #ecs_world_sealed::{#World, #ArchetypeSelectId, #ArchetypeSelectEntity, #ArchetypeSelectEntityRaw};
 
         #[doc(hidden)]
-        pub use #ecs_world_sealed::{#SelectInternalWorld};
+        pub use #ecs_world_sealed::{#ArchetypeSelectInternalWorld};
 
         mod #ecs_world_sealed {
             use super::*;
@@ -132,12 +134,17 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 /// Unlike other destroy functions, this does not return the entity's components.
                 /// If you need the returned components from an `EntityAny`, use the entity's
                 /// `resolve` type disambiguator and a match statement to get an `Entity<A>`.
+                ///
+                /// # Panics
+                ///
+                /// Panics if the given entity is not of a valid archetype in this world.
                 pub fn destroy_any(&mut self, entity: EntityAny) -> bool {
-                    match entity.into() {
+                    match entity.try_into() {
                         #(
-                            #Select::#Archetype(entity) =>
+                            Ok(#ArchetypeSelectEntity::#Archetype(entity)) =>
                                 self.#archetype.destroy(entity).is_some(),
                         )*
+                        Err(_) => panic!("invalid entity type"),
                     }
                 }
             }
@@ -180,18 +187,23 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             )*
 
             #[derive(Clone, Copy)]
-            pub enum #Select {
+            pub enum #ArchetypeSelectId {
+                #( #Archetype, )*
+            }
+
+            #[derive(Clone, Copy)]
+            pub enum #ArchetypeSelectEntity {
                 #( #Archetype(Entity<#Archetype>), )*
             }
 
             #[derive(Clone, Copy)]
-            pub enum #SelectRaw {
+            pub enum #ArchetypeSelectEntityRaw {
                 #( #Archetype(EntityRaw<#Archetype>), )*
             }
 
-            // Combined dispatch table for resolving both key types.
+            // Combined dispatch table for resolving both entity key types.
             #[doc(hidden)]
-            pub enum #SelectInternalWorld {
+            pub enum #ArchetypeSelectInternalWorld {
                 #( #Archetype(Entity<#Archetype>), )*
                 #( #ArchetypeRaw(EntityRaw<#Archetype>), )*
             }
@@ -199,45 +211,59 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             // Resolve dispatch implementation ----------------------------------------------------
 
             #(
-                impl From<Entity<#Archetype>> for #Select {
+                impl From<Entity<#Archetype>> for #ArchetypeSelectId {
                     #[inline(always)]
                     fn from(entity: Entity<#Archetype>) -> Self {
-                        #Select::#Archetype(entity)
+                        #ArchetypeSelectId::#Archetype
                     }
                 }
 
-                impl From<&Entity<#Archetype>> for #Select {
+                impl From<Entity<#Archetype>> for #ArchetypeSelectEntity {
+                    #[inline(always)]
+                    fn from(entity: Entity<#Archetype>) -> Self {
+                        #ArchetypeSelectEntity::#Archetype(entity)
+                    }
+                }
+
+                impl From<&Entity<#Archetype>> for #ArchetypeSelectEntity {
                     #[inline(always)]
                     fn from(entity: &Entity<#Archetype>) -> Self {
-                        #Select::#Archetype(*entity)
+                        #ArchetypeSelectEntity::#Archetype(*entity)
                     }
                 }
 
-                impl From<EntityRaw<#Archetype>> for #SelectRaw {
+                impl From<EntityRaw<#Archetype>> for #ArchetypeSelectId {
                     #[inline(always)]
                     fn from(entity: EntityRaw<#Archetype>) -> Self {
-                        #SelectRaw::#Archetype(entity)
+                        #ArchetypeSelectId::#Archetype
                     }
                 }
 
-                impl From<&EntityRaw<#Archetype>> for #SelectRaw {
+                impl From<EntityRaw<#Archetype>> for #ArchetypeSelectEntityRaw {
+                    #[inline(always)]
+                    fn from(entity: EntityRaw<#Archetype>) -> Self {
+                        #ArchetypeSelectEntityRaw::#Archetype(entity)
+                    }
+                }
+
+                impl From<&EntityRaw<#Archetype>> for #ArchetypeSelectEntityRaw {
                     #[inline(always)]
                     fn from(entity: &EntityRaw<#Archetype>) -> Self {
-                        #SelectRaw::#Archetype(*entity)
+                        #ArchetypeSelectEntityRaw::#Archetype(*entity)
                     }
                 }
 
-                impl From<Entity<#Archetype>> for #SelectInternalWorld {
+                impl From<Entity<#Archetype>> for #ArchetypeSelectInternalWorld {
                     #[inline(always)]
                     fn from(entity: Entity<#Archetype>) -> Self {
-                        #SelectInternalWorld::#Archetype(entity)
+                        #ArchetypeSelectInternalWorld::#Archetype(entity)
                     }
                 }
 
-                impl From<EntityRaw<#Archetype>> for #SelectInternalWorld {
+                impl From<EntityRaw<#Archetype>> for #ArchetypeSelectInternalWorld {
                     #[inline(always)]
                     fn from(entity: EntityRaw<#Archetype>) -> Self {
-                        #SelectInternalWorld::#ArchetypeRaw(entity)
+                        #ArchetypeSelectInternalWorld::#ArchetypeRaw(entity)
                     }
                 }
 
@@ -252,77 +278,125 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 }
             )*
 
+            impl #ArchetypeSelectId {
+                #[inline(always)]
+                pub fn archetype_id(self) -> ArchetypeId {
+                    match self {
+                        #(
+                            #ArchetypeSelectId::#Archetype => #Archetype::ARCHETYPE_ID,
+                        )*
+                    }
+                }
+            }
+
             impl WorldCanResolve<EntityAny> for #World {
                 #[inline(always)]
                 fn resolve_destroy(
                     &mut self,
                     entity: EntityAny,
                 ) -> bool {
-                    match entity.into() {
+                    match entity.try_into() {
                         #(
-                            #Select::#Archetype(entity) =>
+                            Ok(#ArchetypeSelectEntity::#Archetype(entity)) =>
                                 self.#archetype.destroy(entity).is_some(),
                         )*
+                        Err(_) => panic!("invalid entity type"),
                     }
                 }
             }
 
-            impl From<EntityAny> for #Select {
+            impl TryFrom<ArchetypeId> for #ArchetypeSelectId {
+                type Error = EcsError;
+
                 #[inline(always)]
-                fn from(entity: EntityAny) -> Self {
-                    match entity.archetype_id() {
+                fn try_from(id: ArchetypeId) -> Result<Self, EcsError> {
+                    match id {
                         #(
-                            #Archetype::ARCHETYPE_ID => {
-                                // We can use from_any_unchecked because we just checked the archetype
-                                #Select::#Archetype(Entity::<#Archetype>::from_any_unchecked(entity))
-                            },
+                            #Archetype::ARCHETYPE_ID => Ok(#ArchetypeSelectId::#Archetype),
                         )*
-                        _ => panic!("invalid entity type"),
+                        _ => Err(EcsError::InvalidEntityType),
                     }
                 }
             }
 
-            impl From<EntityRawAny> for #SelectRaw {
+            impl TryFrom<EntityAny> for #ArchetypeSelectId {
+                type Error = EcsError;
+
                 #[inline(always)]
-                fn from(entity: EntityRawAny) -> Self {
+                fn try_from(entity: EntityAny) -> Result<Self, EcsError> {
                     match entity.archetype_id() {
                         #(
-                            #Archetype::ARCHETYPE_ID => {
-                                // We can use from_any_unchecked because we just checked the archetype
-                                #SelectRaw::#Archetype(EntityRaw::<#Archetype>::from_any_unchecked(entity))
-                            },
+                            #Archetype::ARCHETYPE_ID => Ok(#ArchetypeSelectId::#Archetype),
                         )*
-                        _ => panic!("invalid entity type"),
+                        _ => Err(EcsError::InvalidEntityType),
                     }
                 }
             }
 
-            impl From<EntityAny> for #SelectInternalWorld {
+            impl TryFrom<EntityAny> for #ArchetypeSelectEntity {
+                type Error = EcsError;
+
                 #[inline(always)]
-                fn from(entity: EntityAny) -> Self {
+                fn try_from(entity: EntityAny) -> Result<Self, EcsError> {
                     match entity.archetype_id() {
                         #(
                             #Archetype::ARCHETYPE_ID => {
                                 // We can use from_any_unchecked because we just checked the archetype
-                                #SelectInternalWorld::#Archetype(Entity::<#Archetype>::from_any_unchecked(entity))
+                                Ok(#ArchetypeSelectEntity::#Archetype(Entity::<#Archetype>::from_any_unchecked(entity)))
                             },
                         )*
-                        _ => panic!("invalid entity type"),
+                        _ => Err(EcsError::InvalidEntityType),
                     }
                 }
             }
 
-            impl From<EntityRawAny> for #SelectInternalWorld {
+            impl TryFrom<EntityRawAny> for #ArchetypeSelectEntityRaw {
+                type Error = EcsError;
+
                 #[inline(always)]
-                fn from(entity: EntityRawAny) -> Self {
+                fn try_from(entity: EntityRawAny) -> Result<Self, EcsError> {
                     match entity.archetype_id() {
                         #(
                             #Archetype::ARCHETYPE_ID => {
                                 // We can use from_any_unchecked because we just checked the archetype
-                                #SelectInternalWorld::#ArchetypeRaw(EntityRaw::<#Archetype>::from_any_unchecked(entity))
+                                Ok(#ArchetypeSelectEntityRaw::#Archetype(EntityRaw::<#Archetype>::from_any_unchecked(entity)))
                             },
                         )*
-                        _ => panic!("invalid entity type"),
+                        _ => Err(EcsError::InvalidEntityType),
+                    }
+                }
+            }
+
+            impl TryFrom<EntityAny> for #ArchetypeSelectInternalWorld {
+                type Error = EcsError;
+
+                #[inline(always)]
+                fn try_from(entity: EntityAny) -> Result<Self, EcsError> {
+                    match entity.archetype_id() {
+                        #(
+                            #Archetype::ARCHETYPE_ID => {
+                                // We can use from_any_unchecked because we just checked the archetype
+                                Ok(#ArchetypeSelectInternalWorld::#Archetype(Entity::<#Archetype>::from_any_unchecked(entity)))
+                            },
+                        )*
+                        _ => Err(EcsError::InvalidEntityType),
+                    }
+                }
+            }
+
+            impl TryFrom<EntityRawAny> for #ArchetypeSelectInternalWorld {
+                type Error = EcsError;
+
+                #[inline(always)]
+                fn try_from(entity: EntityRawAny) -> Result<Self, EcsError> {
+                    match entity.archetype_id() {
+                        #(
+                            #Archetype::ARCHETYPE_ID => {
+                                // We can use from_any_unchecked because we just checked the archetype
+                                Ok(#ArchetypeSelectInternalWorld::#ArchetypeRaw(EntityRaw::<#Archetype>::from_any_unchecked(entity)))
+                            },
+                        )*
+                        _ => Err(EcsError::InvalidEntityType),
                     }
                 }
             }

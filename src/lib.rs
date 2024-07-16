@@ -713,6 +713,8 @@ pub mod __internal {
     pub use gecs_macros::{__ecs_find, __ecs_find_borrow};
     pub use gecs_macros::{__ecs_iter, __ecs_iter_borrow};
 
+    pub use error::EcsError;
+
     pub use entity::__internal::*;
 
     pub use version::{VersionArchetype, VersionSlot};
