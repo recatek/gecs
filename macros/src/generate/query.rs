@@ -5,7 +5,14 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 
 use crate::data::{DataArchetype, DataWorld};
-use crate::parse::{ParseQueryFind, ParseQueryIter, ParseQueryParam, ParseQueryParamType};
+
+use crate::parse::{
+    ParseQueryFind, //.
+    ParseQueryIter,
+    ParseQueryIterRemove,
+    ParseQueryParam,
+    ParseQueryParamType,
+};
 
 // NOTE: We should avoid using panics to express errors in queries when generating.
 // Doing so will attribute the error to the ecs_world! declaration (due to the redirect
@@ -18,7 +25,10 @@ pub enum FetchMode {
 }
 
 #[allow(non_snake_case)]
-pub fn generate_query_find(mode: FetchMode, query: ParseQueryFind) -> syn::Result<TokenStream> {
+pub fn generate_query_find(
+    mode: FetchMode, //.
+    query: ParseQueryFind,
+) -> syn::Result<TokenStream> {
     let world_data = DataWorld::from_base64(&query.world_data);
     let bound_params = bind_query_params(&world_data, &query.params)?;
 
@@ -203,7 +213,10 @@ fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
 }
 
 #[allow(non_snake_case)]
-pub fn generate_query_iter(mode: FetchMode, query: ParseQueryIter) -> syn::Result<TokenStream> {
+pub fn generate_query_iter(
+    mode: FetchMode, //.
+    query: ParseQueryIter,
+) -> syn::Result<TokenStream> {
     let world_data = DataWorld::from_base64(&query.world_data);
     let bound_params = bind_query_params(&world_data, &query.params)?;
 
@@ -267,6 +280,96 @@ pub fn generate_query_iter(mode: FetchMode, query: ParseQueryIter) -> syn::Resul
 
                     for idx in 0..len {
                         closure(#(#bind),*);
+                    }
+                }
+            ));
+        }
+    }
+
+    if queries.is_empty() {
+        Err(syn::Error::new_spanned(
+            world,
+            "query matched no archetypes in world",
+        ))
+    } else {
+        Ok(quote!(#(#queries)*))
+    }
+}
+
+#[allow(non_snake_case)]
+pub fn generate_query_iter_remove(
+    mode: FetchMode,
+    query: ParseQueryIterRemove,
+) -> syn::Result<TokenStream> {
+    let world_data = DataWorld::from_base64(&query.world_data);
+    let bound_params = bind_query_params(&world_data, &query.params)?;
+
+    // NOTE: Beyond this point, query.params is only safe to use for information that
+    // does not change depending on the type of the parameter (e.g. mutability). Anything
+    // that might change after OneOf binding etc. must use the bound query params in
+    // bound_params for the given archetype. Note that it's faster to use query.params
+    // where available, since it avoids redundant computation for each archetype.
+
+    // TODO PERF: We could avoid binding entirely if we know that the params have no OneOf.
+
+    // Variables and fields
+    let world = &query.world;
+    let body = &query.body;
+    let arg = query.params.iter().map(to_name).collect::<Vec<_>>();
+
+    // Special cases
+    let maybe_mut = query.params.iter().map(to_maybe_mut).collect::<Vec<_>>();
+
+    let mut queries = Vec::<TokenStream>::new();
+    for archetype in world_data.archetypes {
+        debug_assert!(archetype.build_data.is_none());
+
+        if let Some(bound_params) = bound_params.get(&archetype.name) {
+            // Types and traits
+            let Archetype = format_ident!("{}", archetype.name);
+            let Type = bound_params
+                .iter()
+                .map(|p| to_type(p, &archetype))
+                .collect::<Vec<_>>(); // Bind-dependent!
+
+            #[rustfmt::skip]
+            let get_archetype = match mode {
+                FetchMode::Borrow => panic!("borrow unsupported for iter_remove"),
+                FetchMode::Mut => quote!(#world.archetype_mut::<#Archetype>()),
+            };
+
+            #[rustfmt::skip]
+            let get_slices = match mode {
+                FetchMode::Borrow => panic!("borrow unsupported for iter_remove"),
+                FetchMode::Mut => quote!(archetype.get_all_slices_mut()),
+            };
+
+            #[rustfmt::skip]
+            let bind = match mode {
+                FetchMode::Borrow => panic!("borrow unsupported for iter_remove"),
+                FetchMode::Mut => bound_params.iter().map(iter_bind_mut).collect::<Vec<_>>(),
+            };
+
+            queries.push(quote!(
+                {
+                    // Alias the current archetype for use in the closure
+                    type MatchedArchetype = #Archetype;
+                    // The closure needs to be made per-archetype because of OneOf types
+                    let mut closure = //FnMut(#(&#maybe_mut #Type),*) -> bool
+                        |#(#arg: &#maybe_mut #Type),*| #body;
+
+                    let archetype = #get_archetype;
+                    let version = archetype.version();
+                    let len = archetype.len();
+
+                    // Iterate in reverse order to still visit each entity once.
+                    // Note: This assumes that we remove entities by swapping.
+                    for idx in (0..len).rev() {
+                        let slices = #get_slices;
+                        if closure(#(#bind),*) {
+                            let entity = slices.entity[idx];
+                            archetype.destroy(entity);
+                        }
                     }
                 }
             ));

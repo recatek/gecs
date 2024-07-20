@@ -603,7 +603,7 @@ mod macros {
 
     /// Variant of `ecs_iter!` that runtime-borrows data, for use with a non-mut world reference.
     ///
-    /// See [`ecs_iter`] for more information on find queries.
+    /// See [`ecs_iter`] for more information on iter queries.
     ///
     /// This version borrows each archetype's data on a component-by-component basis at runtime
     /// rather than at compile-time, allowing for situations where compile-time borrow checking
@@ -617,6 +617,66 @@ mod macros {
     /// See the example for [`ecs_find_borrow!`].
     #[macro_export]
     macro_rules! ecs_iter_borrow {
+        (...) => {};
+    }
+
+    /// Variant of `ecs_iter!` that will remove the current entity if the closure returns `true`.
+    ///
+    /// See [`ecs_iter`] for more information on iter queries.
+    ///
+    /// This version works similarly to [`ecs_iter`], but if the inner closure returns `true`,
+    /// the iteration will immediately remove that entity after that iteration step. The entity
+    /// and its handle are not preserved after this process. Note that this iterates the world
+    /// in a different order from the normal `ecs_iter!` (which should not be relied upon for
+    /// deterministic iteration in any case. This is also slightly slower than `ecs_iter!`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use gecs::prelude::*;
+    ///
+    /// pub struct CompA(pub u32);
+    /// pub struct CompB(pub u32);
+    /// pub struct CompC(pub u32);
+    ///
+    /// ecs_world! {
+    ///     ecs_archetype!(ArchFoo, 100, CompA, CompB);
+    ///     ecs_archetype!(ArchBar, 100, CompA, CompC);
+    /// }
+    ///
+    /// fn main() {
+    ///     let mut world = EcsWorld::default();
+    ///
+    ///     world.archetype_mut::<ArchFoo>().create((CompA(1), CompB(10)));
+    ///     world.archetype_mut::<ArchFoo>().create((CompA(2), CompB(20)));
+    ///     world.archetype_mut::<ArchFoo>().create((CompA(3), CompB(30)));
+    ///
+    ///     world.archetype_mut::<ArchBar>().create((CompA(4), CompC(10)));
+    ///     world.archetype_mut::<ArchBar>().create((CompA(5), CompC(10)));
+    ///     world.archetype_mut::<ArchBar>().create((CompA(6), CompC(10)));
+    ///
+    ///     let mut vec_a = Vec::<u32>::new();
+    ///     let mut vec_b = Vec::<u32>::new();
+    ///
+    ///     ecs_iter_remove!(world, |comp_a: &CompA| {
+    ///         if comp_a.0 & 1 == 0 {
+    ///             vec_a.push(comp_a.0);
+    ///             true // True to remove
+    ///         } else {
+    ///             false
+    ///         }
+    ///     });
+    ///
+    ///     ecs_iter!(world, |comp_a: &CompA| {
+    ///         vec_b.push(comp_a.0);
+    ///     });
+    ///
+    ///     assert_eq!(vec_a.iter().copied().sum::<u32>(), 2 + 4 + 6);
+    ///     assert_eq!(vec_b.iter().copied().sum::<u32>(), 1 + 3 + 5);
+    /// }
+    /// ```
+    #[macro_export]
+    macro_rules! ecs_iter_remove {
         (...) => {};
     }
 }
@@ -711,7 +771,7 @@ pub mod __internal {
 
     pub use gecs_macros::__ecs_finalize;
     pub use gecs_macros::{__ecs_find, __ecs_find_borrow};
-    pub use gecs_macros::{__ecs_iter, __ecs_iter_borrow};
+    pub use gecs_macros::{__ecs_iter, __ecs_iter_borrow, __ecs_iter_remove};
 
     pub use error::EcsError;
 

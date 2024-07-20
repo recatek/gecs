@@ -31,6 +31,14 @@ pub struct ParseQueryIter {
     pub body: Expr,
 }
 
+#[derive(Debug)]
+pub struct ParseQueryIterRemove {
+    pub world_data: String,
+    pub world: Expr,
+    pub params: Vec<ParseQueryParam>,
+    pub body: Expr,
+}
+
 #[derive(Clone, Debug)]
 pub struct ParseQueryParam {
     pub name: Ident,
@@ -88,6 +96,33 @@ impl Parse for ParseQueryFind {
 }
 
 impl Parse for ParseQueryIter {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        // Parse out the hidden serialized world data
+        let world_data = input.parse::<LitStr>()?;
+        input.parse::<Comma>()?;
+
+        // Parse out the meta-arguments for the query
+        let world = input.parse()?;
+        input.parse::<Comma>()?;
+
+        // Parse out the closure arguments
+        input.parse::<Token![|]>()?;
+        let params = parse_params(&input)?;
+        input.parse::<Token![|]>()?;
+
+        // Parse the rest of the body, including the braces (if any)
+        let body = input.parse::<Expr>()?;
+
+        Ok(Self {
+            world_data: world_data.value(),
+            world,
+            params,
+            body,
+        })
+    }
+}
+
+impl Parse for ParseQueryIterRemove {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         // Parse out the hidden serialized world data
         let world_data = input.parse::<LitStr>()?;

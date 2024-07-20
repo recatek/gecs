@@ -68,6 +68,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     let __ecs_find_borrow_unique = format_ident!("__ecs_find_borrow_{}", unique_hash);
     let __ecs_iter_unique = format_ident!("__ecs_iter_{}", unique_hash);
     let __ecs_iter_borrow_unique = format_ident!("__ecs_iter_borrow_{}", unique_hash);
+    let __ecs_iter_remove_unique = format_ident!("__ecs_iter_remove_{}", unique_hash);
 
     quote!(
         #( pub use #ecs_world_sealed::#Archetype; )*
@@ -434,6 +435,14 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             }
         }
 
+        #[macro_export]
+        #[doc(hidden)]
+        macro_rules! #__ecs_iter_remove_unique {
+            ($($args:tt)*) => {
+                ::gecs::__internal::__ecs_iter_remove!(#WORLD_DATA, $($args)*);
+            }
+        }
+
         #[doc(inline)]
         pub use #__ecs_find_unique as ecs_find;
         #[doc(inline)]
@@ -442,6 +451,8 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         pub use #__ecs_iter_unique as ecs_iter;
         #[doc(inline)]
         pub use #__ecs_iter_borrow_unique as ecs_iter_borrow;
+        #[doc(inline)]
+        pub use #__ecs_iter_remove_unique as ecs_iter_remove;
     )
 }
 
