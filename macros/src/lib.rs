@@ -82,10 +82,10 @@ pub fn __ecs_iter_borrow(args: TokenStream) -> TokenStream {
 
 #[proc_macro]
 #[doc(hidden)]
-pub fn __ecs_iter_remove(args: TokenStream) -> TokenStream {
-    let query_parse = parse_macro_input!(args as ParseQueryIterRemove);
+pub fn __ecs_iter_destroy(args: TokenStream) -> TokenStream {
+    let query_parse = parse_macro_input!(args as ParseQueryIterDestroy);
 
-    match generate::generate_query_iter_remove(FetchMode::Mut, query_parse) {
+    match generate::generate_query_iter_destroy(FetchMode::Mut, query_parse) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.into_compile_error().into(),
     }

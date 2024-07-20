@@ -40,12 +40,12 @@ fn test_one_of_basic() {
     let mut vec_a = Vec::<u32>::new();
     let mut vec_b = Vec::<u32>::new();
 
-    ecs_iter_remove!(world, |comp_a: &CompA| {
+    ecs_iter_destroy!(world, |comp_a: &CompA| {
         if comp_a.0 & 1 == 0 {
             vec_a.push(comp_a.0);
-            true
+            EcsStepDestroy::ContinueDestroy
         } else {
-            false
+            EcsStepDestroy::Continue
         }
     });
 

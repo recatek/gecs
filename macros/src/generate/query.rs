@@ -9,7 +9,7 @@ use crate::data::{DataArchetype, DataWorld};
 use crate::parse::{
     ParseQueryFind, //.
     ParseQueryIter,
-    ParseQueryIterRemove,
+    ParseQueryIterDestroy,
     ParseQueryParam,
     ParseQueryParamType,
 };
@@ -279,7 +279,14 @@ pub fn generate_query_iter(
                     let slices = #get_slices;
 
                     for idx in 0..len {
-                        closure(#(#bind),*);
+                        match closure(#(#bind),*).into() {
+                            EcsStep::Continue => {
+                                // Continue
+                            },
+                            EcsStep::Break => {
+                                break;
+                            },
+                        }
                     }
                 }
             ));
@@ -297,9 +304,9 @@ pub fn generate_query_iter(
 }
 
 #[allow(non_snake_case)]
-pub fn generate_query_iter_remove(
+pub fn generate_query_iter_destroy(
     mode: FetchMode,
-    query: ParseQueryIterRemove,
+    query: ParseQueryIterDestroy,
 ) -> syn::Result<TokenStream> {
     let world_data = DataWorld::from_base64(&query.world_data);
     let bound_params = bind_query_params(&world_data, &query.params)?;
@@ -366,9 +373,22 @@ pub fn generate_query_iter_remove(
                     // Note: This assumes that we remove entities by swapping.
                     for idx in (0..len).rev() {
                         let slices = #get_slices;
-                        if closure(#(#bind),*) {
-                            let entity = slices.entity[idx];
-                            archetype.destroy(entity);
+                        match closure(#(#bind),*).into() {
+                            EcsStepDestroy::Continue => {
+                                // Continue
+                            },
+                            EcsStepDestroy::Break => {
+                                break;
+                            },
+                            EcsStepDestroy::ContinueDestroy => {
+                                let entity = slices.entity[idx];
+                                archetype.destroy(entity);
+                            },
+                            EcsStepDestroy::BreakDestroy => {
+                                let entity = slices.entity[idx];
+                                archetype.destroy(entity);
+                                break;
+                            },
                         }
                     }
                 }

@@ -32,7 +32,7 @@ pub struct ParseQueryIter {
 }
 
 #[derive(Debug)]
-pub struct ParseQueryIterRemove {
+pub struct ParseQueryIterDestroy {
     pub world_data: String,
     pub world: Expr,
     pub params: Vec<ParseQueryParam>,
@@ -122,7 +122,7 @@ impl Parse for ParseQueryIter {
     }
 }
 
-impl Parse for ParseQueryIterRemove {
+impl Parse for ParseQueryIterDestroy {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         // Parse out the hidden serialized world data
         let world_data = input.parse::<LitStr>()?;

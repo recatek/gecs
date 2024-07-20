@@ -107,6 +107,9 @@ pub mod traits;
 /// A checked generational version.
 pub mod version;
 
+/// Enums for controlling iteration stepping.
+pub mod iter;
+
 #[cfg(doc)]
 mod macros {
     /// Macro for declaring a new ECS world struct with archetype storage.
@@ -620,15 +623,16 @@ mod macros {
         (...) => {};
     }
 
-    /// Variant of `ecs_iter!` that will remove the current entity if the closure returns `true`.
+    /// Variant of `ecs_iter!` that allows for destroying the current entity while iterating.
     ///
     /// See [`ecs_iter`] for more information on iter queries.
     ///
-    /// This version works similarly to [`ecs_iter`], but if the inner closure returns `true`,
-    /// the iteration will immediately remove that entity after that iteration step. The entity
-    /// and its handle are not preserved after this process. Note that this iterates the world
-    /// in a different order from the normal `ecs_iter!` (which should not be relied upon for
-    /// deterministic iteration in any case. This is also slightly slower than `ecs_iter!`.
+    /// This version works similarly to [`ecs_iter`], but with the `EcsStepDestroy` enum that
+    /// supports two additional values: `BreakDestroy` and `ContinueDestroy`. These will break
+    /// or continue and also immediately remove that entity after that iteration step. The
+    /// entity and its handle are not preserved after this process. Note that this iterates the
+    /// world in a different order from the normal `ecs_iter!` (which should not be relied upon
+    /// for deterministic iteration anyway). This is also slightly slower than normal `ecs_iter!`.
     ///
     /// # Example
     ///
@@ -658,12 +662,12 @@ mod macros {
     ///     let mut vec_a = Vec::<u32>::new();
     ///     let mut vec_b = Vec::<u32>::new();
     ///
-    ///     ecs_iter_remove!(world, |comp_a: &CompA| {
+    ///     ecs_iter_destroy!(world, |comp_a: &CompA| {
     ///         if comp_a.0 & 1 == 0 {
     ///             vec_a.push(comp_a.0);
-    ///             true // True to remove
+    ///             EcsStepDestroy::ContinueDestroy
     ///         } else {
-    ///             false
+    ///             EcsStepDestroy::Continue
     ///         }
     ///     });
     ///
@@ -676,7 +680,7 @@ mod macros {
     /// }
     /// ```
     #[macro_export]
-    macro_rules! ecs_iter_remove {
+    macro_rules! ecs_iter_destroy {
         (...) => {};
     }
 }
@@ -756,6 +760,8 @@ pub mod prelude {
 
     pub use entity::{ArchetypeId, Entity, EntityAny, EntityRaw, EntityRawAny};
 
+    pub use iter::{EcsStepDestroy, EcsStep};
+
     pub use traits::EntityKey;
     pub use traits::{WorldCanResolve, ArchetypeCanResolve, StorageCanResolve};
 
@@ -771,7 +777,7 @@ pub mod __internal {
 
     pub use gecs_macros::__ecs_finalize;
     pub use gecs_macros::{__ecs_find, __ecs_find_borrow};
-    pub use gecs_macros::{__ecs_iter, __ecs_iter_borrow, __ecs_iter_remove};
+    pub use gecs_macros::{__ecs_iter, __ecs_iter_borrow, __ecs_iter_destroy};
 
     pub use error::EcsError;
 
@@ -783,6 +789,8 @@ pub mod __internal {
     pub use archetype::storage_dynamic::*;
     pub use archetype::storage_fixed::*;
     pub use archetype::view::*;
+
+    pub use iter::{EcsStepDestroy, EcsStep};
 
     pub use traits::EntityKey;
     pub use traits::{WorldCanResolve, ArchetypeCanResolve, StorageCanResolve};
