@@ -284,7 +284,7 @@ pub fn generate_query_iter(
                                 // Continue
                             },
                             EcsStep::Break => {
-                                break;
+                                return;
                             },
                         }
                     }
@@ -299,7 +299,10 @@ pub fn generate_query_iter(
             "query matched no archetypes in world",
         ))
     } else {
-        Ok(quote!(#(#queries)*))
+        Ok(quote!(
+            // Use a closure so we can use return to cancel other archetype iterations
+            (||{#(#queries)*})();
+        ))
     }
 }
 
@@ -378,7 +381,7 @@ pub fn generate_query_iter_destroy(
                                 // Continue
                             },
                             EcsStepDestroy::Break => {
-                                break;
+                                return;
                             },
                             EcsStepDestroy::ContinueDestroy => {
                                 let entity = slices.entity[idx];
@@ -387,7 +390,7 @@ pub fn generate_query_iter_destroy(
                             EcsStepDestroy::BreakDestroy => {
                                 let entity = slices.entity[idx];
                                 archetype.destroy(entity);
-                                break;
+                                return;
                             },
                         }
                     }
@@ -402,7 +405,10 @@ pub fn generate_query_iter_destroy(
             "query matched no archetypes in world",
         ))
     } else {
-        Ok(quote!(#(#queries)*))
+        Ok(quote!(
+            // Use a closure so we can use return to cancel other archetype iterations
+            (||{#(#queries)*})();
+        ))
     }
 }
 

@@ -632,7 +632,10 @@ mod macros {
     /// or continue and also immediately remove that entity after that iteration step. The
     /// entity and its handle are not preserved after this process. Note that this iterates the
     /// world in a different order from the normal `ecs_iter!` (which should not be relied upon
-    /// for deterministic iteration anyway). This is also slightly slower than normal `ecs_iter!`.
+    /// for deterministic iteration anyway). This is also a bit slower than normal `ecs_iter!`.
+    ///
+    /// Note that performing an early-out break will end the iteration for all archetypes. This
+    /// can have unpredictable order, and is recommended only for searching for single entities.
     ///
     /// # Example
     ///
