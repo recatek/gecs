@@ -1,9 +1,9 @@
-use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use xxhash_rust::xxh3::xxh3_128;
 
 use crate::data::{DataArchetype, DataCapacity, DataWorld};
+use crate::generate::util::to_snake;
 
 #[allow(non_snake_case)] // Allow for type-like names to make quote!() clearer
 #[allow(unused_variables)] // For unused feature-controlled generation elements
@@ -880,8 +880,4 @@ fn with_capacity_new(archetype_data: &DataArchetype) -> TokenStream {
         DataCapacity::Fixed(_) => quote!(new()),
         DataCapacity::Dynamic => quote!(with_capacity(#archetype_capacity)),
     }
-}
-
-fn to_snake(name: &String) -> String {
-    name.from_case(Case::Pascal).to_case(Case::Snake)
 }

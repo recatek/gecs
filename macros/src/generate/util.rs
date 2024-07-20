@@ -15,6 +15,6 @@ pub fn generate_ecs_component_id(util: ParseEcsComponentId) -> TokenStream {
     quote!(#archetype::#get_id_component())
 }
 
-fn to_snake(name: &String) -> String {
+pub fn to_snake(name: &String) -> String {
     name.from_case(Case::Pascal).to_case(Case::Snake)
 }

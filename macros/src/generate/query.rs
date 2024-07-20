@@ -5,6 +5,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 
 use crate::data::{DataArchetype, DataWorld};
+use crate::generate::util::to_snake;
 
 use crate::parse::{
     ParseQueryFind, //.
@@ -75,10 +76,15 @@ pub fn generate_query_find(
                 .map(|p| to_type(p, &archetype))
                 .collect::<Vec<_>>(); // Bind-dependent!
 
+            // Variables
+            let archetype = format_ident!("{}", to_snake(&archetype.name));
+
+            // Fetch the archetype directly to allow queries to be sneaky with
+            // direct archetype access to get cross-archetype nested mutability
             #[rustfmt::skip]
             let get_archetype = match mode {
-                FetchMode::Borrow => quote!(#world.archetype::<#Archetype>()),
-                FetchMode::Mut => quote!(#world.archetype_mut::<#Archetype>()),
+                FetchMode::Borrow => quote!(&#world.#archetype),
+                FetchMode::Mut => quote!(&mut #world.#archetype),
             };
 
             #[rustfmt::skip]
@@ -248,10 +254,15 @@ pub fn generate_query_iter(
                 .map(|p| to_type(p, &archetype))
                 .collect::<Vec<_>>(); // Bind-dependent!
 
+            // Variables
+            let archetype = format_ident!("{}", to_snake(&archetype.name));
+
+            // Fetch the archetype directly to allow queries to be sneaky with
+            // direct archetype access to get cross-archetype nested mutability
             #[rustfmt::skip]
             let get_archetype = match mode {
-                FetchMode::Borrow => quote!(#world.archetype::<#Archetype>()),
-                FetchMode::Mut => quote!(#world.archetype_mut::<#Archetype>()),
+                FetchMode::Borrow => quote!(&#world.#archetype),
+                FetchMode::Mut => quote!(&mut #world.#archetype),
             };
 
             #[rustfmt::skip]
@@ -342,10 +353,15 @@ pub fn generate_query_iter_destroy(
                 .map(|p| to_type(p, &archetype))
                 .collect::<Vec<_>>(); // Bind-dependent!
 
+            // Variables
+            let archetype = format_ident!("{}", to_snake(&archetype.name));
+
+            // Fetch the archetype directly to allow queries to be sneaky with
+            // direct archetype access to get cross-archetype nested mutability
             #[rustfmt::skip]
             let get_archetype = match mode {
-                FetchMode::Borrow => panic!("borrow unsupported for iter_remove"),
-                FetchMode::Mut => quote!(#world.archetype_mut::<#Archetype>()),
+                FetchMode::Borrow => quote!(&#world.#archetype),
+                FetchMode::Mut => quote!(&mut #world.#archetype),
             };
 
             #[rustfmt::skip]
