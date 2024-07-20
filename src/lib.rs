@@ -801,4 +801,7 @@ pub mod __internal {
     pub use traits::{World, WorldHas};
     pub use traits::{Archetype, ArchetypeHas};
     pub use traits::{View, ViewHas};
+
+    
+    pub use itertools::izip as izip;
 }

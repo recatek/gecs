@@ -838,6 +838,22 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
         }
 
+        impl<'a> #ArchetypeSlices<'a> {
+            #[inline(always)]
+            pub fn zipped(
+                &'a self,
+            ) -> impl Iterator<Item = (&'a Entity<#Archetype>, #(&'a #Component),*)> {
+                ::gecs::__internal::izip!(self.entity.iter(), #(self.#component.iter()),*)
+            }
+
+            #[inline(always)]
+            pub fn zipped_mut(
+                &'a mut self,
+            ) -> impl Iterator<Item = (&'a Entity<#Archetype>, #(&'a mut #Component),*)> {
+                ::gecs::__internal::izip!(self.entity.iter(), #(self.#component.iter_mut()),*)
+            }
+        }
+
         impl<'a> ArchetypeCanResolve<'a, #ArchetypeView<'a>, Entity<#Archetype>> for #Archetype {
             #[inline(always)]
             fn resolve_for(&self, key: Entity<#Archetype>) -> Option<usize> {
