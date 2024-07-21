@@ -4,8 +4,8 @@ use proc_macro2::{Span, TokenStream};
 use quote::format_ident;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::token::{Comma, Dyn, Semi};
-use syn::{braced, bracketed, parenthesized, Expr, Ident, LitBool, LitInt, Token};
+use syn::token::{Comma, Semi};
+use syn::{braced, bracketed, parenthesized, Ident, LitBool, LitInt, Token};
 
 use super::*;
 
@@ -52,7 +52,6 @@ pub struct ParseArchetype {
     pub cfgs: Vec<ParseAttributeCfg>,
     pub id: Option<u8>,
     pub name: Ident,
-    pub capacity: ParseCapacity,
     pub components: Vec<ParseComponent>,
 }
 
@@ -84,12 +83,6 @@ pub enum ParseAttributeData {
     Cfg(ParseAttributeCfg),
     ArchetypeId(ParseAttributeId),
     ComponentId(ParseAttributeId),
-}
-
-#[derive(Debug)]
-pub enum ParseCapacity {
-    Fixed(Expr),
-    Dynamic,
 }
 
 impl ParseEcsWorld {
@@ -228,8 +221,6 @@ impl Parse for ParseArchetype {
         let name: Ident = content.parse()?;
 
         content.parse::<Comma>()?;
-        let capacity: ParseCapacity = content.parse()?;
-        content.parse::<Comma>()?;
 
         let components: Vec<ParseComponent> =
             Punctuated::<ParseComponent, Comma>::parse_terminated(&content)?
@@ -242,7 +233,6 @@ impl Parse for ParseArchetype {
             cfgs,
             id: None,
             name,
-            capacity,
             components,
         })
     }
@@ -342,18 +332,6 @@ impl Parse for ParseAttribute {
         };
 
         Ok(Self { span, data })
-    }
-}
-
-impl Parse for ParseCapacity {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let lookahead = input.lookahead1();
-        if lookahead.peek(Dyn) {
-            input.parse::<Dyn>()?;
-            Ok(ParseCapacity::Dynamic)
-        } else {
-            input.parse().map(ParseCapacity::Fixed)
-        }
     }
 }
 

@@ -6,7 +6,6 @@ pub struct CompZ; // ZST
 ecs_world! {
     ecs_archetype!(
         ArchFoo,
-        dyn,
         CompA,
         CompZ,
     );
@@ -29,7 +28,7 @@ pub fn test_single_dyn_create() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_dyn_create_with_capacity_zero() {
-    let mut world = EcsWorld::with_capacity(0);
+    let mut world = EcsWorld::with_capacity(EcsWorldCapacity { arch_foo: 0 });
 
     world.arch_foo.create((CompA(0), CompZ,));
     world.arch_foo.create((CompA(1), CompZ,));
@@ -43,7 +42,7 @@ pub fn test_single_dyn_create_with_capacity_zero() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_dyn_create_with_capacity_all() {
-    let mut world = EcsWorld::with_capacity(5);
+    let mut world = EcsWorld::with_capacity(EcsWorldCapacity { arch_foo: 5 });
 
     world.arch_foo.create((CompA(0), CompZ,));
     world.arch_foo.create((CompA(1), CompZ,));
@@ -111,7 +110,7 @@ pub fn test_single_dyn_entity() {
 #[test]
 #[rustfmt::skip]
 pub fn test_single_dyn_entity_with_capacity() {
-    let mut world = EcsWorld::with_capacity(5);
+    let mut world = EcsWorld::with_capacity(EcsWorldCapacity { arch_foo: 5 });
 
     let entity_0 = world.arch_foo.create((CompA(0), CompZ,));
     let entity_1 = world.arch_foo.create((CompA(1), CompZ,));

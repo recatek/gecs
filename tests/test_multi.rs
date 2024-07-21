@@ -1,7 +1,5 @@
 use gecs::prelude::*;
 
-const TEST_CAPACITY: usize = 5;
-
 #[derive(Debug, PartialEq)]
 pub struct CompA(pub u32);
 #[derive(Debug, PartialEq)]
@@ -13,14 +11,12 @@ ecs_world! {
     #[archetype_id(3)]
     ecs_archetype!(
         ArchFoo,
-        TEST_CAPACITY,
         CompA,
         CompB,
     );
 
     ecs_archetype!(
         ArchBar,
-        5, // Test both inputs
         CompA,
         CompC,
     );
@@ -36,7 +32,10 @@ pub fn test_archetype_id() {
 #[test]
 #[rustfmt::skip]
 pub fn test_multi_create_direct() {
-    let mut world = EcsWorld::default();
+    let mut world = EcsWorld::with_capacity(EcsWorldCapacity {
+        arch_foo: 5,
+        arch_bar: 3,
+    });
 
     world.archetype_mut::<ArchFoo>().create((CompA(0), CompB(10)));
     world.archetype_mut::<ArchFoo>().create((CompA(1), CompB(11)));

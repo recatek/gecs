@@ -22,4 +22,3 @@ wrapping_entity_raw_version = []
 gecs_macros = { version = "0.3.0", path = "macros", default_features = false }
 
 seq-macro = { version = "0.3.5" } # For building "variadic" storage
-itertools = { version = "0.13.0" } # For zipping slices in archetypes

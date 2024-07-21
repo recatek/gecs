@@ -15,13 +15,6 @@
 //! and declared at compile-time, so that adding or removing components from entities at
 //! runtime isn't currently possible -- hybrid approaches could solve this in the future.
 //!
-//! Archetypes in gecs can be set to contain a fixed or dynamic capacity of entities. If
-//! all of the archetypes in your ECS world declaration are set to a fixed capacity, gecs
-//! will perform zero allocations after startup. This guarantees that your ECS world will
-//! adhere to a known and predictable memory overhead for constrained environments (e.g.
-//! servers on cloud instances). Attempting to add an entity to a full archetype can
-//! either report failure or panic depending on the method you call to do so.
-//!
 //! The goals for gecs are (in descending priority order):
 //! - Fast iteration and find queries
 //! - Fast entity creation and destruction
@@ -49,8 +42,8 @@
 //!
 //! ecs_world! {
 //!     // Declare two archetypes, ArchFoo and ArchBar.
-//!     ecs_archetype!(ArchFoo, 100, CompA, CompB); // Fixed capacity of 100 entities.
-//!     ecs_archetype!(ArchBar, dyn, CompA, CompC); // Dynamic (dyn) entity capacity.
+//!     ecs_archetype!(ArchFoo, CompA, CompB);
+//!     ecs_archetype!(ArchBar, CompA, CompC);
 //! }
 //!
 //! fn main() {
@@ -140,20 +133,12 @@ mod macros {
     /// ## ecs_archetype!
     ///
     /// ```ignore
-    /// ecs_archetype!(Name, capacity, Component, ...);
+    /// ecs_archetype!(Name, Component, ...);
     /// ```
     /// The `ecs_archetype!` inner pseudo-macro is used for declaring an archetype in an ECS
     /// world. It takes the following arguments:
     ///
     /// - `Name`: The name (in PascalCase) of the archetype Rust type.
-    /// - `capacity`: The capacity of the archetype, specified in one of the following ways:
-    ///     - A constant expression (e.g. `200` or `config::ARCH_CAPACITY + 4`). This will
-    ///       create a fixed-size archetype that can contain at most that number of entities.
-    ///     - The `dyn` keyword can be used to create a dynamically-sized archetype. This can
-    ///       grow to accommodate up to `16,777,216` entities. To initialize an ECS world's
-    ///       dynamic archetype with a pre-allocated capacity, use the `with_capacity()`
-    ///       function at world creation. This function will be automatically generated
-    ///       with a named capacity argument for each dynamic archetype in that world.
     /// - `Component, ...`: One or more component types to include in this archetype. Because
     ///   generated archetypes are `pub` with `pub` members, all components must be `pub` too.
     ///
@@ -177,15 +162,12 @@ mod macros {
     /// #[cfg(feature = "some_feature")] // CompC only exists if "some_feature" is enabled.
     /// pub struct CompC(pub u32);
     ///
-    /// const BAR_CAPACITY: usize = 30;
-    ///
     /// ecs_world! {
     ///     ecs_name!(MyWorld); // Set the type name of this ECS structure to MyWorld.
     ///
-    ///     // Declare an archetype called ArchFoo with capacity 100 and two components.
+    ///     // Declare an archetype called ArchFoo with two components.
     ///     ecs_archetype!(
     ///         ArchFoo,
-    ///         100,
     ///         CompA, // Note: Type paths are not currently supported for components.
     ///         CompB,
     ///     );
@@ -194,7 +176,6 @@ mod macros {
     ///     #[cfg(feature = "some_feature")]
     ///     ecs_archetype!(
     ///         ArchBar,
-    ///         BAR_CAPACITY, // Constants may also be used for archetype capacity.
     ///         CompA,
     ///         CompC,
     ///     );
@@ -202,7 +183,6 @@ mod macros {
     ///     #[archetype_id(6)]
     ///     ecs_archetype!(
     ///         ArchBaz,
-    ///         dyn, // Use the dyn keyword for a dynamically-sized archetype.
     ///         CompA,
     ///         CompB,
     ///         #[cfg(feature = "some_feature")]
@@ -211,10 +191,12 @@ mod macros {
     /// }
     ///
     /// fn main() {
-    ///     // Create a new world. Because ArchBaz is the only dynamic archetype, we only need to
-    ///     // set one capacity in world creation (the parameter is named capacity_arch_baz). The
-    ///     // other fixed-size archetypes will always be created sized to their full capacity.
-    ///     let mut world = MyWorld::with_capacity(30);
+    ///     // Create a new world. You can use new() or pass a structure to specify capacities.
+    ///     let mut world = MyWorld::with_capacity(MyWorldCapacity {
+    ///         arch_foo: 5,
+    ///         #[cfg(feature = "some_feature")] arch_bar: 5,
+    ///         arch_baz: 5,
+    ///     });
     ///
     ///     // Create an ArchFoo entity in the world and unwrap the Option<Entity<ArchFoo>>.
     ///     // Alternatively, we could use .create(), which will panic if the archetype is full.
@@ -261,7 +243,7 @@ mod macros {
     ///         use super::super::*;
     ///
     ///         ecs_world! {
-    ///             ecs_archetype!(ArchFoo, 10, CompA, CompB);
+    ///             ecs_archetype!(ArchFoo, CompA, CompB);
     ///         }
     ///     }
     /// }
@@ -317,14 +299,12 @@ mod macros {
     /// ecs_world! {
     ///     ecs_archetype!(
     ///         ArchFoo,
-    ///         5,
     ///         CompA, // = 0
     ///         CompC, // = 1
     ///     );
     ///
     ///     ecs_archetype!(
     ///         ArchBar,
-    ///         5,
     ///         #[component_id(6)]
     ///         CompA, // = 6
     ///         CompB, // = 7 (Implicit)
@@ -333,7 +313,6 @@ mod macros {
     ///
     ///     ecs_archetype!(
     ///         ArchBaz,
-    ///         5,
     ///         CompA, // = 0 (Implicit)
     ///         CompB, // = 1 (Implicit)
     ///         #[component_id(200)]
@@ -422,8 +401,8 @@ mod macros {
     /// pub struct CompC(pub u32);
     ///
     /// ecs_world! {
-    ///     ecs_archetype!(ArchFoo, 100, CompA, CompB);
-    ///     ecs_archetype!(ArchBar, 100, CompA, CompC);
+    ///     ecs_archetype!(ArchFoo, CompA, CompB);
+    ///     ecs_archetype!(ArchBar, CompA, CompC);
     /// }
     ///
     /// // If you need to use a non-mut reference, see the ecs_find_borrow! macro.
@@ -479,7 +458,7 @@ mod macros {
     /// pub struct Parent(pub Option<Entity<ArchFoo>>);
     ///
     /// ecs_world! {
-    ///     ecs_archetype!(ArchFoo, 100, CompA, CompB, Parent);
+    ///     ecs_archetype!(ArchFoo, CompA, CompB, Parent);
     /// }
     ///
     /// fn main() {
@@ -556,8 +535,8 @@ mod macros {
     /// pub struct CompC(pub u32);
     ///
     /// ecs_world! {
-    ///     ecs_archetype!(ArchFoo, 100, CompA, CompB);
-    ///     ecs_archetype!(ArchBar, 100, CompA, CompC);
+    ///     ecs_archetype!(ArchFoo, CompA, CompB);
+    ///     ecs_archetype!(ArchBar, CompA, CompC);
     /// }
     ///
     /// fn main() {
@@ -647,8 +626,8 @@ mod macros {
     /// pub struct CompC(pub u32);
     ///
     /// ecs_world! {
-    ///     ecs_archetype!(ArchFoo, 100, CompA, CompB);
-    ///     ecs_archetype!(ArchBar, 100, CompA, CompC);
+    ///     ecs_archetype!(ArchFoo, CompA, CompB);
+    ///     ecs_archetype!(ArchBar, CompA, CompC);
     /// }
     ///
     /// fn main() {
@@ -715,8 +694,8 @@ mod macros {
 /// pub struct CompC(pub u32);
 ///
 /// ecs_world! {
-///     ecs_archetype!(ArchFoo, 5, CompA, CompB);
-///     ecs_archetype!(ArchBar, 5, CompA, CompC);
+///     ecs_archetype!(ArchFoo, CompA, CompB);
+///     ecs_archetype!(ArchBar, CompA, CompC);
 /// }
 ///
 /// fn main() {
@@ -786,11 +765,10 @@ pub mod __internal {
 
     pub use entity::__internal::*;
 
-    pub use version::{VersionArchetype, VersionSlot};
+    pub use version::{ArchetypeVersion, SlotVersion};
 
     pub use archetype::slices::*;
-    pub use archetype::storage_dynamic::*;
-    pub use archetype::storage_fixed::*;
+    pub use archetype::storage::*;
     pub use archetype::view::*;
 
     pub use iter::{EcsStepDestroy, EcsStep};
@@ -801,7 +779,4 @@ pub mod __internal {
     pub use traits::{World, WorldHas};
     pub use traits::{Archetype, ArchetypeHas};
     pub use traits::{View, ViewHas};
-
-    
-    pub use itertools::izip as izip;
 }

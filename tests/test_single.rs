@@ -1,16 +1,11 @@
 use gecs::prelude::*;
 
-mod inner {
-    pub(crate) const TEST_CAPACITY: usize = 4;
-}
-
 pub struct CompA(pub u32);
 pub struct CompZ; // ZST
 
 ecs_world! {
     ecs_archetype!(
         ArchFoo,
-        inner::TEST_CAPACITY + 1, // Should be 5 total for tests
         CompA,
         CompZ,
     );
@@ -34,8 +29,6 @@ pub fn test_single_create() {
     world.arch_foo.create((CompA(4), CompZ,));
 
     assert_eq!(world.arch_foo.len(), 5);
-
-    assert!(world.arch_foo.try_create((CompA(6), CompZ,)).is_none());
 }
 
 #[test]

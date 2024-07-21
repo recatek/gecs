@@ -1,5 +1,5 @@
+pub(crate) mod iter;
 pub(crate) mod slices;
 pub(crate) mod slot;
-pub(crate) mod storage_dynamic;
-pub(crate) mod storage_fixed;
+pub(crate) mod storage;
 pub(crate) mod view;

@@ -11,14 +11,12 @@ ecs_world! {
     #[archetype_id(3)]
     ecs_archetype!(
         ArchFoo,
-        dyn,
         CompA,
         CompB,
     );
 
     ecs_archetype!(
         ArchBar,
-        dyn,
         CompA,
         CompC,
     );

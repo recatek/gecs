@@ -181,8 +181,8 @@ where
 /// pub struct CompA(pub u32);
 ///
 /// ecs_world! {
-///     // Declare archetype ArchFoo with capacity 100 and one component: CompA
-///     ecs_archetype!(ArchFoo, 100, CompA);
+///     // Declare archetype ArchFoo with one component: CompA
+///     ecs_archetype!(ArchFoo, CompA);
 /// }
 ///
 /// fn get_arch_foo_len<W>(world: &mut W) -> usize
@@ -224,8 +224,8 @@ pub trait WorldHas<A: Archetype>: World {
 /// pub struct CompA(pub u32);
 ///
 /// ecs_world! {
-///     // Declare archetype ArchFoo with capacity 100 and one component: CompA
-///     ecs_archetype!(ArchFoo, 100, CompA);
+///     // Declare archetype ArchFoo with one component: CompA
+///     ecs_archetype!(ArchFoo, CompA);
 /// }
 ///
 /// fn sum_comp_a<A>(archetype: &mut A) -> u32
@@ -300,9 +300,9 @@ pub trait View {
 /// pub struct CompB(pub u32);
 ///
 /// ecs_world! {
-///     // Declare archetype ArchFoo with capacity 100 and one component: CompA
-///     ecs_archetype!(ArchFoo, 100, CompA, CompB);
-///     ecs_archetype!(ArchBar, 100, CompA, CompB);
+///     // Declare archetype ArchFoo with one component: CompA
+///     ecs_archetype!(ArchFoo, CompA, CompB);
+///     ecs_archetype!(ArchBar, CompA, CompB);
 /// }
 ///
 /// fn generic_access_comp_a<V>(view: &mut V) -> u32

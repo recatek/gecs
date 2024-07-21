@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use base64::Engine as _;
 use speedy::{Readable, Writable};
-use syn::{Expr, Ident};
+use syn::Ident;
 
-use crate::parse::{HasAttributeId, ParseAttributeCfg, ParseCapacity, ParseEcsFinalize};
+use crate::parse::{HasAttributeId, ParseAttributeCfg, ParseEcsFinalize};
 
 #[derive(Debug, Readable, Writable)]
 pub struct DataWorld {
@@ -30,15 +30,7 @@ pub struct DataComponent {
 }
 
 #[derive(Debug)]
-pub struct DataArchetypeBuildOnly {
-    pub capacity: DataCapacity,
-}
-
-#[derive(Debug)]
-pub enum DataCapacity {
-    Fixed(Expr),
-    Dynamic,
-}
+pub struct DataArchetypeBuildOnly;
 
 impl DataWorld {
     pub fn new(mut parse: ParseEcsFinalize) -> syn::Result<Self> {
@@ -82,9 +74,7 @@ impl DataWorld {
                 });
             }
 
-            let build_data = DataArchetypeBuildOnly {
-                capacity: convert_capacity(archetype.capacity),
-            };
+            let build_data = DataArchetypeBuildOnly;
 
             archetypes.push(DataArchetype {
                 id: last_archetype_id.unwrap(),
@@ -123,13 +113,6 @@ impl DataArchetype {
             }
         }
         false
-    }
-}
-
-fn convert_capacity(capacity: ParseCapacity) -> DataCapacity {
-    match capacity {
-        ParseCapacity::Fixed(expr) => DataCapacity::Fixed(expr),
-        ParseCapacity::Dynamic => DataCapacity::Dynamic,
     }
 }
 

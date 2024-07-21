@@ -7,14 +7,12 @@ pub struct CompC;
 ecs_world! {
     ecs_archetype!(
         ArchFoo,
-        5,
         CompA, // = 0
         CompC, // = 1
     );
 
     ecs_archetype!(
         ArchBar,
-        5,
         #[component_id(6)]
         CompA, // = 6
         CompB, // = 7 (Implicit)
@@ -23,7 +21,6 @@ ecs_world! {
 
     ecs_archetype!(
         ArchBaz,
-        5,
         CompA, // = 0 (Implicit)
         CompB, // = 1 (Implicit)
         #[component_id(200)]

@@ -1,23 +1,21 @@
 use crate::entity::ARCHETYPE_ID_BITS;
-use crate::util::{debug_checked_assume, num_assert_lt};
+use crate::util::debug_checked_assume;
 
 pub(crate) const MAX_DATA_CAPACITY: u32 = 1 << (u32::BITS - ARCHETYPE_ID_BITS);
 pub(crate) const MAX_DATA_INDEX: u32 = MAX_DATA_CAPACITY - 1;
 
 /// A size-checked index that can always fit in an entity and live slot.
 #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) struct DataIndex(u32);
+pub(crate) struct TrimmedIndex(u32);
 
-impl DataIndex {
-    /// Creates a `DataIndex` pointing to zero.
+impl TrimmedIndex {
+    /// Creates a `TrimmedIndex` pointing to zero.
     #[inline(always)]
     pub(crate) const fn zero() -> Self {
-        // Better safe than sorry I guess...
-        num_assert_lt!(0, MAX_DATA_INDEX as usize);
         Self(0)
     }
 
-    /// Creates a new `DataIndex` if the given index is within bounds.
+    /// Creates a new `TrimmedIndex` if the given index is within bounds.
     #[inline(always)]
     pub(crate) const fn new_u32(index: u32) -> Option<Self> {
         match index < MAX_DATA_CAPACITY {
@@ -26,7 +24,7 @@ impl DataIndex {
         }
     }
 
-    /// Creates a new `DataIndex` if the given index is within bounds.
+    /// Creates a new `TrimmedIndex` if the given index is within bounds.
     #[inline(always)]
     pub(crate) const fn new_usize(index: usize) -> Option<Self> {
         match index < MAX_DATA_CAPACITY as usize {
@@ -34,27 +32,20 @@ impl DataIndex {
             false => None,
         }
     }
+}
 
-    /// Creates a new `DataIndex` without checking any bounds.
-    ///
-    /// # Safety
-    ///
-    /// The caller must guarantee that `index < MAX_DATA_CAPACITY`.
-    #[inline(always)]
-    pub(crate) unsafe fn new_unchecked(index: u32) -> Self {
-        debug_assert!(index < MAX_DATA_CAPACITY);
-        Self(index)
+impl From<TrimmedIndex> for u32 {
+    fn from(value: TrimmedIndex) -> Self {
+        // SAFETY: This is verified at creation
+        unsafe { debug_checked_assume!(value.0 < MAX_DATA_CAPACITY) };
+        value.0
     }
+}
 
-    /// Gets the raw value of this `DataIndex`.
-    ///
-    /// The result is guaranteed to be less than `MAX_DATA_CAPACITY`.
-    #[inline(always)]
-    pub(crate) fn get(self) -> u32 {
-        unsafe {
-            // SAFETY: This is verified at creation
-            debug_checked_assume!(self.0 < MAX_DATA_CAPACITY);
-            self.0
-        }
+impl From<TrimmedIndex> for usize {
+    fn from(value: TrimmedIndex) -> Self {
+        // SAFETY: This is verified at creation
+        unsafe { debug_checked_assume!(value.0 < MAX_DATA_CAPACITY) };
+        value.0.try_into().unwrap()
     }
 }

@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use xxhash_rust::xxh3::xxh3_128;
 
-use crate::data::{DataArchetype, DataCapacity, DataWorld};
+use crate::data::{DataArchetype, DataWorld};
 use crate::generate::util::to_snake;
 
 #[allow(non_snake_case)] // Allow for type-like names to make quote!() clearer
@@ -19,6 +19,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
     // Types and traits
     let World = format_ident!("{}", world_data.name);
+    let WorldCapacity = format_ident!("{}Capacity", world_data.name);
 
     let ArchetypeSelectId = format_ident!("ArchetypeSelectId");
     let ArchetypeSelectEntity = format_ident!("ArchetypeSelectEntity");
@@ -72,7 +73,13 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
     quote!(
         #( pub use #ecs_world_sealed::#Archetype; )*
-        pub use #ecs_world_sealed::{#World, #ArchetypeSelectId, #ArchetypeSelectEntity, #ArchetypeSelectEntityRaw};
+        pub use #ecs_world_sealed::{
+            #World,
+            #WorldCapacity,
+            #ArchetypeSelectId,
+            #ArchetypeSelectEntity,
+            #ArchetypeSelectEntityRaw
+        };
 
         #[doc(hidden)]
         pub use #ecs_world_sealed::{#ArchetypeSelectInternalWorld};
@@ -90,6 +97,12 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             pub struct #World {
                 #(
                     pub #archetype: #Archetype,
+                )*
+            }
+
+            pub struct #WorldCapacity {
+                #(
+                    pub #with_capacity_param,
                 )*
             }
 
@@ -111,17 +124,15 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
                 /// Creates a new world with per-archetype capacities.
                 ///
-                /// Expects a capacity value for every dynamic archetype.
-                ///
-                /// This will allocate all archetypes to either their fixed size, or the given
-                /// dynamic capacity. If a given dynamic capacity is 0, that archetype will not
-                /// allocate until an entity is created in it.
+                /// This will allocate all archetypes to the given dynamic capacity. If a
+                /// given dynamic capacity is 0, that archetype will not allocate until an
+                /// entity is created in it.
                 ///
                 /// # Panics
                 ///
                 /// This will panic if given a size that exceeds the maximum possible capacity
                 /// value for an archetype (currently `16,777,216`).
-                pub fn with_capacity(#(#with_capacity_param)*) -> Self {
+                pub fn with_capacity(capacity: #WorldCapacity) -> Self {
                     Self {
                         #( #archetype: #Archetype::#with_capacity_new, )*
                     }
@@ -485,33 +496,12 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let SlicesN = format_ident!("Slices{}", count_str);
     let ContentArgs = quote!(#Archetype, #(#Component),*);
 
-    let (StorageN, BorrowN, StorageArgs) =
-        match &archetype_data.build_data.as_ref().unwrap().capacity {
-            DataCapacity::Fixed(expr) => (
-                format_ident!("StorageFixed{}", count_str),
-                format_ident!("BorrowFixed{}", count_str),
-                quote!(#Archetype, #(#Component,)* { #expr }),
-            ),
-            DataCapacity::Dynamic => (
-                format_ident!("StorageDynamic{}", count_str),
-                format_ident!("BorrowDynamic{}", count_str),
-                quote!(#Archetype, #(#Component,)*),
-            ),
-        };
+    let StorageN = format_ident!("Storage{}", count_str);
+    let BorrowN = format_ident!("Borrow{}", count_str);
+    let StorageArgs = quote!(#Archetype, #(#Component,)*);
 
-    // Generated subsections
-    let with_capacity = match &archetype_data.build_data.as_ref().unwrap().capacity {
-        DataCapacity::Fixed(_) => quote!(),
-        DataCapacity::Dynamic => quote!(
-            /// Constructs a new archetype pre-allocated to the given storage capacity.
-            ///
-            /// If the given capacity would result in zero size, this will not allocate.
-            #[inline(always)]
-            pub fn with_capacity(capacity: usize) -> Self {
-                Self { data: #StorageN::with_capacity(capacity) }
-            }
-        ),
-    };
+    let IterArgs = quote!(&Entity<#Archetype>, #(&#Component,)*);
+    let IterMutArgs = quote!(&Entity<#Archetype>, #(&mut #Component,)*);
 
     // Function names
     let get_slice = (0..count)
@@ -563,7 +553,13 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 Self { data: #StorageN::new() }
             }
 
-            #with_capacity // Only generated for dynamic storage
+            /// Constructs a new archetype pre-allocated to the given storage capacity.
+            ///
+            /// If the given capacity would result in zero size, this will not allocate.
+            #[inline(always)]
+            pub fn with_capacity(capacity: usize) -> Self {
+                Self { data: #StorageN::with_capacity(capacity) }
+            }
 
             /// Returns the number of entities in the archetype, also referred to as its length.
             #[inline(always)]
@@ -589,7 +585,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
             /// Returns the generational version of the archetype. Intended for internal use.
             #[inline(always)]
-            pub const fn version(&self) -> VersionArchetype {
+            pub const fn version(&self) -> ArchetypeVersion {
                 self.data.version()
             }
 
@@ -639,6 +635,18 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 entity: Entity<#Archetype>
             ) -> Option<(#(#Component,)*)> {
                 self.data.remove(entity)
+            }
+
+            /// Returns an iterator over all of the entities and their data.
+            #[inline(always)]
+            pub fn iter(&mut self) -> impl Iterator<Item = (#IterArgs)> {
+                self.data.iter()
+            }
+
+            /// Returns a mutable iterator over all of the entities and their data.
+            #[inline(always)]
+            pub fn iter_mut(&mut self) -> impl Iterator<Item = (#IterMutArgs)> {
+                self.data.iter_mut()
             }
 
             /// Begins a borrow context for the given entity on this archetype. This will allow
@@ -838,22 +846,6 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
         }
 
-        impl<'a> #ArchetypeSlices<'a> {
-            #[inline(always)]
-            pub fn zipped(
-                &'a self,
-            ) -> impl Iterator<Item = (&'a Entity<#Archetype>, #(&'a #Component),*)> {
-                ::gecs::__internal::izip!(self.entity.iter(), #(self.#component.iter()),*)
-            }
-
-            #[inline(always)]
-            pub fn zipped_mut(
-                &'a mut self,
-            ) -> impl Iterator<Item = (&'a Entity<#Archetype>, #(&'a mut #Component),*)> {
-                ::gecs::__internal::izip!(self.entity.iter(), #(self.#component.iter_mut()),*)
-            }
-        }
-
         impl<'a> ArchetypeCanResolve<'a, #ArchetypeView<'a>, Entity<#Archetype>> for #Archetype {
             #[inline(always)]
             fn resolve_for(&self, key: Entity<#Archetype>) -> Option<usize> {
@@ -882,18 +874,12 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
 #[allow(non_snake_case)]
 fn with_capacity_param(archetype_data: &DataArchetype) -> TokenStream {
-    let archetype_capacity = format_ident!("capacity_{}", to_snake(&archetype_data.name));
-    match archetype_data.build_data.as_ref().unwrap().capacity {
-        DataCapacity::Fixed(_) => quote!(),
-        DataCapacity::Dynamic => quote!(#archetype_capacity: usize,),
-    }
+    let archetype = format_ident!("{}", to_snake(&archetype_data.name));
+    quote!(#archetype: usize)
 }
 
 #[allow(non_snake_case)]
 fn with_capacity_new(archetype_data: &DataArchetype) -> TokenStream {
-    let archetype_capacity = format_ident!("capacity_{}", to_snake(&archetype_data.name));
-    match archetype_data.build_data.as_ref().unwrap().capacity {
-        DataCapacity::Fixed(_) => quote!(new()),
-        DataCapacity::Dynamic => quote!(with_capacity(#archetype_capacity)),
-    }
+    let archetype = format_ident!("{}", to_snake(&archetype_data.name));
+    quote!(with_capacity(capacity.#archetype))
 }
