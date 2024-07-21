@@ -14,13 +14,6 @@ or execution. However, this comes at the cost of requiring all archetypes to be 
 and declared at compile-time, so that adding or removing components from entities at
 runtime isn't currently possible -- hybrid approaches could solve this in the future.
 
-Archetypes in gecs can be set to contain a fixed or dynamic capacity of entities. If
-all of the archetypes in your ECS world declaration are set to a fixed capacity, gecs
-will perform zero allocations after startup. This guarantees that your ECS world will
-adhere to a known and predictable memory overhead for constrained environments (e.g.
-servers on cloud instances). Attempting to add an entity to a full archetype can
-either report failure or panic depending on the method you call to do so.
-
 The goals for gecs are (in descending priority order):
 - Fast iteration and find queries
 - Fast entity creation and destruction
@@ -48,8 +41,8 @@ pub struct CompC(pub u32);
 
 ecs_world! {
     // Declare two archetypes, ArchFoo and ArchBar.
-    ecs_archetype!(ArchFoo, 100, CompA, CompB); // Fixed capacity of 100 entities.
-    ecs_archetype!(ArchBar, dyn, CompA, CompC); // Dynamic (dyn) entity capacity.
+    ecs_archetype!(ArchFoo, CompA, CompB); // Fixed capacity of 100 entities.
+    ecs_archetype!(ArchBar, CompA, CompC); // Dynamic (dyn) entity capacity.
 }
 
 fn main() {
