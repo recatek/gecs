@@ -41,8 +41,8 @@ pub struct CompC(pub u32);
 
 ecs_world! {
     // Declare two archetypes, ArchFoo and ArchBar.
-    ecs_archetype!(ArchFoo, CompA, CompB); // Fixed capacity of 100 entities.
-    ecs_archetype!(ArchBar, CompA, CompC); // Dynamic (dyn) entity capacity.
+    ecs_archetype!(ArchFoo, CompA, CompB);
+    ecs_archetype!(ArchBar, CompA, CompC);
 }
 
 fn main() {
