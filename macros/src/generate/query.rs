@@ -49,6 +49,7 @@ pub fn generate_query_find(
     let world = &query.world;
     let entity = &query.entity;
     let body = &query.body;
+    let attributes = query.params.iter().map(to_attributes).collect::<Vec<_>>();
     let arg = query.params.iter().map(to_name).collect::<Vec<_>>();
 
     // We want this to be hygenic because it's declared above the closure.
@@ -108,7 +109,7 @@ pub fn generate_query_find(
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
-                    let mut closure = |#(#arg: &#maybe_mut #Type),*| #ret #body;
+                    let mut closure = |#(#attributes #arg: &#maybe_mut #Type),*| #ret #body;
 
                     let archetype = #get_archetype;
                     let version = archetype.version();
@@ -123,7 +124,7 @@ pub fn generate_query_find(
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
-                    let mut closure = |#(#arg: &#maybe_mut #Type),*| #ret #body;
+                    let mut closure = |#(#attributes #arg: &#maybe_mut #Type),*| #ret #body;
 
                     let archetype = #get_archetype;
                     let version = archetype.version();
@@ -157,7 +158,8 @@ pub fn generate_query_find(
 
 #[rustfmt::skip]
 fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
-    match &param.param_type {
+    let attributes = &param.attributes;
+    let arg = match &param.param_type {
         ParseQueryParamType::Component(ident) => { 
             let ident = to_snake_ident(ident); quote!(view.#ident)
         }
@@ -182,12 +184,15 @@ fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
-    }
+    };
+
+    quote!(#(#attributes)* #arg)
 }
 
 #[rustfmt::skip]
 fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
-    match &param.param_type {
+    let attributes = &param.attributes;
+    let arg = match &param.param_type {
         ParseQueryParamType::Component(ident) => {
             match param.is_mut { 
                 true => quote!(&mut borrow.borrow_mut::<#ident>()),
@@ -215,7 +220,9 @@ fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
-    }
+    };
+
+    quote!(#(#attributes)* #arg)
 }
 
 #[allow(non_snake_case)]
@@ -237,6 +244,7 @@ pub fn generate_query_iter(
     // Variables and fields
     let world = &query.world;
     let body = &query.body;
+    let attributes = query.params.iter().map(to_attributes).collect::<Vec<_>>();
     let arg = query.params.iter().map(to_name).collect::<Vec<_>>();
 
     // Special cases
@@ -282,7 +290,7 @@ pub fn generate_query_iter(
                     // Alias the current archetype for use in the closure
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types
-                    let mut closure = |#(#arg: &#maybe_mut #Type),*| #body;
+                    let mut closure = |#(#attributes #arg: &#maybe_mut #Type),*| #body;
 
                     let archetype = #get_archetype;
                     let version = archetype.version();
@@ -336,6 +344,7 @@ pub fn generate_query_iter_destroy(
     // Variables and fields
     let world = &query.world;
     let body = &query.body;
+    let attributes = query.params.iter().map(to_attributes).collect::<Vec<_>>();
     let arg = query.params.iter().map(to_name).collect::<Vec<_>>();
 
     // Special cases
@@ -381,8 +390,7 @@ pub fn generate_query_iter_destroy(
                     // Alias the current archetype for use in the closure
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types
-                    let mut closure = //FnMut(#(&#maybe_mut #Type),*) -> bool
-                        |#(#arg: &#maybe_mut #Type),*| #body;
+                    let mut closure = |#(#attributes #arg: &#maybe_mut #Type),*| #body;
 
                     let archetype = #get_archetype;
                     let version = archetype.version();
@@ -430,7 +438,8 @@ pub fn generate_query_iter_destroy(
 
 #[rustfmt::skip]
 fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
-    match &param.param_type {
+    let attributes = &param.attributes;
+    let arg = match &param.param_type {
         ParseQueryParamType::Component(ident) => { 
             let ident = to_snake_ident(ident); 
             match param.is_mut { 
@@ -459,12 +468,15 @@ fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
-    }
+    };
+
+    quote!(#(#attributes)* #arg)
 }
 
 #[rustfmt::skip]
 fn iter_bind_borrow(param: &ParseQueryParam) -> TokenStream {
-    match &param.param_type {
+    let attributes = &param.attributes;
+    let arg = match &param.param_type {
         ParseQueryParamType::Component(ident) => {
             match param.is_mut { 
                 true => quote!(&mut archetype.borrow_slice_mut::<#ident>()[idx]),
@@ -492,7 +504,14 @@ fn iter_bind_borrow(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
-    }
+    };
+
+    quote!(#(#attributes)* #arg)
+}
+
+fn to_attributes(param: &ParseQueryParam) -> TokenStream {
+    let attributes = &param.attributes;
+    quote!(#(#attributes)*)
 }
 
 fn to_name(param: &ParseQueryParam) -> TokenStream {
@@ -579,6 +598,7 @@ fn bind_query_params(
                     if let Some(found) = bind_one_of(archetype, args)? {
                         // Convert this to a new Component type
                         bound.push(ParseQueryParam {
+                            attributes: param.attributes.clone(),
                             name: param.name.clone(),
                             is_mut: param.is_mut,
                             param_type: found,

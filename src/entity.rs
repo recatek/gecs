@@ -386,20 +386,14 @@ impl<A: Archetype> TryFrom<EntityRawAny> for EntityRaw<A> {
 impl<A: Archetype> Clone for Entity<A> {
     #[inline(always)]
     fn clone(&self) -> Entity<A> {
-        Entity {
-            inner: self.inner,
-            _type: PhantomData,
-        }
+        *self
     }
 }
 
 impl<A: Archetype> Clone for EntityRaw<A> {
     #[inline(always)]
     fn clone(&self) -> EntityRaw<A> {
-        EntityRaw {
-            inner: self.inner,
-            _type: PhantomData,
-        }
+        *self
     }
 }
 

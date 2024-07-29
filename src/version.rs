@@ -1,7 +1,7 @@
 use std::num::NonZeroU32;
 
 // Starting version number. Must convert to a NonZeroU32.
-const VERSION_START: u32 = 1;
+const VERSION_START: NonZeroU32 = NonZeroU32::MIN;
 
 #[repr(transparent)]
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -18,13 +18,9 @@ pub struct ArchetypeVersion {
 impl SlotVersion {
     #[inline(always)]
     pub(crate) fn start() -> Self {
-        // This is a slightly messy hack to create a NonZeroU32 constant.
-        const START: NonZeroU32 = match NonZeroU32::new(VERSION_START) {
-            Some(v) => v,
-            None => [][0],
-        };
-
-        Self { version: START }
+        Self {
+            version: VERSION_START,
+        }
     }
 
     #[inline(always)]
@@ -50,13 +46,9 @@ impl SlotVersion {
 impl ArchetypeVersion {
     #[inline(always)]
     pub(crate) fn start() -> Self {
-        // This is a slightly messy hack to create a NonZeroU32 constant.
-        const START: NonZeroU32 = match NonZeroU32::new(VERSION_START) {
-            Some(v) => v,
-            None => [][0],
-        };
-
-        Self { version: START }
+        Self {
+            version: VERSION_START,
+        }
     }
 
     #[inline(always)]

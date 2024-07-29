@@ -1,25 +1,17 @@
+#[derive(Default)]
 pub enum EcsStep {
+    #[default]
     Continue,
     Break,
 }
 
+#[derive(Default)]
 pub enum EcsStepDestroy {
+    #[default]
     Continue,
     Break,
     ContinueDestroy,
     BreakDestroy,
-}
-
-impl Default for EcsStep {
-    fn default() -> Self {
-        EcsStep::Continue
-    }
-}
-
-impl Default for EcsStepDestroy {
-    fn default() -> Self {
-        EcsStepDestroy::Continue
-    }
 }
 
 impl From<()> for EcsStep {

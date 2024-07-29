@@ -554,10 +554,7 @@ macro_rules! declare_storage_dynamic_n {
             impl<'a, A: Archetype, #(T~I,)*> Clone for $borrow<'a, A, #(T~I,)*> {
                 #[inline(always)]
                 fn clone(&self) -> Self {
-                    Self {
-                        index: self.index,
-                        source: self.source,
-                    }
+                    *self
                 }
             }
 

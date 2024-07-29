@@ -1,6 +1,6 @@
 use syn::parse::{Parse, ParseStream};
 use syn::token::{Colon, Comma, Gt, Lt, Mut};
-use syn::{Expr, Ident, LitStr, Token, Type};
+use syn::{Attribute, Expr, Ident, LitStr, Token, Type};
 
 mod kw {
     syn::custom_keyword!(archetype);
@@ -41,6 +41,7 @@ pub struct ParseQueryIterDestroy {
 
 #[derive(Clone, Debug)]
 pub struct ParseQueryParam {
+    pub attributes: Vec<Attribute>,
     pub name: Ident,
     pub is_mut: bool,
     pub param_type: ParseQueryParamType,
@@ -151,6 +152,8 @@ impl Parse for ParseQueryIterDestroy {
 
 impl Parse for ParseQueryParam {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let attributes = input.call(Attribute::parse_outer)?;
+
         // Parse the name and following : token
         let name = parse_param_name(input)?;
         input.parse::<Colon>()?;
@@ -176,6 +179,7 @@ impl Parse for ParseQueryParam {
                 ))
             }
             _ => Ok(Self {
+                attributes,
                 name,
                 is_mut,
                 param_type: ty,
@@ -263,7 +267,7 @@ fn parse_params(input: &ParseStream) -> syn::Result<Vec<ParseQueryParam>> {
         let lookahead = input.lookahead1();
         if lookahead.peek(Token![|]) {
             return Ok(result);
-        } else if lookahead.peek(Ident) || lookahead.peek(Token![_]) {
+        } else if lookahead.peek(Ident) || lookahead.peek(Token![_]) || lookahead.peek(Token![#]) {
             result.push(input.parse::<ParseQueryParam>()?);
             input.parse::<Option<Token![,]>>()?;
         } else {
