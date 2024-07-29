@@ -27,9 +27,9 @@ pub(crate) const ARCHETYPE_ID_BITS: u32 = ArchetypeId::BITS;
 /// By default, when this version overflows (i.e., a single entity slot
 /// was destroyed and reused for a new entity u32::MAX times), it will panic.
 /// If instead you would like to allow entity slot versions to wrap, you can
-/// enable the `wrapping_entity_version` crate feature instead. Note that this
-/// could allow invalid entity access, but doing so will not access invalid
-/// memory, and the chances of this happening are infinitesimally small.
+/// enable the `wrapping_version` crate feature instead. Note that this could
+/// allow invalid entity access, but doing so will not access invalid memory,
+/// and the chances of this happening are infinitesimally small.
 pub struct Entity<A: Archetype> {
     inner: EntityAny,
     _type: PhantomData<fn() -> A>,
@@ -49,9 +49,9 @@ pub struct Entity<A: Archetype> {
 /// By default, when this version overflows (i.e., an archetype has added or
 /// removed an entity `u32::MAX` times), it will cause a panic. If instead
 /// you would like to allow archetype versions to wrap, you can enable the
-/// `wrapping_entity_raw_version` crate feature instead. Note that this could
-/// allow invalid entity access, but doing so will not access invalid memory,
-/// and the chances of this happening are infinitesimally small.
+/// `wrapping_version` crate feature instead. Note that this could allow
+/// invalid entity access, but doing so will not access invalid memory, and
+/// the chances of this happening are infinitesimally small.
 pub struct EntityRaw<A: Archetype> {
     inner: EntityRawAny,
     _type: PhantomData<fn() -> A>,
