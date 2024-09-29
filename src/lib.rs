@@ -757,9 +757,9 @@ pub mod prelude {
 pub mod __internal {
     use super::*;
 
-    pub use gecs_macros::__ecs_finalize;
-    pub use gecs_macros::{__ecs_find, __ecs_find_borrow};
-    pub use gecs_macros::{__ecs_iter, __ecs_iter_borrow, __ecs_iter_destroy};
+    pub use gecs_macros::__impl_ecs_world;
+    pub use gecs_macros::{__impl_ecs_find, __impl_ecs_find_borrow};
+    pub use gecs_macros::{__impl_ecs_iter, __impl_ecs_iter_borrow, __impl_ecs_iter_destroy};
 
     pub use error::EcsError;
 

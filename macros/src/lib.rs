@@ -27,10 +27,10 @@ pub fn ecs_component_id(args: TokenStream) -> TokenStream {
 
 #[proc_macro]
 #[doc(hidden)]
-pub fn __ecs_finalize(args: TokenStream) -> TokenStream {
+pub fn __impl_ecs_world(args: TokenStream) -> TokenStream {
     let raw_input = args.to_string();
 
-    match DataWorld::new(parse_macro_input!(args as ParseEcsFinalize)) {
+    match DataWorld::new(parse_macro_input!(args as ParseCfgDecorated<ParseEcsWorld>)) {
         Ok(world_data) => generate::generate_world(&world_data, &raw_input).into(),
         Err(err) => err.into_compile_error().into(),
     }
@@ -38,7 +38,7 @@ pub fn __ecs_finalize(args: TokenStream) -> TokenStream {
 
 #[proc_macro]
 #[doc(hidden)]
-pub fn __ecs_find(args: TokenStream) -> TokenStream {
+pub fn __impl_ecs_find(args: TokenStream) -> TokenStream {
     let query_parse = parse_macro_input!(args as ParseQueryFind);
 
     match generate::generate_query_find(FetchMode::Mut, query_parse) {
@@ -49,7 +49,7 @@ pub fn __ecs_find(args: TokenStream) -> TokenStream {
 
 #[proc_macro]
 #[doc(hidden)]
-pub fn __ecs_find_borrow(args: TokenStream) -> TokenStream {
+pub fn __impl_ecs_find_borrow(args: TokenStream) -> TokenStream {
     let query_parse = parse_macro_input!(args as ParseQueryFind);
 
     match generate::generate_query_find(FetchMode::Borrow, query_parse) {
@@ -60,7 +60,7 @@ pub fn __ecs_find_borrow(args: TokenStream) -> TokenStream {
 
 #[proc_macro]
 #[doc(hidden)]
-pub fn __ecs_iter(args: TokenStream) -> TokenStream {
+pub fn __impl_ecs_iter(args: TokenStream) -> TokenStream {
     let query_parse = parse_macro_input!(args as ParseQueryIter);
 
     match generate::generate_query_iter(FetchMode::Mut, query_parse) {
@@ -71,7 +71,7 @@ pub fn __ecs_iter(args: TokenStream) -> TokenStream {
 
 #[proc_macro]
 #[doc(hidden)]
-pub fn __ecs_iter_borrow(args: TokenStream) -> TokenStream {
+pub fn __impl_ecs_iter_borrow(args: TokenStream) -> TokenStream {
     let query_parse = parse_macro_input!(args as ParseQueryIter);
 
     match generate::generate_query_iter(FetchMode::Borrow, query_parse) {
@@ -82,7 +82,7 @@ pub fn __ecs_iter_borrow(args: TokenStream) -> TokenStream {
 
 #[proc_macro]
 #[doc(hidden)]
-pub fn __ecs_iter_destroy(args: TokenStream) -> TokenStream {
+pub fn __impl_ecs_iter_destroy(args: TokenStream) -> TokenStream {
     let query_parse = parse_macro_input!(args as ParseQueryIterDestroy);
 
     match generate::generate_query_iter_destroy(FetchMode::Mut, query_parse) {

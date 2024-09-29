@@ -4,7 +4,7 @@ use base64::Engine as _;
 use speedy::{Readable, Writable};
 use syn::Ident;
 
-use crate::parse::{HasAttributeId, ParseAttributeCfg, ParseEcsFinalize};
+use crate::parse::{HasAttributeId, ParseAttributeCfg, ParseCfgDecorated, ParseEcsWorld};
 
 #[derive(Debug, Readable, Writable)]
 pub struct DataWorld {
@@ -33,14 +33,14 @@ pub struct DataComponent {
 pub struct DataArchetypeBuildOnly;
 
 impl DataWorld {
-    pub fn new(mut parse: ParseEcsFinalize) -> syn::Result<Self> {
+    pub fn new(mut parse: ParseCfgDecorated<ParseEcsWorld>) -> syn::Result<Self> {
         let cfg_data = parse.cfg_lookup;
 
         let mut archetypes = Vec::new();
         let mut archetype_ids = HashMap::new();
         let mut last_archetype_id = None;
 
-        for mut archetype in parse.world.archetypes.drain(..) {
+        for mut archetype in parse.inner.archetypes.drain(..) {
             if evaluate_cfgs(&cfg_data, &archetype.cfgs) == false {
                 continue;
             }
@@ -85,7 +85,7 @@ impl DataWorld {
         }
 
         Ok(DataWorld {
-            name: parse.world.name.to_string(),
+            name: parse.inner.name.to_string(),
             archetypes,
         })
     }

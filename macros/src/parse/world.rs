@@ -1,11 +1,11 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use proc_macro2::{Span, TokenStream};
 use quote::format_ident;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::token::{Comma, Semi};
-use syn::{braced, bracketed, parenthesized, Ident, LitBool, LitInt, Token};
+use syn::{bracketed, parenthesized, Ident, LitInt, Token};
 
 use super::*;
 
@@ -22,12 +22,6 @@ mod kw {
 pub trait HasAttributeId {
     fn name(&self) -> &Ident;
     fn id(&self) -> Option<u8>;
-}
-
-#[derive(Debug)]
-pub struct ParseEcsFinalize {
-    pub cfg_lookup: HashMap<String, bool>,
-    pub world: ParseEcsWorld,
 }
 
 #[derive(Debug)]
@@ -85,8 +79,12 @@ pub enum ParseAttributeData {
     ComponentId(ParseAttributeId),
 }
 
-impl ParseEcsWorld {
-    pub fn collect_all_cfg_predicates(&self) -> Vec<TokenStream> {
+impl HasCfgPredicates for ParseEcsWorld {
+    fn macro_name() -> &'static str {
+        "world"
+    }
+
+    fn collect_all_cfg_predicates(&self) -> Vec<TokenStream> {
         let mut filter = HashSet::new();
         let mut result = Vec::new();
 
@@ -114,35 +112,6 @@ impl ParseEcsWorld {
         }
 
         result
-    }
-}
-
-impl Parse for ParseEcsFinalize {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        // Parse the deduced states for each cfg in the world definition
-        let states;
-        parenthesized!(states in input);
-        let states: Vec<bool> = Punctuated::<LitBool, Comma>::parse_terminated(&states)?
-            .into_iter()
-            .map(|bool| bool.value)
-            .collect();
-        input.parse::<Comma>()?;
-
-        // Re-parse the world itself (TODO: This is wasteful!)
-        let world;
-        braced!(world in input);
-        let world = world.parse::<ParseEcsWorld>()?;
-
-        // Create a map of each cfg to its deduced state
-        let mut predicates = world.collect_all_cfg_predicates();
-        let mut cfg_lookup = HashMap::with_capacity(states.len());
-
-        assert!(predicates.len() == states.len());
-        for (predicate, state) in predicates.drain(..).zip(states) {
-            cfg_lookup.insert(predicate.to_string(), state);
-        }
-
-        Ok(Self { cfg_lookup, world })
     }
 }
 

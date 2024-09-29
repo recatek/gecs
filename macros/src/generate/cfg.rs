@@ -1,22 +1,26 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use crate::parse::ParseEcsWorld;
+use crate::parse::HasCfgPredicates;
 
-pub fn generate_cfg_checks(world: &ParseEcsWorld, raw: TokenStream) -> TokenStream {
-    let predicates = world.collect_all_cfg_predicates();
+pub fn generate_cfg_checks<S: HasCfgPredicates>(source: &S, raw: TokenStream) -> TokenStream {
+    let prefix = S::macro_name();
+    let predicates = source.collect_all_cfg_predicates();
     let mut macros = Vec::<TokenStream>::with_capacity(predicates.len());
 
+    let start = format_ident!("__impl_ecs_{}_cfg_0", prefix);
+    let finish = format_ident!("__impl_ecs_{}", prefix);
+
     if predicates.is_empty() {
-        return quote!(::gecs::__internal::__ecs_finalize!((), { #raw }););
+        return quote!(::gecs::__internal::#finish!((), { #raw }););
     }
 
     for (idx, predicate) in predicates.iter().enumerate() {
-        let this = format_ident!("__ecs_check_cfg_{}", idx);
-        let next = format_ident!("__ecs_check_cfg_{}", idx + 1);
+        let this = format_ident!("__impl_ecs_{}_cfg_{}", prefix, idx);
+        let next = format_ident!("__impl_ecs_{}_cfg_{}", prefix, idx + 1);
 
         let next = if (idx + 1) == predicates.len() {
-            quote!(::gecs::__internal::__ecs_finalize)
+            quote!(::gecs::__internal::#finish)
         } else {
             quote!(__ecs_cfg_macros::#next)
         };
@@ -46,6 +50,6 @@ pub fn generate_cfg_checks(world: &ParseEcsWorld, raw: TokenStream) -> TokenStre
 
     quote!(
         mod __ecs_cfg_macros { #(#macros)* }
-        __ecs_cfg_macros::__ecs_check_cfg_0!((), { #raw });
+        __ecs_cfg_macros::#start!((), { #raw });
     )
 }
