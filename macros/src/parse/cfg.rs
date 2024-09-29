@@ -7,7 +7,6 @@ use syn::token::Comma;
 use syn::{braced, parenthesized, LitBool};
 
 pub trait HasCfgPredicates {
-    fn macro_name() -> &'static str;
     fn collect_all_cfg_predicates(&self) -> Vec<TokenStream>;
 }
 

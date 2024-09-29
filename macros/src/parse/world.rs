@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::format_ident;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::token::{Comma, Semi};
-use syn::{bracketed, parenthesized, Ident, LitInt, Token};
+use syn::{parenthesized, Ident, Token};
 
 use super::*;
 
@@ -56,34 +56,7 @@ pub struct ParseComponent {
     pub name: Ident,
 }
 
-#[derive(Debug)]
-pub struct ParseAttributeCfg {
-    pub predicate: TokenStream,
-}
-
-#[derive(Debug)]
-pub struct ParseAttributeId {
-    pub value: u8,
-}
-
-#[derive(Debug)]
-pub struct ParseAttribute {
-    pub span: Span,
-    pub data: ParseAttributeData,
-}
-
-#[derive(Debug)]
-pub enum ParseAttributeData {
-    Cfg(ParseAttributeCfg),
-    ArchetypeId(ParseAttributeId),
-    ComponentId(ParseAttributeId),
-}
-
 impl HasCfgPredicates for ParseEcsWorld {
-    fn macro_name() -> &'static str {
-        "world"
-    }
-
     fn collect_all_cfg_predicates(&self) -> Vec<TokenStream> {
         let mut filter = HashSet::new();
         let mut result = Vec::new();
@@ -253,83 +226,6 @@ impl Parse for ParseComponent {
             name,
         })
     }
-}
-
-impl Parse for ParseAttributeCfg {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let args;
-        parenthesized!(args in input);
-
-        // Don't care about parsing the predicate contents
-        let predicate = args.parse::<TokenStream>()?;
-
-        Ok(Self { predicate })
-    }
-}
-
-impl Parse for ParseAttributeId {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let args;
-        parenthesized!(args in input);
-
-        // Grab the int literal and make sure it's the right type
-        let value = args.parse::<LitInt>()?.base10_parse()?;
-
-        Ok(Self { value })
-    }
-}
-
-impl Parse for ParseAttribute {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        input.parse::<Token![#]>()?;
-        let content;
-        bracketed!(content in input);
-
-        let span = content.span();
-        let lookahead = content.lookahead1();
-        let data = if lookahead.peek(kw::cfg) {
-            content.parse::<kw::cfg>()?;
-            ParseAttributeData::Cfg(content.parse()?)
-        } else if lookahead.peek(kw::archetype_id) {
-            content.parse::<kw::archetype_id>()?;
-            ParseAttributeData::ArchetypeId(content.parse()?)
-        } else if lookahead.peek(kw::component_id) {
-            content.parse::<kw::component_id>()?;
-            ParseAttributeData::ComponentId(content.parse()?)
-        } else {
-            return Err(lookahead.error());
-        };
-
-        Ok(Self { span, data })
-    }
-}
-
-impl HasAttributeId for ParseArchetype {
-    fn name(&self) -> &Ident {
-        &self.name
-    }
-
-    fn id(&self) -> Option<u8> {
-        self.id
-    }
-}
-
-impl HasAttributeId for ParseComponent {
-    fn name(&self) -> &Ident {
-        &self.name
-    }
-
-    fn id(&self) -> Option<u8> {
-        self.id
-    }
-}
-
-fn parse_attributes(input: ParseStream) -> syn::Result<Vec<ParseAttribute>> {
-    let mut attrs = Vec::new();
-    while input.peek(Token![#]) {
-        attrs.push(input.parse()?);
-    }
-    Ok(attrs)
 }
 
 fn parse_item_archetype(

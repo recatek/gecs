@@ -17,10 +17,6 @@ pub struct DataArchetype {
     pub id: u8,
     pub name: String,
     pub components: Vec<DataComponent>,
-
-    // This data is only used for building the world and is not needed in queries
-    #[speedy(skip)]
-    pub build_data: Option<DataArchetypeBuildOnly>,
 }
 
 #[derive(Debug, Readable, Writable)]
@@ -29,19 +25,16 @@ pub struct DataComponent {
     pub name: String,
 }
 
-#[derive(Debug)]
-pub struct DataArchetypeBuildOnly;
-
 impl DataWorld {
     pub fn new(mut parse: ParseCfgDecorated<ParseEcsWorld>) -> syn::Result<Self> {
-        let cfg_data = parse.cfg_lookup;
+        let cfg_lookup = parse.cfg_lookup;
 
         let mut archetypes = Vec::new();
         let mut archetype_ids = HashMap::new();
         let mut last_archetype_id = None;
 
         for mut archetype in parse.inner.archetypes.drain(..) {
-            if evaluate_cfgs(&cfg_data, &archetype.cfgs) == false {
+            if evaluate_cfgs(&cfg_lookup, &archetype.cfgs) == false {
                 continue;
             }
 
@@ -57,7 +50,7 @@ impl DataWorld {
 
             let mut components = Vec::new();
             for component in archetype.components.drain(..) {
-                if evaluate_cfgs(&cfg_data, &component.cfgs) == false {
+                if evaluate_cfgs(&cfg_lookup, &component.cfgs) == false {
                     continue;
                 }
 
@@ -74,13 +67,10 @@ impl DataWorld {
                 });
             }
 
-            let build_data = DataArchetypeBuildOnly;
-
             archetypes.push(DataArchetype {
                 id: last_archetype_id.unwrap(),
                 name: archetype.name.to_string(),
                 components,
-                build_data: Some(build_data),
             })
         }
 
@@ -116,10 +106,10 @@ impl DataArchetype {
     }
 }
 
-fn evaluate_cfgs(cfg_data: &HashMap<String, bool>, cfgs: &[ParseAttributeCfg]) -> bool {
+fn evaluate_cfgs(cfg_lookup: &HashMap<String, bool>, cfgs: &[ParseAttributeCfg]) -> bool {
     for cfg in cfgs {
         let predicate = cfg.predicate.to_string();
-        if *cfg_data.get(&predicate).unwrap() == false {
+        if *cfg_lookup.get(&predicate).unwrap() == false {
             return false;
         }
     }

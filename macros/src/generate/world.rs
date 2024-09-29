@@ -65,14 +65,16 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         .collect::<Vec<_>>();
 
     // Macros
-    let __impl_ecs_find_unique = format_ident!("__impl_ecs_find_{}", unique_hash);
-    let __impl_ecs_find_borrow_unique = format_ident!("__impl_ecs_find_borrow_{}", unique_hash);
-    let __impl_ecs_iter_unique = format_ident!("__impl_ecs_iter_{}", unique_hash);
-    let __impl_ecs_iter_borrow_unique = format_ident!("__impl_ecs_iter_borrow_{}", unique_hash);
-    let __impl_ecs_iter_destroy_unique = format_ident!("__impl_ecs_iter_destroy_{}", unique_hash);
+    let __expand_ecs_find_unique = format_ident!("__expand_ecs_find_{}", unique_hash);
+    let __expand_ecs_find_borrow_unique = format_ident!("__expand_ecs_find_borrow_{}", unique_hash);
+    let __expand_ecs_iter_unique = format_ident!("__expand_ecs_iter_{}", unique_hash);
+    let __expand_ecs_iter_borrow_unique = format_ident!("__expand_ecs_iter_borrow_{}", unique_hash);
+    let __expand_ecs_iter_destroy_unique =
+        format_ident!("__expand_ecs_iter_destroy_{}", unique_hash);
 
     quote!(
         #( pub use #ecs_world_sealed::#Archetype; )*
+
         pub use #ecs_world_sealed::{
             #World,
             #WorldCapacity,
@@ -428,54 +430,54 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
         #[macro_export]
         #[doc(hidden)]
-        macro_rules! #__impl_ecs_find_unique {
+        macro_rules! #__expand_ecs_find_unique {
             ($($args:tt)*) => {
-                ::gecs::__internal::__impl_ecs_find!(#WORLD_DATA, $($args)*)
+                ::gecs::__internal::__expand_ecs_find!(#WORLD_DATA, $($args)*)
             }
         }
 
         #[macro_export]
         #[doc(hidden)]
-        macro_rules! #__impl_ecs_find_borrow_unique {
+        macro_rules! #__expand_ecs_find_borrow_unique {
             ($($args:tt)*) => {
-                ::gecs::__internal::__impl_ecs_find_borrow!(#WORLD_DATA, $($args)*)
+                ::gecs::__internal::__expand_ecs_find_borrow!(#WORLD_DATA, $($args)*)
             }
         }
 
         #[macro_export]
         #[doc(hidden)]
-        macro_rules! #__impl_ecs_iter_unique {
+        macro_rules! #__expand_ecs_iter_unique {
             ($($args:tt)*) => {
-                ::gecs::__internal::__impl_ecs_iter!(#WORLD_DATA, $($args)*);
+                ::gecs::__internal::__expand_ecs_iter!(#WORLD_DATA, $($args)*)
             }
         }
 
         #[macro_export]
         #[doc(hidden)]
-        macro_rules! #__impl_ecs_iter_borrow_unique {
+        macro_rules! #__expand_ecs_iter_borrow_unique {
             ($($args:tt)*) => {
-                ::gecs::__internal::__impl_ecs_iter_borrow!(#WORLD_DATA, $($args)*);
+                ::gecs::__internal::__expand_ecs_iter_borrow!(#WORLD_DATA, $($args)*)
             }
         }
 
         #[macro_export]
         #[doc(hidden)]
-        macro_rules! #__impl_ecs_iter_destroy_unique {
+        macro_rules! #__expand_ecs_iter_destroy_unique {
             ($($args:tt)*) => {
-                ::gecs::__internal::__impl_ecs_iter_destroy!(#WORLD_DATA, $($args)*);
+                ::gecs::__internal::__expand_ecs_iter_destroy!(#WORLD_DATA, $($args)*)
             }
         }
 
         #[doc(inline)]
-        pub use #__impl_ecs_find_unique as ecs_find;
+        pub use #__expand_ecs_find_unique as ecs_find;
         #[doc(inline)]
-        pub use #__impl_ecs_find_borrow_unique as ecs_find_borrow;
+        pub use #__expand_ecs_find_borrow_unique as ecs_find_borrow;
         #[doc(inline)]
-        pub use #__impl_ecs_iter_unique as ecs_iter;
+        pub use #__expand_ecs_iter_unique as ecs_iter;
         #[doc(inline)]
-        pub use #__impl_ecs_iter_borrow_unique as ecs_iter_borrow;
+        pub use #__expand_ecs_iter_borrow_unique as ecs_iter_borrow;
         #[doc(inline)]
-        pub use #__impl_ecs_iter_destroy_unique as ecs_iter_destroy;
+        pub use #__expand_ecs_iter_destroy_unique as ecs_iter_destroy;
     )
 }
 

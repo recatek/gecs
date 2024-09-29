@@ -1,8 +1,10 @@
+mod attribute;
 mod cfg;
 mod query;
 mod util;
 mod world;
 
+pub use attribute::*;
 pub use cfg::*;
 pub use query::*;
 pub use util::*;

@@ -1,6 +1,11 @@
+use std::collections::HashSet;
+
+use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::token::{Colon, Comma, Gt, Lt, Mut};
-use syn::{Attribute, Expr, Ident, LitStr, Token, Type};
+use syn::{Expr, Ident, LitStr, Token, Type};
+
+use super::{parse_attributes, HasCfgPredicates, ParseAttributeCfg, ParseAttributeData};
 
 mod kw {
     syn::custom_keyword!(archetype);
@@ -41,10 +46,13 @@ pub struct ParseQueryIterDestroy {
 
 #[derive(Clone, Debug)]
 pub struct ParseQueryParam {
-    pub attributes: Vec<Attribute>,
+    pub cfgs: Vec<ParseAttributeCfg>,
     pub name: Ident,
     pub is_mut: bool,
     pub param_type: ParseQueryParamType,
+
+    // Set during generation
+    pub is_cfg_enabled: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -152,7 +160,19 @@ impl Parse for ParseQueryIterDestroy {
 
 impl Parse for ParseQueryParam {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let attributes = input.call(Attribute::parse_outer)?;
+        let mut attributes = Vec::new();
+
+        // Pull out the cfg attributes from those decorating the param
+        for attribute in parse_attributes(input)?.drain(..) {
+            if let ParseAttributeData::Cfg(cfg) = attribute.data {
+                attributes.push(cfg);
+            } else {
+                return Err(syn::Error::new(
+                    attribute.span,
+                    "invalid attribute for this position",
+                ));
+            }
+        }
 
         // Parse the name and following : token
         let name = parse_param_name(input)?;
@@ -179,10 +199,11 @@ impl Parse for ParseQueryParam {
                 ))
             }
             _ => Ok(Self {
-                attributes,
+                cfgs: attributes,
                 name,
                 is_mut,
                 param_type: ty,
+                is_cfg_enabled: true, // Default to true
             }),
         }
     }
@@ -261,6 +282,24 @@ impl Parse for ParseQueryParamType {
     }
 }
 
+impl HasCfgPredicates for ParseQueryFind {
+    fn collect_all_cfg_predicates(&self) -> Vec<TokenStream> {
+        get_cfg_predicates(&self.params)
+    }
+}
+
+impl HasCfgPredicates for ParseQueryIter {
+    fn collect_all_cfg_predicates(&self) -> Vec<TokenStream> {
+        get_cfg_predicates(&self.params)
+    }
+}
+
+impl HasCfgPredicates for ParseQueryIterDestroy {
+    fn collect_all_cfg_predicates(&self) -> Vec<TokenStream> {
+        get_cfg_predicates(&self.params)
+    }
+}
+
 fn parse_params(input: &ParseStream) -> syn::Result<Vec<ParseQueryParam>> {
     let mut result = Vec::<ParseQueryParam>::new();
     loop {
@@ -286,4 +325,23 @@ fn parse_param_name(input: ParseStream) -> syn::Result<Ident> {
     } else {
         Err(lookahead.error())
     }
+}
+
+fn get_cfg_predicates(params: &Vec<ParseQueryParam>) -> Vec<TokenStream> {
+    let mut filter = HashSet::new();
+    let mut result = Vec::new();
+
+    // Filter duplicates while keeping order for determinism
+    for param in params.iter() {
+        for cfg in param.cfgs.iter() {
+            let predicate_tokens = cfg.predicate.clone();
+            let predicate_string = predicate_tokens.to_string();
+
+            if filter.insert(predicate_string) {
+                result.push(predicate_tokens);
+            }
+        }
+    }
+
+    result
 }

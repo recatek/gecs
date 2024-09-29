@@ -103,7 +103,6 @@ pub mod version;
 /// Enums for controlling iteration stepping.
 pub mod iter;
 
-#[cfg(doc)]
 mod macros {
     /// Macro for declaring a new ECS world struct with archetype storage.
     ///
@@ -262,9 +261,10 @@ mod macros {
     /// to each world, and are scoped to the location of the `ecs_world!` that generated them.
     /// If you need to have multiple distinct ECS worlds in the same scope, you will need to
     /// disambiguate between their query macros manually.
+    #[cfg(doc)]
     #[macro_export]
     macro_rules! ecs_world {
-        {...} => {};
+        {...} => {...}
     }
 
     /// Returns the compile-time ID of a given component in its archetype.
@@ -344,9 +344,10 @@ mod macros {
     ///     assert_eq!(ecs_component_id!(CompC, ArchBaz), 200);
     /// }
     /// ```
+    #[cfg(doc)]
     #[macro_export]
     macro_rules! ecs_component_id {
-        {...} => {};
+        {...} => {...};
     }
 
     /// Finds a single entity in an ECS world and performs an operation on it, if found.
@@ -432,9 +433,10 @@ mod macros {
     ///     assert!(ecs_find!(world, entity_b, |c: &CompA| assert_eq!(c.0, 3)).is_some());
     /// }
     /// ```
+    #[cfg(doc)]
     #[macro_export]
     macro_rules! ecs_find {
-        (...) => {};
+        (...) => {...};
     }
 
     /// Variant of `ecs_find!` that runtime-borrows data, for use with a non-mut world reference.
@@ -484,9 +486,10 @@ mod macros {
     ///     assert!(ecs_find!(world, parent, |b: &CompB| assert_eq!(b.0, 1)).is_some());
     /// }
     /// ```
+    #[cfg(doc)]
     #[macro_export]
     macro_rules! ecs_find_borrow {
-        (...) => {};
+        (...) => {...};
     }
 
     /// Iterates over all entities across all archetypes that match the given component bounds.
@@ -578,9 +581,10 @@ mod macros {
     ///     assert_eq!(sum, 12);
     /// }
     /// ```
+    #[cfg(doc)]
     #[macro_export]
     macro_rules! ecs_iter {
-        (...) => {};
+        (...) => {...};
     }
 
     /// Variant of `ecs_iter!` that runtime-borrows data, for use with a non-mut world reference.
@@ -597,9 +601,10 @@ mod macros {
     /// # Example
     ///
     /// See the example for [`ecs_find_borrow!`].
+    #[cfg(doc)]
     #[macro_export]
     macro_rules! ecs_iter_borrow {
-        (...) => {};
+        (...) => {...};
     }
 
     /// Variant of `ecs_iter!` that allows for destroying the current entity while iterating.
@@ -661,9 +666,10 @@ mod macros {
     ///     assert_eq!(vec_b.iter().copied().sum::<u32>(), 1 + 3 + 5);
     /// }
     /// ```
+    #[cfg(doc)]
     #[macro_export]
     macro_rules! ecs_iter_destroy {
-        (...) => {};
+        (...) => {...};
     }
 }
 
@@ -757,9 +763,14 @@ pub mod prelude {
 pub mod __internal {
     use super::*;
 
-    pub use gecs_macros::__impl_ecs_world;
-    pub use gecs_macros::{__impl_ecs_find, __impl_ecs_find_borrow};
-    pub use gecs_macros::{__impl_ecs_iter, __impl_ecs_iter_borrow, __impl_ecs_iter_destroy};
+    pub use gecs_macros::{__expand_ecs_world, __impl_ecs_world};
+    
+    pub use gecs_macros::{__expand_ecs_find, __impl_ecs_find};
+    pub use gecs_macros::{__expand_ecs_find_borrow, __impl_ecs_find_borrow};
+
+    pub use gecs_macros::{__expand_ecs_iter, __impl_ecs_iter};
+    pub use gecs_macros::{__expand_ecs_iter_borrow, __impl_ecs_iter_borrow};
+    pub use gecs_macros::{__expand_ecs_iter_destroy, __impl_ecs_iter_destroy};
 
     pub use error::EcsError;
 

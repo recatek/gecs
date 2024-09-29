@@ -8,6 +8,7 @@ use crate::data::{DataArchetype, DataWorld};
 use crate::generate::util::to_snake;
 
 use crate::parse::{
+    ParseCfgDecorated,
     ParseQueryFind, //.
     ParseQueryIter,
     ParseQueryIterDestroy,
@@ -28,11 +29,17 @@ pub enum FetchMode {
 #[allow(non_snake_case)]
 pub fn generate_query_find(
     mode: FetchMode, //.
-    query: ParseQueryFind,
+    query: ParseCfgDecorated<ParseQueryFind>,
 ) -> syn::Result<TokenStream> {
-    let world_data = DataWorld::from_base64(&query.world_data);
-    let bound_params = bind_query_params(&world_data, &query.params)?;
+    let mut query_data = query.inner;
+    let world_data = DataWorld::from_base64(&query_data.world_data);
 
+    // Precompute the cfg-enabled status of any parameter in the predicate.
+    for param in query_data.params.iter_mut() {
+        param.is_cfg_enabled = is_cfg_enabled(param, &query.cfg_lookup);
+    }
+
+    let bound_params = bind_query_params(&world_data, &query_data.params)?;
     // NOTE: Beyond this point, query.params is only safe to use for information that
     // does not change depending on the type of the parameter (e.g. mutability). Anything
     // that might change after OneOf binding etc. must use the bound query params in
@@ -46,28 +53,34 @@ pub fn generate_query_find(
         format_ident!("__ArchetypeSelectInternal{}", world_data.name);
 
     // Variables and fields
-    let world = &query.world;
-    let entity = &query.entity;
-    let body = &query.body;
-    let attributes = query.params.iter().map(to_attributes).collect::<Vec<_>>();
-    let arg = query.params.iter().map(to_name).collect::<Vec<_>>();
+    let world = &query_data.world;
+    let entity = &query_data.entity;
+    let body = &query_data.body;
+    let arg = query_data.params.iter().map(to_name).collect::<Vec<_>>();
+    let attrs = query_data
+        .params
+        .iter()
+        .map(to_attributes)
+        .collect::<Vec<_>>();
 
     // We want this to be hygenic because it's declared above the closure.
     let resolved_entity = quote_spanned!(Span::mixed_site() => entity);
 
     // Keywords
-    let maybe_mut = query.params.iter().map(to_maybe_mut).collect::<Vec<_>>();
+    let maybe_mut = query_data
+        .params
+        .iter()
+        .map(to_maybe_mut)
+        .collect::<Vec<_>>();
 
     // Explicit return value on the query
-    let ret = match &query.ret {
+    let ret = match &query_data.ret {
         Some(ret) => quote!(-> #ret),
         None => quote!(),
     };
 
     let mut queries = Vec::<TokenStream>::new();
     for archetype in world_data.archetypes {
-        debug_assert!(archetype.build_data.is_none());
-
         if let Some(bound_params) = bound_params.get(&archetype.name) {
             // Types and traits
             let Archetype = format_ident!("{}", archetype.name);
@@ -109,13 +122,13 @@ pub fn generate_query_find(
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
-                    let mut closure = |#(#attributes #arg: &#maybe_mut #Type),*| #ret #body;
+                    let mut closure = |#(#attrs #arg: &#maybe_mut #Type),*| #ret #body;
 
                     let archetype = #get_archetype;
                     let version = archetype.version();
 
                     if #let_resolve {
-                        Some(closure(#(#bind),*))
+                        Some(closure(#(#attrs #bind),*))
                     } else {
                         None
                     }
@@ -124,13 +137,13 @@ pub fn generate_query_find(
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
-                    let mut closure = |#(#attributes #arg: &#maybe_mut #Type),*| #ret #body;
+                    let mut closure = |#(#attrs #arg: &#maybe_mut #Type),*| #ret #body;
 
                     let archetype = #get_archetype;
                     let version = archetype.version();
 
                     if #let_resolve {
-                        Some(closure(#(#bind),*))
+                        Some(closure(#(#attrs #bind),*))
                     } else {
                         None
                     }
@@ -158,8 +171,7 @@ pub fn generate_query_find(
 
 #[rustfmt::skip]
 fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
-    let attributes = &param.attributes;
-    let arg = match &param.param_type {
+    match &param.param_type {
         ParseQueryParamType::Component(ident) => { 
             let ident = to_snake_ident(ident); quote!(view.#ident)
         }
@@ -184,15 +196,12 @@ fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
-    };
-
-    quote!(#(#attributes)* #arg)
+    }
 }
 
 #[rustfmt::skip]
 fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
-    let attributes = &param.attributes;
-    let arg = match &param.param_type {
+    match &param.param_type {
         ParseQueryParamType::Component(ident) => {
             match param.is_mut { 
                 true => quote!(&mut borrow.borrow_mut::<#ident>()),
@@ -220,19 +229,23 @@ fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
-    };
-
-    quote!(#(#attributes)* #arg)
+    }
 }
 
 #[allow(non_snake_case)]
 pub fn generate_query_iter(
     mode: FetchMode, //.
-    query: ParseQueryIter,
+    query: ParseCfgDecorated<ParseQueryIter>,
 ) -> syn::Result<TokenStream> {
-    let world_data = DataWorld::from_base64(&query.world_data);
-    let bound_params = bind_query_params(&world_data, &query.params)?;
+    let mut query_data = query.inner;
+    let world_data = DataWorld::from_base64(&query_data.world_data);
 
+    // Precompute the cfg-enabled status of any parameter in the predicate.
+    for param in query_data.params.iter_mut() {
+        param.is_cfg_enabled = is_cfg_enabled(param, &query.cfg_lookup);
+    }
+
+    let bound_params = bind_query_params(&world_data, &query_data.params)?;
     // NOTE: Beyond this point, query.params is only safe to use for information that
     // does not change depending on the type of the parameter (e.g. mutability). Anything
     // that might change after OneOf binding etc. must use the bound query params in
@@ -242,18 +255,24 @@ pub fn generate_query_iter(
     // TODO PERF: We could avoid binding entirely if we know that the params have no OneOf.
 
     // Variables and fields
-    let world = &query.world;
-    let body = &query.body;
-    let attributes = query.params.iter().map(to_attributes).collect::<Vec<_>>();
-    let arg = query.params.iter().map(to_name).collect::<Vec<_>>();
+    let world = &query_data.world;
+    let body = &query_data.body;
+    let arg = query_data.params.iter().map(to_name).collect::<Vec<_>>();
+    let attrs = query_data
+        .params
+        .iter()
+        .map(to_attributes)
+        .collect::<Vec<_>>();
 
     // Special cases
-    let maybe_mut = query.params.iter().map(to_maybe_mut).collect::<Vec<_>>();
+    let maybe_mut = query_data
+        .params
+        .iter()
+        .map(to_maybe_mut)
+        .collect::<Vec<_>>();
 
     let mut queries = Vec::<TokenStream>::new();
     for archetype in world_data.archetypes {
-        debug_assert!(archetype.build_data.is_none());
-
         if let Some(bound_params) = bound_params.get(&archetype.name) {
             // Types and traits
             let Archetype = format_ident!("{}", archetype.name);
@@ -290,7 +309,7 @@ pub fn generate_query_iter(
                     // Alias the current archetype for use in the closure
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types
-                    let mut closure = |#(#attributes #arg: &#maybe_mut #Type),*| #body;
+                    let mut closure = |#(#attrs #arg: &#maybe_mut #Type),*| #body;
 
                     let archetype = #get_archetype;
                     let version = archetype.version();
@@ -298,7 +317,7 @@ pub fn generate_query_iter(
                     let slices = #get_slices;
 
                     for idx in 0..len {
-                        match closure(#(#bind),*).into() {
+                        match closure(#(#attrs #bind),*).into() {
                             EcsStep::Continue => {
                                 // Continue
                             },
@@ -320,7 +339,7 @@ pub fn generate_query_iter(
     } else {
         Ok(quote!(
             // Use a closure so we can use return to cancel other archetype iterations
-            (||{#(#queries)*})();
+            (||{#(#queries)*})()
         ))
     }
 }
@@ -328,11 +347,17 @@ pub fn generate_query_iter(
 #[allow(non_snake_case)]
 pub fn generate_query_iter_destroy(
     mode: FetchMode,
-    query: ParseQueryIterDestroy,
+    query: ParseCfgDecorated<ParseQueryIterDestroy>,
 ) -> syn::Result<TokenStream> {
-    let world_data = DataWorld::from_base64(&query.world_data);
-    let bound_params = bind_query_params(&world_data, &query.params)?;
+    let mut query_data = query.inner;
+    let world_data = DataWorld::from_base64(&query_data.world_data);
 
+    // Precompute the cfg-enabled status of any parameter in the predicate.
+    for param in query_data.params.iter_mut() {
+        param.is_cfg_enabled = is_cfg_enabled(param, &query.cfg_lookup);
+    }
+
+    let bound_params = bind_query_params(&world_data, &query_data.params)?;
     // NOTE: Beyond this point, query.params is only safe to use for information that
     // does not change depending on the type of the parameter (e.g. mutability). Anything
     // that might change after OneOf binding etc. must use the bound query params in
@@ -342,18 +367,24 @@ pub fn generate_query_iter_destroy(
     // TODO PERF: We could avoid binding entirely if we know that the params have no OneOf.
 
     // Variables and fields
-    let world = &query.world;
-    let body = &query.body;
-    let attributes = query.params.iter().map(to_attributes).collect::<Vec<_>>();
-    let arg = query.params.iter().map(to_name).collect::<Vec<_>>();
+    let world = &query_data.world;
+    let body = &query_data.body;
+    let arg = query_data.params.iter().map(to_name).collect::<Vec<_>>();
+    let attrs = query_data
+        .params
+        .iter()
+        .map(to_attributes)
+        .collect::<Vec<_>>();
 
     // Special cases
-    let maybe_mut = query.params.iter().map(to_maybe_mut).collect::<Vec<_>>();
+    let maybe_mut = query_data
+        .params
+        .iter()
+        .map(to_maybe_mut)
+        .collect::<Vec<_>>();
 
     let mut queries = Vec::<TokenStream>::new();
     for archetype in world_data.archetypes {
-        debug_assert!(archetype.build_data.is_none());
-
         if let Some(bound_params) = bound_params.get(&archetype.name) {
             // Types and traits
             let Archetype = format_ident!("{}", archetype.name);
@@ -390,7 +421,7 @@ pub fn generate_query_iter_destroy(
                     // Alias the current archetype for use in the closure
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types
-                    let mut closure = |#(#attributes #arg: &#maybe_mut #Type),*| #body;
+                    let mut closure = |#(#attrs #arg: &#maybe_mut #Type),*| #body;
 
                     let archetype = #get_archetype;
                     let version = archetype.version();
@@ -400,7 +431,7 @@ pub fn generate_query_iter_destroy(
                     // Note: This assumes that we remove entities by swapping.
                     for idx in (0..len).rev() {
                         let slices = #get_slices;
-                        match closure(#(#bind),*).into() {
+                        match closure(#(#attrs #bind),*).into() {
                             EcsStepDestroy::Continue => {
                                 // Continue
                             },
@@ -431,15 +462,14 @@ pub fn generate_query_iter_destroy(
     } else {
         Ok(quote!(
             // Use a closure so we can use return to cancel other archetype iterations
-            (||{#(#queries)*})();
+            (||{#(#queries)*})()
         ))
     }
 }
 
 #[rustfmt::skip]
 fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
-    let attributes = &param.attributes;
-    let arg = match &param.param_type {
+    match &param.param_type {
         ParseQueryParamType::Component(ident) => { 
             let ident = to_snake_ident(ident); 
             match param.is_mut { 
@@ -468,15 +498,12 @@ fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
-    };
-
-    quote!(#(#attributes)* #arg)
+    }
 }
 
 #[rustfmt::skip]
 fn iter_bind_borrow(param: &ParseQueryParam) -> TokenStream {
-    let attributes = &param.attributes;
-    let arg = match &param.param_type {
+    match &param.param_type {
         ParseQueryParamType::Component(ident) => {
             match param.is_mut { 
                 true => quote!(&mut archetype.borrow_slice_mut::<#ident>()[idx]),
@@ -504,14 +531,7 @@ fn iter_bind_borrow(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
-    };
-
-    quote!(#(#attributes)* #arg)
-}
-
-fn to_attributes(param: &ParseQueryParam) -> TokenStream {
-    let attributes = &param.attributes;
-    quote!(#(#attributes)*)
+    }
 }
 
 fn to_name(param: &ParseQueryParam) -> TokenStream {
@@ -549,10 +569,28 @@ fn to_snake_str(name: &String) -> String {
     name.from_case(Case::Pascal).to_case(Case::Snake)
 }
 
+fn to_attributes(param: &ParseQueryParam) -> TokenStream {
+    let mut attrs = TokenStream::new();
+    for cfg in param.cfgs.iter() {
+        let predicate = &cfg.predicate;
+        attrs.extend(quote!(#[cfg(#predicate)]));
+    }
+    attrs
+}
+
+fn is_cfg_enabled(param: &ParseQueryParam, cfg_lookup: &HashMap<String, bool>) -> bool {
+    for cfg in param.cfgs.iter() {
+        if *cfg_lookup.get(&cfg.predicate.to_string()).unwrap() == false {
+            return false;
+        }
+    }
+    return true;
+}
+
 fn bind_query_params(
     world_data: &DataWorld,
     params: &[ParseQueryParam],
-) -> syn::Result<HashMap<String, Box<[ParseQueryParam]>>> {
+) -> syn::Result<HashMap<String, Vec<ParseQueryParam>>> {
     let mut result = HashMap::new();
     let mut bound = Vec::new();
 
@@ -574,34 +612,42 @@ fn bind_query_params(
                     bound.push(param.clone()); // Always matches
                 }
                 ParseQueryParamType::Component(name) => {
-                    if archetype.contains_component(name) {
+                    if param.is_cfg_enabled == false || archetype.contains_component(name) {
                         bound.push(param.clone());
                     } else {
                         continue; // No need to check more
                     }
                 }
                 ParseQueryParamType::Entity(name) => {
-                    if archetype.name == name.to_string() {
+                    if param.is_cfg_enabled == false || archetype.name == name.to_string() {
                         bound.push(param.clone());
                     } else {
                         continue; // No need to check more
                     }
                 }
                 ParseQueryParamType::EntityRaw(name) => {
-                    if archetype.name == name.to_string() {
+                    if param.is_cfg_enabled == false || archetype.name == name.to_string() {
                         bound.push(param.clone());
                     } else {
                         continue; // No need to check more
                     }
                 }
                 ParseQueryParamType::OneOf(args) => {
+                    if param.cfgs.len() > 0 {
+                        return Err(syn::Error::new(
+                            param.name.span(),
+                            "cfg attributes not currently supported on OneOf",
+                        ));
+                    }
+
                     if let Some(found) = bind_one_of(archetype, args)? {
                         // Convert this to a new Component type
                         bound.push(ParseQueryParam {
-                            attributes: param.attributes.clone(),
+                            cfgs: param.cfgs.clone(),
                             name: param.name.clone(),
                             is_mut: param.is_mut,
                             param_type: found,
+                            is_cfg_enabled: param.is_cfg_enabled,
                         });
                     } else {
                         continue; // No need to check more
@@ -612,7 +658,7 @@ fn bind_query_params(
 
         // Did we remap everything?
         if bound.len() == params.len() {
-            result.insert(archetype.name.clone(), bound.clone().into_boxed_slice());
+            result.insert(archetype.name.clone(), bound.clone());
         }
     }
 
