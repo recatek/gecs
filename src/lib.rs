@@ -382,7 +382,8 @@ mod macros {
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
     /// - `&EntityRaw<A>`/`EntityRawAny`: As above, but using raw handles to the direct position
     ///   of the entity in its archetype. This can accelerate lookup, but may be invalidated
-    ///   if the archetype changes. See [`EntityRawAny`] for more information.
+    ///   if the archetype changes. See [`EntityRawAny`](crate::entity::EntityRawAny) for more
+    ///   information.
     /// - `&Entity<_>`/`&EntityRaw<_>`: When used with the special `_` wildcard, each execution
     ///   of this query will return a typed (raw) entity handle for the exact archetype matched
     ///   for this specific execution. This can be used to optimize switched behavior by type.
@@ -518,7 +519,8 @@ mod macros {
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
     /// - `&EntityRaw<A>`/`EntityRawAny`: As above, but using raw handles to the direct position
     ///   of the entity in its archetype. This can accelerate lookup, but may be invalidated
-    ///   if the archetype changes. See [`EntityRawAny`] for more information.
+    ///   if the archetype changes. See [`EntityRawAny`](crate::entity::EntityRawAny) for more
+    ///   information.
     /// - `&Entity<_>`/`&EntityRaw<_>`: When used with the special `_` wildcard, each execution
     ///   of this query will return a typed (raw) entity handle for the exact archetype matched
     ///   for this specific execution. This can be used to optimize switched behavior by type.

@@ -231,7 +231,7 @@ macro_rules! declare_storage_dynamic_n {
                 where
                     Self: StorageCanResolve<K>
                 {
-                    if let Some(index) = <Self as StorageCanResolve<K>>::resolve_for(self, entity) {
+                    if let Some(index) = self.resolve(entity) {
                         Some($borrow { index, source: self })
                     } else {
                         None
@@ -275,7 +275,7 @@ macro_rules! declare_storage_dynamic_n {
                 where
                     Self: StorageCanResolve<K>
                 {
-                    if let Some(index) = <Self as StorageCanResolve<K>>::resolve_for(self, entity) {
+                    if let Some(index) = self.resolve(entity) {
                         unsafe {
                             // SAFETY: We guarantee that if we successfully resolve, then index < self.len.
                             // SAFETY: We guarantee that the storage is valid up to self.len.
