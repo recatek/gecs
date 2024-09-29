@@ -166,17 +166,21 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             #(
                 impl WorldHas<#Archetype> for #World {
                     #[inline(always)]
-                    fn resolve_create(&mut self, data: <#Archetype as Archetype>::Components)
-                        -> Entity<#Archetype>
+                    fn resolve_create(
+                        &mut self,
+                        data: <#Archetype as Archetype>::Components,
+                    ) -> Entity<#Archetype>
                     {
                         self.#archetype.create(data)
                     }
 
                     #[inline(always)]
-                    fn resolve_try_create(&mut self, data: <#Archetype as Archetype>::Components)
-                        -> Option<Entity<#Archetype>>
+                    fn resolve_create_within_capacity(
+                        &mut self,
+                        data: <#Archetype as Archetype>::Components,
+                    ) -> Result<Entity<#Archetype>, <#Archetype as Archetype>::Components>
                     {
-                        self.#archetype.try_create(data)
+                        self.#archetype.create_within_capacity(data)
                     }
 
                     #[inline(always)]
@@ -597,30 +601,31 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 self.data.version()
             }
 
-            /// Creates a new entity with the given components in the archetype, if there's room.
-            ///
-            /// Returns a handle for accessing the new entity.
+            /// Creates a new entity with the given components to this archetype storage.
+            /// Returns a typed entity handle pointing to the new entity in the archetype.
             ///
             /// # Panics
             ///
-            /// Panics if the archetype is full. For a panic-free version, use `try_create`.
+            /// Panics if the archetype can no longer expand to accommodate the new data.
             #[inline(always)]
             pub fn create(
                 &mut self,
-                data: (#(#Component,)*)
+                data: (#(#Component,)*),
             ) -> Entity<#Archetype> {
-                self.data.try_push(data).expect("failed to push to full archetype")
+                self.data.push(data)
             }
 
-            /// Creates a new entity with the given components in the archetype, if there's room.
+            /// Creates a new entity if there is sufficient spare capacity to store it.
+            /// Returns a typed entity handle pointing to the new entity in the archetype.
             ///
-            /// Returns a handle for accessing the new entity, or `None` if the archetype is full.
+            /// Unlike `create` this method will not reallocate when there is insufficient
+            /// capacity. Instead, it will return an error along with given components.
             #[inline(always)]
-            pub fn try_create(
+            pub fn create_within_capacity(
                 &mut self,
-                data: (#(#Component,)*)
-            ) -> Option<Entity<#Archetype>> {
-                self.data.try_push(data)
+                data: (#(#Component,)*),
+            ) -> Result<Entity<#Archetype>, (#(#Component,)*)> {
+                self.data.push_within_capacity(data)
             }
 
             /// If the entity exists in the archetype, this returns its dense data slice index.

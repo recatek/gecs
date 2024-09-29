@@ -9,30 +9,37 @@ use crate::entity::{ArchetypeId, Entity, EntityRaw};
 /// The `World` trait should be implemented only by the `ecs_world!` macro.
 /// This is not intended for manual implementation by any user data structures.
 pub trait World: Sized {
-    /// Creates a new entity with the given components in the archetype, if there's room.
-    ///
-    /// Returns a handle for accessing the new entity.
+    /// Creates a new entity with the given components to this archetype storage.
+    /// Returns a typed entity handle pointing to the new entity in the archetype.
     ///
     /// # Panics
     ///
-    /// Panics if the archetype is full. For a panic-free version, use `try_create`.
+    /// Panics if the archetype can no longer expand to accommodate the new data.
     #[inline(always)]
-    fn create<A: Archetype>(&mut self, components: A::Components) -> Entity<A>
+    fn create<A: Archetype>(
+        &mut self, //.
+        components: A::Components,
+    ) -> Entity<A>
     where
         Self: WorldHas<A>,
     {
         <Self as WorldHas<A>>::resolve_create(self, components)
     }
 
-    /// Creates a new entity with the given components in the archetype, if there's room.
+    /// Creates a new entity if there is sufficient spare capacity to store it.
+    /// Returns a typed entity handle pointing to the new entity in the archetype.
     ///
-    /// Returns a handle for accessing the new entity, or `None` if the archetype is full.
+    /// Unlike `create` this method will not reallocate when there is insufficient
+    /// capacity. Instead, it will return an error along with given components.
     #[inline(always)]
-    fn try_create<A: Archetype>(&mut self, components: A::Components) -> Option<Entity<A>>
+    fn create_within_capacity<A: Archetype>(
+        &mut self, //.
+        components: A::Components,
+    ) -> Result<Entity<A>, A::Components>
     where
         Self: WorldHas<A>,
     {
-        <Self as WorldHas<A>>::resolve_try_create(self, components)
+        <Self as WorldHas<A>>::resolve_create_within_capacity(self, components)
     }
 
     /// If the entity exists in the archetype, this destroys it.
@@ -196,9 +203,17 @@ where
 /// ```
 pub trait WorldHas<A: Archetype>: World {
     #[doc(hidden)]
-    fn resolve_create(&mut self, data: A::Components) -> Entity<A>;
+    fn resolve_create(
+        &mut self, //.
+        data: A::Components,
+    ) -> Entity<A>;
+
     #[doc(hidden)]
-    fn resolve_try_create(&mut self, data: A::Components) -> Option<Entity<A>>;
+    fn resolve_create_within_capacity(
+        &mut self, //.
+        data: A::Components,
+    ) -> Result<Entity<A>, A::Components>;
+
     #[doc(hidden)]
     fn resolve_destroy(&mut self, entity: Entity<A>) -> Option<A::Components>;
     #[doc(hidden)]

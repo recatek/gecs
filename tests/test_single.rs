@@ -307,3 +307,15 @@ pub fn test_single_destroy_replace() {
     assert!(ecs_find_borrow!(world, entity_3b, |v: &CompA| assert_eq!(v.0, 1003)).is_some());
     assert!(ecs_find_borrow!(world, entity_4b, |v: &CompA| assert_eq!(v.0, 1004)).is_some());
 }
+
+#[test]
+#[rustfmt::skip]
+pub fn test_within_capacity() {
+    let mut world = EcsWorld::with_capacity(EcsWorldCapacity { arch_foo: 2 });
+
+    assert!(world.create_within_capacity::<ArchFoo>((CompA(1), CompZ)).is_ok());
+    assert!(world.arch_foo.create_within_capacity((CompA(1), CompZ)).is_ok());
+
+    assert!(world.create_within_capacity::<ArchFoo>((CompA(1), CompZ)).is_err());
+    assert!(world.arch_foo.create_within_capacity((CompA(1), CompZ)).is_err());
+}

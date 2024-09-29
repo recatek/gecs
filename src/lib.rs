@@ -198,9 +198,9 @@ mod macros {
     ///         arch_baz: 5,
     ///     });
     ///
-    ///     // Create an ArchFoo entity in the world and unwrap the Option<Entity<ArchFoo>>.
-    ///     // Alternatively, we could use .create(), which will panic if the archetype is full.
-    ///     let entity_a = world.try_create::<ArchFoo>((CompA(0), CompB(1))).unwrap();
+    ///     // Create an ArchFoo entity in the world, which returns an Entity<ArchFoo>.
+    ///     let entity_a = world.create::<ArchFoo>((CompA(0), CompB(1)));
+    ///     // See create_within_capacity for another option that avoids resizing the storage.
     ///
     ///     // The length of the archetype should now be 1.
     ///     assert_eq!(world.archetype::<ArchFoo>().len(), 1);

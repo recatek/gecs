@@ -92,10 +92,17 @@ macro_rules! declare_storage_dynamic_n {
                     self.version
                 }
 
-                /// Reserves a slot in the map pointing to the given dense index.
-                /// Returns an entity handle if successful, or None if we're full.
+                /// Adds a new entity with the given components to this storage.
+                /// Returns a typed entity handle pointing to the added element.
+                ///
+                /// # Panics
+                ///
+                /// Panics if the storage can no longer expand to accommodate the new data.
                 #[inline(always)]
-                pub fn try_push(&mut self, data: (#(T~I,)*)) -> Option<Entity<A>> {
+                pub fn push(
+                    &mut self,
+                    data: (#(T~I,)*),
+                ) -> Entity<A> {
                     debug_assert!(self.len <= self.capacity());
 
                     if self.len >= self.capacity() {
@@ -103,39 +110,33 @@ macro_rules! declare_storage_dynamic_n {
                         debug_assert!(self.free_head.is_free_end());
 
                         if self.grow() == false {
-                            return None; // Out of room to grow
+                            panic!("capacity overflow");
                         }
                     }
 
-                    unsafe {
-                        // SAFETY: We will never hit the the free list end if we're below capacity
-                        let slot_index = self.free_head.index_free().unwrap_unchecked();
-                        // SAFETY: We never let self.len be greater than MAX_DATA_CAPACITY.
-                        let dense_index = TrimmedIndex::new_usize(self.len).unwrap_unchecked();
+                    unsafe { self.force_push(data) }
+                }
 
-                        // SAFETY: We know that the slot storage is valid up to our capacity.
-                        let slots = self.slots.slice_mut(self.capacity());
-                        // SAFETY: We know this is not the end of the free list, and we know that
-                        // a free list slot index can never be assigned to an out of bounds value.
-                        let slot = slots.get_unchecked_mut(Into::<usize>::into(slot_index));
+                /// Adds a new entity if there is sufficient spare capacity to store it.
+                /// Returns a typed entity handle pointing to the added element.
+                ///
+                /// Unlike `push` this method will not reallocate when there is insufficient
+                /// capacity. Instead, it will return an error along with given components.
+                #[inline(always)]
+                pub fn push_within_capacity(
+                    &mut self,
+                    data: (#(T~I,)*),
+                ) -> Result<Entity<A>, (#(T~I,)*)> {
+                    debug_assert!(self.len <= self.capacity());
 
-                        // NOTE: Do not change the following order of operations!
-                        debug_assert!(slot.is_free());
-                        self.free_head = slot.index();
-                        slot.assign(dense_index);
-                        let entity = Entity::new(slot_index, slot.version());
-                        let index = self.len;
-                        self.len += 1;
+                    if self.len >= self.capacity() {
+                        // If we're full, we should also be at the end of the slot free list.
+                        debug_assert!(self.free_head.is_free_end());
 
-                        // SAFETY: We can't overflow because self.len < N.
-                        debug_checked_assume!(index < self.len);
-
-                        // SAFETY: We know that index < N and points to an empty cell.
-                        self.entities.write(index, entity);
-                        #(self.d~I.get_mut().write(index, data.I);)*
-
-                        Some(entity)
+                        return Err(data);
                     }
+
+                    Ok(unsafe { self.force_push(data) })
                 }
 
                 /// Removes the given entity from storage if it exists there.
@@ -436,6 +437,47 @@ macro_rules! declare_storage_dynamic_n {
 
                     // Success!
                     true
+                }
+
+                /// Force-pushes an entity's component into the storage and returns a handle.
+                ///
+                /// # Safety
+                ///
+                /// It is up to the caller to guarantee the following:
+                /// - The storage has enough allocated room for the data.
+                #[inline(always)]
+                unsafe fn force_push(&mut self, data: (#(T~I,)*)) -> Entity<A> {
+                    debug_assert!(self.len < self.capacity);
+
+                    unsafe {
+                        // SAFETY: We will never hit the the free list end if we're below capacity
+                        let slot_index = self.free_head.index_free().unwrap_unchecked();
+                        // SAFETY: We never let self.len be greater than MAX_DATA_CAPACITY.
+                        let dense_index = TrimmedIndex::new_usize(self.len).unwrap_unchecked();
+
+                        // SAFETY: We know that the slot storage is valid up to our capacity.
+                        let slots = self.slots.slice_mut(self.capacity());
+                        // SAFETY: We know this is not the end of the free list, and we know that
+                        // a free list slot index can never be assigned to an out of bounds value.
+                        let slot = slots.get_unchecked_mut(Into::<usize>::into(slot_index));
+
+                        // NOTE: Do not change the following order of operations!
+                        debug_assert!(slot.is_free());
+                        self.free_head = slot.index();
+                        slot.assign(dense_index);
+                        let entity = Entity::new(slot_index, slot.version());
+                        let index = self.len;
+                        self.len += 1;
+
+                        // SAFETY: We can't overflow because self.len < N.
+                        debug_checked_assume!(index < self.len);
+
+                        // SAFETY: We know that index < N and points to an empty cell.
+                        self.entities.write(index, entity);
+                        #(self.d~I.get_mut().write(index, data.I);)*
+
+                        entity
+                    }
                 }
             }
 

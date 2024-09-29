@@ -43,11 +43,11 @@ pub fn test_multi_create_direct() {
     world.archetype_mut::<ArchFoo>().create((CompA(3), CompB(13)));
     world.archetype_mut::<ArchFoo>().create((CompA(4), CompB(14)));
 
-    world.archetype_mut::<ArchBar>().try_create((CompA(5), CompC(15))).unwrap();
-    world.archetype_mut::<ArchBar>().try_create((CompA(6), CompC(16))).unwrap();
-    world.archetype_mut::<ArchBar>().try_create((CompA(7), CompC(17))).unwrap();
-    world.archetype_mut::<ArchBar>().try_create((CompA(8), CompC(18))).unwrap();
-    world.archetype_mut::<ArchBar>().try_create((CompA(9), CompC(19))).unwrap();
+    world.archetype_mut::<ArchBar>().create((CompA(5), CompC(15)));
+    world.archetype_mut::<ArchBar>().create((CompA(6), CompC(16)));
+    world.archetype_mut::<ArchBar>().create((CompA(7), CompC(17)));
+    world.archetype_mut::<ArchBar>().create((CompA(8), CompC(18)));
+    world.archetype_mut::<ArchBar>().create((CompA(9), CompC(19)));
 
     assert_eq!(world.archetype::<ArchFoo>().len(), 5);
     assert_eq!(world.archetype::<ArchBar>().len(), 5);
@@ -64,11 +64,11 @@ pub fn test_multi_create_indirect() {
     world.create::<ArchFoo>((CompA(3), CompB(13)));
     world.create::<ArchFoo>((CompA(4), CompB(14)));
 
-    world.try_create::<ArchBar>((CompA(5), CompC(15))).unwrap();
-    world.try_create::<ArchBar>((CompA(6), CompC(16))).unwrap();
-    world.try_create::<ArchBar>((CompA(7), CompC(17))).unwrap();
-    world.try_create::<ArchBar>((CompA(8), CompC(18))).unwrap();
-    world.try_create::<ArchBar>((CompA(9), CompC(19))).unwrap();
+    world.create::<ArchBar>((CompA(5), CompC(15)));
+    world.create::<ArchBar>((CompA(6), CompC(16)));
+    world.create::<ArchBar>((CompA(7), CompC(17)));
+    world.create::<ArchBar>((CompA(8), CompC(18)));
+    world.create::<ArchBar>((CompA(9), CompC(19)));
 
     assert_eq!(world.archetype::<ArchFoo>().len(), 5);
     assert_eq!(world.archetype::<ArchBar>().len(), 5);
@@ -85,11 +85,11 @@ pub fn test_multi_find() {
     let entity_3 = world.create::<ArchFoo>((CompA(3), CompB(13)));
     let entity_4 = world.create::<ArchFoo>((CompA(4), CompB(14)));
 
-    let entity_5 = world.try_create::<ArchBar>((CompA(5), CompC(15))).unwrap();
-    let entity_6 = world.try_create::<ArchBar>((CompA(6), CompC(16))).unwrap();
-    let entity_7 = world.try_create::<ArchBar>((CompA(7), CompC(17))).unwrap();
-    let entity_8 = world.try_create::<ArchBar>((CompA(8), CompC(18))).unwrap();
-    let entity_9 = world.try_create::<ArchBar>((CompA(9), CompC(19))).unwrap();
+    let entity_5 = world.create::<ArchBar>((CompA(5), CompC(15)));
+    let entity_6 = world.create::<ArchBar>((CompA(6), CompC(16)));
+    let entity_7 = world.create::<ArchBar>((CompA(7), CompC(17)));
+    let entity_8 = world.create::<ArchBar>((CompA(8), CompC(18)));
+    let entity_9 = world.create::<ArchBar>((CompA(9), CompC(19)));
 
     assert!(ecs_find!(world, entity_0, |v: &CompA| assert_eq!(v.0, 0)).is_some());
     assert!(ecs_find!(world, entity_1, |v: &CompA| assert_eq!(v.0, 1)).is_some());
@@ -460,11 +460,11 @@ pub fn test_multi_iter() {
     let _entity_3 = world.create::<ArchFoo>((CompA(3), CompB(13)));
     let _entity_4 = world.create::<ArchFoo>((CompA(4), CompB(14)));
 
-    let _entity_5 = world.try_create::<ArchBar>((CompA(5), CompC(15))).unwrap();
-    let _entity_6 = world.try_create::<ArchBar>((CompA(6), CompC(16))).unwrap();
-    let _entity_7 = world.try_create::<ArchBar>((CompA(7), CompC(17))).unwrap();
-    let _entity_8 = world.try_create::<ArchBar>((CompA(8), CompC(18))).unwrap();
-    let _entity_9 = world.try_create::<ArchBar>((CompA(9), CompC(19))).unwrap();
+    let _entity_5 = world.create::<ArchBar>((CompA(5), CompC(15)));
+    let _entity_6 = world.create::<ArchBar>((CompA(6), CompC(16)));
+    let _entity_7 = world.create::<ArchBar>((CompA(7), CompC(17)));
+    let _entity_8 = world.create::<ArchBar>((CompA(8), CompC(18)));
+    let _entity_9 = world.create::<ArchBar>((CompA(9), CompC(19)));
 
     let mut sum = 0;
     ecs_iter!(world, |v: &CompA| sum += v.0);
@@ -561,11 +561,11 @@ pub fn test_multi_iter_write() {
     let _entity_3 = world.create::<ArchFoo>((CompA(3), CompB(13)));
     let _entity_4 = world.create::<ArchFoo>((CompA(4), CompB(14)));
 
-    let _entity_5 = world.try_create::<ArchBar>((CompA(5), CompC(15))).unwrap();
-    let _entity_6 = world.try_create::<ArchBar>((CompA(6), CompC(16))).unwrap();
-    let _entity_7 = world.try_create::<ArchBar>((CompA(7), CompC(17))).unwrap();
-    let _entity_8 = world.try_create::<ArchBar>((CompA(8), CompC(18))).unwrap();
-    let _entity_9 = world.try_create::<ArchBar>((CompA(9), CompC(19))).unwrap();
+    let _entity_5 = world.create::<ArchBar>((CompA(5), CompC(15)));
+    let _entity_6 = world.create::<ArchBar>((CompA(6), CompC(16)));
+    let _entity_7 = world.create::<ArchBar>((CompA(7), CompC(17)));
+    let _entity_8 = world.create::<ArchBar>((CompA(8), CompC(18)));
+    let _entity_9 = world.create::<ArchBar>((CompA(9), CompC(19)));
 
     ecs_iter!(world, |v: &mut CompA| v.0 += 100);
     ecs_iter!(world, |v: &mut CompB| v.0 += 100);
@@ -666,11 +666,11 @@ pub fn test_multi_replace() {
     let entity_3 = world.create::<ArchFoo>((CompA(3), CompB(13)));
     let entity_4 = world.create::<ArchFoo>((CompA(4), CompB(14)));
 
-    let entity_5 = world.try_create::<ArchBar>((CompA(5), CompC(15))).unwrap();
-    let entity_6 = world.try_create::<ArchBar>((CompA(6), CompC(16))).unwrap();
-    let entity_7 = world.try_create::<ArchBar>((CompA(7), CompC(17))).unwrap();
-    let entity_8 = world.try_create::<ArchBar>((CompA(8), CompC(18))).unwrap();
-    let entity_9 = world.try_create::<ArchBar>((CompA(9), CompC(19))).unwrap();
+    let entity_5 = world.create::<ArchBar>((CompA(5), CompC(15)));
+    let entity_6 = world.create::<ArchBar>((CompA(6), CompC(16)));
+    let entity_7 = world.create::<ArchBar>((CompA(7), CompC(17)));
+    let entity_8 = world.create::<ArchBar>((CompA(8), CompC(18)));
+    let entity_9 = world.create::<ArchBar>((CompA(9), CompC(19)));
 
     assert_eq!(world.archetype::<ArchFoo>().len(), 5);
     assert_eq!(world.archetype::<ArchBar>().len(), 5);
