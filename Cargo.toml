@@ -17,6 +17,6 @@ default = []
 wrapping_version = []
 
 [dependencies]
-gecs_macros = { version = "0.3.0", path = "macros", default_features = false }
+gecs_macros = { version = "0.3.0", path = "macros", default-features = false }
 
 seq-macro = { version = "0.3.5" } # For building "variadic" storage

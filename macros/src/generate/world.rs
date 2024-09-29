@@ -354,7 +354,9 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                         #(
                             #Archetype::ARCHETYPE_ID => {
                                 // We can use from_any_unchecked because we just checked the archetype
-                                Ok(#ArchetypeSelectEntity::#Archetype(Entity::<#Archetype>::from_any_unchecked(entity)))
+                                Ok(#ArchetypeSelectEntity::#Archetype(
+                                    Entity::<#Archetype>::from_any_unchecked(entity))
+                                )
                             },
                         )*
                         _ => Err(EcsError::InvalidEntityType),
@@ -371,7 +373,9 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                         #(
                             #Archetype::ARCHETYPE_ID => {
                                 // We can use from_any_unchecked because we just checked the archetype
-                                Ok(#ArchetypeSelectEntityRaw::#Archetype(EntityRaw::<#Archetype>::from_any_unchecked(entity)))
+                                Ok(#ArchetypeSelectEntityRaw::#Archetype(
+                                    EntityRaw::<#Archetype>::from_any_unchecked(entity))
+                                )
                             },
                         )*
                         _ => Err(EcsError::InvalidEntityType),
@@ -388,7 +392,9 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                         #(
                             #Archetype::ARCHETYPE_ID => {
                                 // We can use from_any_unchecked because we just checked the archetype
-                                Ok(#ArchetypeSelectInternalWorld::#Archetype(Entity::<#Archetype>::from_any_unchecked(entity)))
+                                Ok(#ArchetypeSelectInternalWorld::#Archetype(
+                                    Entity::<#Archetype>::from_any_unchecked(entity)
+                                ))
                             },
                         )*
                         _ => Err(EcsError::InvalidEntityType),
@@ -405,7 +411,9 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                         #(
                             #Archetype::ARCHETYPE_ID => {
                                 // We can use from_any_unchecked because we just checked the archetype
-                                Ok(#ArchetypeSelectInternalWorld::#ArchetypeRaw(EntityRaw::<#Archetype>::from_any_unchecked(entity)))
+                                Ok(#ArchetypeSelectInternalWorld::#ArchetypeRaw(
+                                    EntityRaw::<#Archetype>::from_any_unchecked(entity))
+                                )
                             },
                         )*
                         _ => Err(EcsError::InvalidEntityType),
