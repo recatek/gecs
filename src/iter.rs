@@ -14,6 +14,18 @@ pub enum EcsStepDestroy {
     BreakDestroy,
 }
 
+impl EcsStepDestroy {
+    #[inline(always)]
+    pub fn is_destroy(&self) -> bool {
+        match self {
+            EcsStepDestroy::Continue => false,
+            EcsStepDestroy::Break => false,
+            EcsStepDestroy::ContinueDestroy => true,
+            EcsStepDestroy::BreakDestroy => true,
+        }
+    }
+}
+
 impl From<()> for EcsStep {
     #[inline(always)]
     fn from(_: ()) -> Self {
