@@ -179,7 +179,7 @@ fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
             quote!(view.entity)
         }
         ParseQueryParamType::EntityAny => {
-            quote!(view.entity.into())
+            quote!(&(*view.entity).into())
         }
         ParseQueryParamType::EntityWild => {
             quote!(view.entity)
@@ -212,7 +212,7 @@ fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
             quote!(borrow.entity())
         }
         ParseQueryParamType::EntityAny => {
-            quote!(borrow.entity().into())
+            quote!(&(*borrow.entity()).into())
         }
         ParseQueryParamType::EntityWild => {
             quote!(borrow.entity())
