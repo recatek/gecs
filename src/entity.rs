@@ -1,5 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
+use std::num::NonZeroU32;
 
 #[cfg(debug_assertions)]
 use std::fmt::{Debug, Formatter, Result as FmtResult};
@@ -169,6 +170,33 @@ impl EntityAny {
         let slot_index: u32 = slot_index.into();
         let key = (slot_index << ARCHETYPE_ID_BITS) | archetype_id;
         Self { key, version }
+    }
+
+    /// Creates a new entity handle from raw inner data. Useful for applications like FFI.
+    ///
+    /// # Safety
+    ///
+    /// Despite the use of raw unchecked values, this is still an inherently memory-safe
+    /// operation and produces a memory-safe handle. Entity access in gecs is validated
+    /// to prevent issues from bad raw entity creation and other bugs like using an entity
+    /// handle from a different ECS world. While altering the values in a key might cause
+    /// access to unexpected data, it won't cause access to uninitialized memory, invalid
+    /// entities, or result in other undefined behavior.
+    #[inline(always)]
+    pub fn from_raw(raw: (u32, u32)) -> Result<Self, EcsError> {
+        let (key, version) = raw;
+        // This really only checks that the version is nonzero. All other key/versions are "valid".
+        let version = SlotVersion::new(NonZeroU32::new(version).ok_or(EcsError::InvalidRawEntity)?);
+        Ok(Self { key, version })
+    }
+
+    /// Returns the raw inner data of this entity handle. Useful for applications like FFI.
+    ///
+    /// The data returned has no inherent value and should not be modified or reordered.
+    /// The only use for this data is for creating a handle using [`EntityAny::from_raw`].
+    #[inline(always)]
+    pub fn raw(&self) -> (u32, u32) {
+        (self.key, self.version.get().get())
     }
 
     #[inline(always)]

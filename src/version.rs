@@ -19,6 +19,13 @@ pub struct ArchetypeVersion {
 
 impl SlotVersion {
     #[inline(always)]
+    pub(crate) fn new(version: NonZeroU32) -> Self {
+        Self {
+            version, // Direct set
+        }
+    }
+
+    #[inline(always)]
     pub(crate) fn start() -> Self {
         Self {
             version: VERSION_START,
