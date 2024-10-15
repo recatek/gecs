@@ -84,7 +84,7 @@ pub fn generate_query_find(
         if let Some(bound_params) = bound_params.get(&archetype.name) {
             // Types and traits
             let Archetype = format_ident!("{}", archetype.name);
-            let ArchetypeRaw = format_ident!("{}Raw", archetype.name);
+            let ArchetypeDirect = format_ident!("{}Direct", archetype.name);
             let Type = bound_params
                 .iter()
                 .map(|p| to_type(p, &archetype))
@@ -133,7 +133,7 @@ pub fn generate_query_find(
                         None
                     }
                 }
-                #ArchetypeSelectInternalWorld::#ArchetypeRaw(#resolved_entity) => {
+                #ArchetypeSelectInternalWorld::#ArchetypeDirect(#resolved_entity) => {
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
@@ -184,14 +184,14 @@ fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::EntityWild => {
             quote!(view.entity)
         }
-        ParseQueryParamType::EntityRaw(_) => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(view.index(), version))
+        ParseQueryParamType::EntityDirect(_) => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(view.index(), version))
         }
-        ParseQueryParamType::EntityRawAny => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(view.index(), version).into())
+        ParseQueryParamType::EntityDirectAny => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(view.index(), version).into())
         }
-        ParseQueryParamType::EntityRawWild => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(view.index(), version))
+        ParseQueryParamType::EntityDirectWild => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(view.index(), version))
         }
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
@@ -217,14 +217,14 @@ fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::EntityWild => {
             quote!(borrow.entity())
         }
-        ParseQueryParamType::EntityRaw(_) => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(borrow.index(), version))
+        ParseQueryParamType::EntityDirect(_) => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(borrow.index(), version))
         }
-        ParseQueryParamType::EntityRawAny => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(borrow.index(), version).into())
+        ParseQueryParamType::EntityDirectAny => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(borrow.index(), version).into())
         }
-        ParseQueryParamType::EntityRawWild => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(borrow.index(), version))
+        ParseQueryParamType::EntityDirectWild => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(borrow.index(), version))
         }
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
@@ -486,14 +486,14 @@ fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::EntityWild => {
             quote!(&slices.entity[idx])
         }
-        ParseQueryParamType::EntityRaw(_) => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+        ParseQueryParamType::EntityDirect(_) => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version))
         }
-        ParseQueryParamType::EntityRawAny => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version).into())
+        ParseQueryParamType::EntityDirectAny => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version).into())
         }
-        ParseQueryParamType::EntityRawWild => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+        ParseQueryParamType::EntityDirectWild => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version))
         }
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
@@ -519,14 +519,14 @@ fn iter_bind_borrow(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::EntityWild => {
             quote!(&archetype.get_slice_entities()[idx])
         }
-        ParseQueryParamType::EntityRaw(_) => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+        ParseQueryParamType::EntityDirect(_) => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version))
         }
-        ParseQueryParamType::EntityRawAny => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version).into())
+        ParseQueryParamType::EntityDirectAny => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version).into())
         }
-        ParseQueryParamType::EntityRawWild => {
-            quote!(&::gecs::__internal::new_entity_raw::<MatchedArchetype>(idx, version))
+        ParseQueryParamType::EntityDirectWild => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version))
         }
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
@@ -547,9 +547,9 @@ fn to_type(param: &ParseQueryParam, archetype: &DataArchetype) -> TokenStream {
         ParseQueryParamType::Entity(ident) => quote!(Entity<#ident>),
         ParseQueryParamType::EntityAny => quote!(EntityAny),
         ParseQueryParamType::EntityWild => quote!(Entity<#archetype_name>),
-        ParseQueryParamType::EntityRaw(ident) => quote!(EntityRaw<#ident>),
-        ParseQueryParamType::EntityRawAny => quote!(EntityRawAny),
-        ParseQueryParamType::EntityRawWild => quote!(EntityRaw<#archetype_name>),
+        ParseQueryParamType::EntityDirect(ident) => quote!(EntityDirect<#ident>),
+        ParseQueryParamType::EntityDirectAny => quote!(EntityDirectAny),
+        ParseQueryParamType::EntityDirectWild => quote!(EntityDirect<#archetype_name>),
         ParseQueryParamType::OneOf(_) => panic!("must unpack OneOf first"),
     }
 }
@@ -602,13 +602,13 @@ fn bind_query_params(
                 ParseQueryParamType::EntityAny => {
                     bound.push(param.clone()); // Always matches
                 }
-                ParseQueryParamType::EntityRawAny => {
+                ParseQueryParamType::EntityDirectAny => {
                     bound.push(param.clone()); // Always matches
                 }
                 ParseQueryParamType::EntityWild => {
                     bound.push(param.clone()); // Always matches
                 }
-                ParseQueryParamType::EntityRawWild => {
+                ParseQueryParamType::EntityDirectWild => {
                     bound.push(param.clone()); // Always matches
                 }
                 ParseQueryParamType::Component(name) => {
@@ -625,7 +625,7 @@ fn bind_query_params(
                         continue; // No need to check more
                     }
                 }
-                ParseQueryParamType::EntityRaw(name) => {
+                ParseQueryParamType::EntityDirect(name) => {
                     if param.is_cfg_enabled == false || archetype.name == name.to_string() {
                         bound.push(param.clone());
                     } else {

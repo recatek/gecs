@@ -11,7 +11,7 @@ use crate::archetype::iter::*;
 use crate::archetype::slices::*;
 use crate::archetype::slot::{Slot, SlotIndex};
 use crate::archetype::view::*;
-use crate::entity::{Entity, EntityRaw};
+use crate::entity::{Entity, EntityDirect};
 use crate::index::{TrimmedIndex, MAX_DATA_CAPACITY};
 use crate::traits::{Archetype, EntityKey, StorageCanResolve};
 use crate::util::{debug_checked_assume, num_assert_leq};
@@ -503,9 +503,9 @@ macro_rules! declare_storage_dynamic_n {
                 }
             }
 
-            impl<A: Archetype, #(T~I,)*> StorageCanResolve<EntityRaw<A>> for $name<A, #(T~I,)*> {
+            impl<A: Archetype, #(T~I,)*> StorageCanResolve<EntityDirect<A>> for $name<A, #(T~I,)*> {
                 #[inline(always)]
-                fn resolve_for(&self, raw: EntityRaw<A>) -> Option<usize> {
+                fn resolve_for(&self, raw: EntityDirect<A>) -> Option<usize> {
                     let dense_index = raw.dense_index().into();
 
                     // We need to guarantee that the resulting index is in bounds.

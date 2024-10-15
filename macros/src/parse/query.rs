@@ -13,8 +13,8 @@ mod kw {
 
     syn::custom_keyword!(Entity);
     syn::custom_keyword!(EntityAny);
-    syn::custom_keyword!(EntityRaw);
-    syn::custom_keyword!(EntityRawAny);
+    syn::custom_keyword!(EntityDirect);
+    syn::custom_keyword!(EntityDirectAny);
     syn::custom_keyword!(OneOf);
 }
 
@@ -61,9 +61,9 @@ pub enum ParseQueryParamType {
     Entity(Ident),
     EntityAny,
     EntityWild, // Entity<_>
-    EntityRaw(Ident),
-    EntityRawAny,
-    EntityRawWild,
+    EntityDirect(Ident),
+    EntityDirectAny,
+    EntityDirectWild,
     OneOf(Box<[Ident]>),
 }
 
@@ -188,9 +188,9 @@ impl Parse for ParseQueryParam {
             ParseQueryParamType::Entity(_)
             | ParseQueryParamType::EntityAny
             | ParseQueryParamType::EntityWild
-            | ParseQueryParamType::EntityRaw(_)
-            | ParseQueryParamType::EntityRawAny
-            | ParseQueryParamType::EntityRawWild
+            | ParseQueryParamType::EntityDirect(_)
+            | ParseQueryParamType::EntityDirectAny
+            | ParseQueryParamType::EntityDirectWild
                 if is_mut =>
             {
                 Err(syn::Error::new(
@@ -230,21 +230,21 @@ impl Parse for ParseQueryParamType {
             } else {
                 Err(lookahead.error())
             }
-        } else if lookahead.peek(kw::EntityRaw) {
-            // EntityRaw<...>
-            input.parse::<kw::EntityRaw>()?;
+        } else if lookahead.peek(kw::EntityDirect) {
+            // EntityDirect<...>
+            input.parse::<kw::EntityDirect>()?;
             input.parse::<Lt>()?;
 
-            // EntityRaw<A> or EntityRaw<_>
+            // EntityDirect<A> or EntityDirect<_>
             let lookahead = input.lookahead1();
             if lookahead.peek(Token![_]) {
                 input.parse::<Token![_]>()?;
                 input.parse::<Gt>()?;
-                Ok(ParseQueryParamType::EntityRawWild)
+                Ok(ParseQueryParamType::EntityDirectWild)
             } else if lookahead.peek(Ident) {
                 let archetype = input.parse::<Ident>()?;
                 input.parse::<Gt>()?;
-                Ok(ParseQueryParamType::EntityRaw(archetype))
+                Ok(ParseQueryParamType::EntityDirect(archetype))
             } else {
                 Err(lookahead.error())
             }
@@ -252,10 +252,10 @@ impl Parse for ParseQueryParamType {
             // EntityAny
             input.parse::<kw::EntityAny>()?;
             Ok(ParseQueryParamType::EntityAny)
-        } else if lookahead.peek(kw::EntityRawAny) {
-            // EntityRawAny
-            input.parse::<kw::EntityRawAny>()?;
-            Ok(ParseQueryParamType::EntityRawAny)
+        } else if lookahead.peek(kw::EntityDirectAny) {
+            // EntityDirectAny
+            input.parse::<kw::EntityDirectAny>()?;
+            Ok(ParseQueryParamType::EntityDirectAny)
         } else if lookahead.peek(kw::OneOf) {
             // OneOf<A, B, C>
             input.parse::<kw::OneOf>()?;

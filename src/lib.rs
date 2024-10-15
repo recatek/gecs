@@ -360,8 +360,8 @@ mod macros {
     /// on it, if that entity is found in archetype storage. It takes the following arguments:
     ///
     /// - `world`: The world (as an expression) that you want to query.
-    /// - `entity`: The entity handle you want to look up. May be an `Entity<A>`, `EntityRaw<A>`,
-    ///   `EntityAny`, or `EntityRawAny` handle.
+    /// - `entity`: The entity handle you want to look up. May be an `Entity<A>`, `EntityDirect<A>`,
+    ///   `EntityAny`, or `EntityDirectAny` handle.
     /// - `|comp_a: &CompA, comp_b: &mut CompB, ...| { ... }`: A closure containing the operation
     ///   to perform on the current entity's data. The parameters of the closure determine what
     ///   components for the entity that this query will access and how. Any component can be
@@ -380,12 +380,12 @@ mod macros {
     /// - `&Entity<A>`/`&EntityAny`: Returns the current entity being accessed by the closure.
     ///   This is somewhat redundant for `ecs_find!` queries, but useful for `ecs_iter!` loops.
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
-    /// - `&EntityRaw<A>`/`EntityRawAny`: As above, but using raw handles to the direct position
+    /// - `&EntityDirect<A>`/`EntityDirectAny`: As above, but using direct handles to the position
     ///   of the entity in its archetype. This can accelerate lookup, but may be invalidated
-    ///   if the archetype changes. See [`EntityRawAny`](crate::entity::EntityRawAny) for more
+    ///   if the archetype changes. See [`EntityDirectAny`](crate::entity::EntityDirectAny) for more
     ///   information.
-    /// - `&Entity<_>`/`&EntityRaw<_>`: When used with the special `_` wildcard, each execution
-    ///   of this query will return a typed (raw) entity handle for the exact archetype matched
+    /// - `&Entity<_>`/`&EntityDirect<_>`: When used with the special `_` wildcard, each execution
+    ///   of this query will return a typed (direct) entity handle for the exact archetype matched
     ///   for this specific execution. This can be used to optimize switched behavior by type.
     /// - `&OneOf<A, B, ...>` or `&mut OneOf<A, B, ...>`: See [`OneOf`](crate::OneOf).
     ///
@@ -517,12 +517,12 @@ mod macros {
     /// - `&Entity<A>`/`&EntityAny`: Returns the current entity being accessed by the closure.
     ///   This is somewhat redundant for `ecs_find!` queries, but useful for `ecs_iter!` loops.
     ///   Note that this is always read-only -- the entity can never be accessed mutably.
-    /// - `&EntityRaw<A>`/`EntityRawAny`: As above, but using raw handles to the direct position
+    /// - `&EntityDirect<A>`/`EntityDirectAny`: As above, but using direct handles to the position
     ///   of the entity in its archetype. This can accelerate lookup, but may be invalidated
-    ///   if the archetype changes. See [`EntityRawAny`](crate::entity::EntityRawAny) for more
+    ///   if the archetype changes. See [`EntityDirectAny`](crate::entity::EntityDirectAny) for more
     ///   information.
-    /// - `&Entity<_>`/`&EntityRaw<_>`: When used with the special `_` wildcard, each execution
-    ///   of this query will return a typed (raw) entity handle for the exact archetype matched
+    /// - `&Entity<_>`/`&EntityDirect<_>`: When used with the special `_` wildcard, each execution
+    ///   of this query will return a typed (direct) entity handle for the exact archetype matched
     ///   for this specific execution. This can be used to optimize switched behavior by type.
     /// - `&OneOf<A, B, ...>` or `&mut OneOf<A, B, ...>`: See [`OneOf`](crate::OneOf).
     ///
@@ -748,7 +748,7 @@ pub mod prelude {
 
     pub use gecs_macros::{ecs_component_id, ecs_world};
 
-    pub use entity::{ArchetypeId, Entity, EntityAny, EntityRaw, EntityRawAny};
+    pub use entity::{ArchetypeId, Entity, EntityAny, EntityDirect, EntityDirectAny};
 
     pub use iter::{EcsStepDestroy, EcsStep};
 

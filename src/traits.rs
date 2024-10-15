@@ -1,6 +1,6 @@
 use std::cell::{Ref, RefMut};
 
-use crate::entity::{ArchetypeId, Entity, EntityRaw};
+use crate::entity::{ArchetypeId, Entity, EntityDirect};
 
 /// The base trait for an ECS world in gecs.
 ///
@@ -90,7 +90,7 @@ pub trait Archetype
 where
     Self: Sized,
     for<'a> Self: ArchetypeCanResolve<'a, Self::View<'a>, Entity<Self>>,
-    for<'a> Self: ArchetypeCanResolve<'a, Self::View<'a>, EntityRaw<Self>>,
+    for<'a> Self: ArchetypeCanResolve<'a, Self::View<'a>, EntityDirect<Self>>,
 {
     /// A unique type ID assigned to this archetype in generation.
     const ARCHETYPE_ID: ArchetypeId;
@@ -356,7 +356,7 @@ pub trait WorldCanResolve<K: EntityKey> {
 
 /// Trait promising that a given archetype can resolve a type of entity key.
 ///
-/// This is implemented for `EntityAny`, `EntityRawAny`, `Entity<A>`, and `EntityRaw<A>`.
+/// This is implemented for `EntityAny`, `EntityDirectAny`, `Entity<A>`, and `EntityDirect<A>`.
 pub trait ArchetypeCanResolve<'a, View, K: EntityKey> {
     #[doc(hidden)]
     fn resolve_for(&self, entity: K) -> Option<usize>;
