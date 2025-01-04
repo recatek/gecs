@@ -365,7 +365,7 @@ pub trait ArchetypeCanResolve<'a, View, K: EntityKey> {
 }
 
 #[doc(hidden)]
-pub trait EntityKey {
+pub trait EntityKey: Clone + Copy {
     type DestroyOutput;
 }
 
