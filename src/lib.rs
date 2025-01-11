@@ -150,9 +150,10 @@ mod macros {
     ///   count up sequentially from the last value, similar to enum discriminants. No two
     ///   archetypes may have the same archetype ID (this is compiler-enforced).
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
+    /// # #![allow(unexpected_cfgs)]
     /// use gecs::prelude::*;
     ///
     /// // Components must be `pub`, as the ECS world will re-export them in its archetypes.
@@ -287,7 +288,7 @@ mod macros {
     /// Like enum discriminants, components without this attribute will count up from the last
     /// manually set ID.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```rust
     /// use gecs::prelude::*;
@@ -393,7 +394,7 @@ mod macros {
     /// matched archetype being accessed during this execution of the closure. This can be used
     /// for generic operations.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use gecs::prelude::*;
@@ -451,7 +452,7 @@ mod macros {
     /// [`std::cell::RefCell`] operations, and will panic if you attempt to mutably borrow an
     /// archetype's component row while any other borrow is currently active.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use gecs::prelude::*;
@@ -530,7 +531,7 @@ mod macros {
     /// matched archetype being accessed during this execution of the closure. This can be used
     /// for generic operations.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use gecs::prelude::*;
@@ -600,7 +601,7 @@ mod macros {
     /// [`std::cell::RefCell`] operations, and will panic if you attempt to mutably borrow an
     /// archetype's component row while any other borrow is currently active.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// See the example for [`ecs_find_borrow!`].
     #[cfg(doc)]
@@ -623,7 +624,7 @@ mod macros {
     /// Note that performing an early-out break will end the iteration for all archetypes. This
     /// can have unpredictable order, and is recommended only for searching for single entities.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use gecs::prelude::*;
@@ -692,7 +693,7 @@ mod macros {
 /// only has meaning within an ECS query closure when parsed by the operation macro. It is
 /// presented here as a standalone struct for documentation purposes only.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```rust
 /// use gecs::prelude::*;

@@ -1,6 +1,10 @@
 use std::cell::{Ref, RefMut};
 
 use crate::entity::{ArchetypeId, Entity, EntityDirect};
+use crate::version::ArchetypeVersion;
+
+#[cfg(doc)]
+use crate::entity::{EntityAny, EntityDirectAny};
 
 /// The base trait for an ECS world in gecs.
 ///
@@ -9,6 +13,52 @@ use crate::entity::{ArchetypeId, Entity, EntityDirect};
 /// The `World` trait should be implemented only by the `ecs_world!` macro.
 /// This is not intended for manual implementation by any user data structures.
 pub trait World: Sized {
+    const NUM_ARCHETYPES: usize;
+
+    /// The capacity input builder struct type. Contains one usize for each archetype on init.
+    type Capacities;
+
+    /// Creates a new empty world.
+    ///
+    /// This will not immediately allocate. All archetypes will begin with 0 capacity.
+    fn new() -> Self;
+
+    /// Creates a new world with per-archetype capacities.
+    ///
+    /// This will allocate all archetypes to the given capacities (which may be zero).
+    /// If a given archetype capacity is 0, that archetype will not allocate until later.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if given a size that exceeds the maximum possible capacity
+    /// value for an archetype (currently `16,777,216`).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gecs::prelude::*;
+    ///
+    /// // Components -- these must be pub because the world is exported as pub as well.
+    /// pub struct CompA(pub u32);
+    /// pub struct CompB(pub u32);
+    /// pub struct CompC(pub u32);
+    ///
+    /// ecs_world! {
+    ///     // Declare two archetypes, ArchFoo and ArchBar.
+    ///     ecs_archetype!(ArchFoo, CompA, CompB);
+    ///     ecs_archetype!(ArchBar, CompA, CompC);
+    ///     ecs_archetype!(ArchBaz, CompB, CompC);
+    /// }
+    ///
+    /// fn main() {
+    ///     let world = EcsWorld::with_capacity(EcsWorldCapacity {
+    ///         arch_foo: 10,        // Initialize ArchFoo with capacity 10
+    ///         ..Default::default() // Leave the rest (ArchBar and ArchBaz) at capacity 0
+    ///     });
+    /// }
+    /// ```
+    fn with_capacity(capacity: Self::Capacities) -> Self;
+
     /// Creates a new entity with the given components to this archetype storage.
     /// Returns a typed entity handle pointing to the new entity in the archetype.
     ///
@@ -30,7 +80,9 @@ pub trait World: Sized {
     /// Returns a typed entity handle pointing to the new entity in the archetype.
     ///
     /// Unlike `create` this method will not reallocate when there is insufficient
-    /// capacity. Instead, it will return an error along with given components.
+    /// capacity. Instead, it will return an error and the input components for reuse.
+    ///
+    /// Based off of [Vec::push_within_capacity].
     #[inline(always)]
     fn create_within_capacity<A: Archetype>(
         &mut self, //.
@@ -42,17 +94,18 @@ pub trait World: Sized {
         <Self as WorldHas<A>>::resolve_create_within_capacity(self, components)
     }
 
-    /// If the entity exists in the archetype, this destroys it.
-    ///
-    /// This can be called with either `EntityAny` or `Entity<A>` (for some archetype `A`).
+    /// If the entity exists in the world, this destroys it.
     ///
     /// # Returns
     ///
-    /// If called on an `EntityAny`, this will return a `bool` -- `true` if the entity
-    /// found and was destroyed, or false otherwise.
+    /// This returns an `Option<(C0, C1, ..., Cn)>` where `(C0, C1, ..., Cn)` are the entity's
+    /// former (now removed) components. A `Some` result means the entity was found and destroyed.
+    /// A `None` result means the given entity handle was invalid.
     ///
-    /// If called on an `Entity<A>`, this will return an `Option<(C0, C1, ... CN)>` of the
-    /// destroyed entity's components if it was found and destroyed.
+    /// If called with [`EntityAny`] or [`EntityDirectAny`] this instead return `Option<()>` as the
+    /// return component type tuple can't be known at compile time. To get the components, convert
+    /// the any-type entity to a known type ahead of time using [`Entity::try_into()`] and the
+    /// resulting entity type selection enum.
     #[inline(always)]
     fn destroy<K: EntityKey>(&mut self, entity: K) -> K::DestroyOutput
     where
@@ -89,8 +142,8 @@ pub trait World: Sized {
 pub trait Archetype
 where
     Self: Sized,
-    for<'a> Self: ArchetypeCanResolve<'a, Self::View<'a>, Entity<Self>>,
-    for<'a> Self: ArchetypeCanResolve<'a, Self::View<'a>, EntityDirect<Self>>,
+    for<'a> Self: ArchetypeCanResolve<Entity<Self>>,
+    for<'a> Self: ArchetypeCanResolve<EntityDirect<Self>>,
 {
     /// A unique type ID assigned to this archetype in generation.
     const ARCHETYPE_ID: ArchetypeId;
@@ -98,24 +151,127 @@ where
     /// A tuple of the components in this archetype.
     type Components;
     /// The slices type when accessing all of this archetype's slices simultaneously.
-    type Slices<'a>;
+    type Slices<'a>
+    where
+        Self: 'a;
+
     /// The borrow type when performing sequential borrows of an entity's components.
-    type Borrow<'a>;
+    type Borrow<'a>
+    where
+        Self: 'a;
+
     /// The view type when accessing a single entity's components simultaneously.
     type View<'a>: View
     where
         Self: 'a;
 
-    #[doc(hidden)]
-    fn get_slice_entities(&self) -> &[Entity<Self>];
+    /// The arguments (references to components) when iterating.
+    type IterArgs<'a>
+    where
+        Self: 'a;
+
+    /// The arguments (mutable references to components) when mutably iterating.
+    type IterMutArgs<'a>
+    where
+        Self: 'a;
+
+    /// Constructs a new, empty archetype.
+    ///
+    /// If the archetype uses dynamic storage, this archetype will not allocate until
+    /// an entity is added to it. Otherwise, for static storage, the full capacity
+    /// will be allocated on creation of the archetype.
+    fn new() -> Self;
+
+    /// Constructs a new archetype pre-allocated to the given storage capacity.
+    ///
+    /// If the given capacity would result in zero size, this will not allocate.
+    fn with_capacity(capacity: usize) -> Self;
+
+    /// Returns the number of entities in the archetype, also referred to as its length.
+    fn len(&self) -> usize;
+
+    /// Returns the total number of elements the archetype can hold without reallocating.
+    /// If the archetype has fixed-sized storage, this is the absolute total capacity.
+    ///
+    /// Note that the archetype may not be able to me filled to its capacity if it has
+    /// had to orphan/leak entity slots due to generational index overflow.
+    fn capacity(&self) -> usize;
+
+    /// Returns `true` if the archetype contains no elements.
+    fn is_empty(&self) -> bool;
+
+    /// Returns the generational version of the archetype. Intended for internal use.
+    fn version(&self) -> ArchetypeVersion;
+
+    /// Creates a new entity with the given components to this archetype storage.
+    /// Returns a typed entity handle pointing to the new entity in the archetype.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the archetype can no longer expand to accommodate the new data.
+    fn create(&mut self, data: Self::Components) -> Entity<Self>;
+
+    /// Creates a new entity if there is sufficient spare capacity to store it.
+    /// Returns a typed entity handle pointing to the new entity in the archetype.
+    ///
+    /// Unlike `create` this method will not reallocate when there is insufficient
+    /// capacity. Instead, it will return an error along with given components.
+    fn create_within_capacity(
+        &mut self,
+        data: Self::Components,
+    ) -> Result<Entity<Self>, Self::Components>;
+
+    /// Returns an iterator over all of the entities and their data.
+    fn iter(&mut self) -> impl Iterator<Item = Self::IterArgs<'_>>;
+
+    /// Returns a mutable iterator over all of the entities and their data.
+    fn iter_mut(&mut self) -> impl Iterator<Item = Self::IterMutArgs<'_>>;
+
+    /// Returns mutable slices to all data for all entities in the archetype. To get the
+    /// data index for a specific entity using this function, use the `resolve` function.
+    fn get_all_slices_mut(&mut self) -> Self::Slices<'_>;
+
+    /// If the entity exists in the archetype, this returns its dense data slice index.
+    /// The returned index is guaranteed to be within bounds of the dense data slices.
+    #[inline(always)]
+    fn resolve<K: EntityKey>(&self, entity: K) -> Option<usize>
+    where
+        Self: ArchetypeCanResolve<K>,
+    {
+        <Self as ArchetypeCanResolve<K>>::resolve_for(self, entity)
+    }
 
     /// Returns a view containing mutable references to all of this entity's components.
     #[inline(always)]
-    fn view<'a, K: EntityKey>(&'a mut self, entity: K) -> Option<Self::View<'a>>
+    fn view<K: EntityKey>(&mut self, entity: K) -> Option<Self::View<'_>>
     where
-        Self: ArchetypeCanResolve<'a, Self::View<'a>, K>,
+        Self: ArchetypeCanResolve<K>,
     {
-        <Self as ArchetypeCanResolve<Self::View<'a>, K>>::resolve_view(self, entity)
+        <Self as ArchetypeCanResolve<K>>::resolve_view(self, entity)
+    }
+
+    /// Returns a view containing mutable references to all of this entity's components.
+    #[inline(always)]
+    fn borrow<K: EntityKey>(&self, entity: K) -> Option<Self::Borrow<'_>>
+    where
+        Self: ArchetypeCanResolve<K>,
+    {
+        <Self as ArchetypeCanResolve<K>>::resolve_borrow(self, entity)
+    }
+
+    /// If the entity exists in the archetype, this destroys it.
+    ///
+    /// # Returns
+    ///
+    /// This returns an `Option<(C0, C1, ..., Cn)>` where `(C0, C1, ..., Cn)` are the entity's
+    /// former (now removed) components. A `Some` result means the entity was found and destroyed.
+    /// A `None` result means the given entity handle was invalid.
+    #[inline(always)]
+    fn destroy<K: EntityKey>(&mut self, entity: K) -> Option<Self::Components>
+    where
+        Self: ArchetypeCanResolve<K>,
+    {
+        <Self as ArchetypeCanResolve<K>>::resolve_destroy(self, entity)
     }
 
     /// Gets the given slice of components from the archetype's dense data.
@@ -169,6 +325,9 @@ where
     {
         <Self as ArchetypeHas<C>>::resolve_borrow_slice_mut(self)
     }
+
+    #[doc(hidden)]
+    fn get_slice_entities(&self) -> &[Entity<Self>];
 }
 
 /// A trait promising that an ECS world has the given archetype.
@@ -180,7 +339,7 @@ where
 /// Note that macros like `ecs_iter!` do not currently support these kinds of generics.
 /// This is primarily an advanced feature as it requires manual ECS manipulation.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```
 /// use gecs::prelude::*;
@@ -231,7 +390,7 @@ pub trait WorldHas<A: Archetype>: World {
 /// Note that macros like `ecs_iter!` do not currently support these kinds of generics.
 /// This is primarily an advanced feature as it requires manual ECS manipulation.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```
 /// use gecs::prelude::*;
@@ -259,6 +418,8 @@ pub trait WorldHas<A: Archetype>: World {
 /// # fn main() {} // Not actually running anything here
 /// ```
 pub trait ArchetypeHas<C>: Archetype {
+    const COMPONENT_ID: u8;
+
     #[doc(hidden)]
     fn resolve_get_slice(&mut self) -> &[C];
     #[doc(hidden)]
@@ -268,9 +429,9 @@ pub trait ArchetypeHas<C>: Archetype {
     #[doc(hidden)]
     fn resolve_borrow_slice_mut(&self) -> RefMut<[C]>;
     #[doc(hidden)]
-    fn resolve_borrow<'a>(borrow: &'a Self::Borrow<'a>) -> Ref<'a, C>;
+    fn resolve_borrow_component<'a>(borrow: &'a Self::Borrow<'a>) -> Ref<'a, C>;
     #[doc(hidden)]
-    fn resolve_borrow_mut<'a>(borrow: &'a Self::Borrow<'a>) -> RefMut<'a, C>;
+    fn resolve_borrow_component_mut<'a>(borrow: &'a Self::Borrow<'a>) -> RefMut<'a, C>;
 }
 
 /// A `View` is a reference to a specific entity's components within an archetype.
@@ -306,7 +467,7 @@ pub trait View {
 /// Note that macros like `ecs_iter!` do not currently support these kinds of generics.
 /// This is primarily an advanced feature as it requires manual ECS manipulation.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```
 /// use gecs::prelude::*;
@@ -348,7 +509,7 @@ pub trait ViewHas<C>: View {
 
 /// Trait promising that a given ECS world can resolve a type of entity key.
 ///
-/// This is used for the destroy function, and implemented for `EntityAny` and `Entity<A>`.
+/// This is implemented for [`Entity`], [`EntityDirect`]. [`EntityAny`], and [`EntityDirectAny`].
 pub trait WorldCanResolve<K: EntityKey> {
     #[doc(hidden)]
     fn resolve_destroy(&mut self, entity: K) -> K::DestroyOutput;
@@ -356,12 +517,27 @@ pub trait WorldCanResolve<K: EntityKey> {
 
 /// Trait promising that a given archetype can resolve a type of entity key.
 ///
-/// This is implemented for `EntityAny`, `EntityDirectAny`, `Entity<A>`, and `EntityDirect<A>`.
-pub trait ArchetypeCanResolve<'a, View, K: EntityKey> {
+/// This is implemented for [`Entity`], [`EntityDirect`]. [`EntityAny`], and [`EntityDirectAny`].
+pub trait ArchetypeCanResolve<K: EntityKey> {
     #[doc(hidden)]
     fn resolve_for(&self, entity: K) -> Option<usize>;
+
     #[doc(hidden)]
-    fn resolve_view(&'a mut self, entity: K) -> Option<View>;
+    fn resolve_view(&mut self, entity: K) -> Option<Self::View<'_>>
+    where
+        Self: Archetype;
+
+    #[doc(hidden)]
+    fn resolve_borrow(&self, entity: K) -> Option<Self::Borrow<'_>>
+    where
+        Self: Archetype;
+
+    // NOTE: Special case here! We don't use K::DestroyOutput, but the components directly, since
+    // we will always know the component return types at the archetype (but not world) level.
+    #[doc(hidden)]
+    fn resolve_destroy(&mut self, entity: K) -> Option<Self::Components>
+    where
+        Self: Archetype;
 }
 
 #[doc(hidden)]
@@ -373,4 +549,6 @@ pub trait EntityKey: Clone + Copy {
 pub trait StorageCanResolve<K: EntityKey> {
     #[doc(hidden)]
     fn resolve_for(&self, entity: K) -> Option<usize>;
+    #[doc(hidden)]
+    fn resolve_destroy(&mut self, entity: K) -> K::DestroyOutput;
 }

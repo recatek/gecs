@@ -467,11 +467,11 @@ impl<A: Archetype> EntityKey for EntityDirect<A> {
 }
 
 impl EntityKey for EntityAny {
-    type DestroyOutput = bool;
+    type DestroyOutput = Option<()>;
 }
 
 impl EntityKey for EntityDirectAny {
-    type DestroyOutput = bool;
+    type DestroyOutput = Option<()>;
 }
 
 #[cfg(debug_assertions)]

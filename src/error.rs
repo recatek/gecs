@@ -1,7 +1,8 @@
 use std::fmt::{Display, Formatter, Result};
 
 /// Error reporting enum for ECS operation failure.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum EcsError {
     /// A runtime entity did not meet the expected type for this operation.
     InvalidEntityType,

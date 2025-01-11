@@ -69,3 +69,55 @@ pub fn test_direct_basic() {
     assert!(ecs_find!(world, entity_direct_a, |_: &CompA| {}).is_none());
     assert!(ecs_find!(world, entity_direct_b, |_: &CompA| {}).is_none());
 }
+
+#[test]
+#[rustfmt::skip]
+pub fn test_direct_destroy() {
+    let mut world = EcsWorld::default();
+
+    let entity_a = world.create::<ArchFoo>((CompA(1), CompB(10)));
+    let entity_b = world.create::<ArchFoo>((CompA(1), CompB(10)));
+
+    let entity_direct_a = ecs_find!(world, entity_a, |direct: &EntityDirect<ArchFoo>| {
+        *direct
+    }).unwrap();
+
+    world.destroy(entity_direct_a);
+
+    assert!(ecs_find!(world, entity_direct_a, |_: &CompA| {}).is_none());
+
+    let entity_direct_b = ecs_find!(world, entity_b, |direct: &EntityDirectAny| {
+        *direct
+    }).unwrap();
+
+    world.destroy(entity_direct_b);
+
+    assert!(ecs_find!(world, entity_direct_a, |_: &CompA| {}).is_none());
+    assert!(ecs_find!(world, entity_direct_b, |_: &CompA| {}).is_none());
+}
+
+#[test]
+#[rustfmt::skip]
+pub fn test_direct_destroy_archetype() {
+    let mut world = EcsWorld::default();
+
+    let entity_a = world.create::<ArchFoo>((CompA(1), CompB(10)));
+    let entity_b = world.create::<ArchFoo>((CompA(1), CompB(10)));
+
+    let entity_direct_a = ecs_find!(world, entity_a, |direct: &EntityDirect<ArchFoo>| {
+        *direct
+    }).unwrap();
+
+    world.arch_foo.destroy(entity_direct_a);
+
+    assert!(ecs_find!(world, entity_direct_a, |_: &CompA| {}).is_none());
+
+    let entity_direct_b = ecs_find!(world, entity_b, |direct: &EntityDirectAny| {
+        *direct
+    }).unwrap();
+
+    world.arch_foo.destroy(entity_direct_b);
+
+    assert!(ecs_find!(world, entity_direct_a, |_: &CompA| {}).is_none());
+    assert!(ecs_find!(world, entity_direct_b, |_: &CompA| {}).is_none());
+}
