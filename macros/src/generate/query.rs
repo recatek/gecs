@@ -203,8 +203,8 @@ fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
     match &param.param_type {
         ParseQueryParamType::Component(ident) => {
             match param.is_mut { 
-                true => quote!(&mut found.borrow_component_mut::<#ident>()),
-                false => quote!(&found.borrow_component::<#ident>()),
+                true => quote!(&mut found.component_mut::<#ident>()),
+                false => quote!(&found.component::<#ident>()),
             }
         }
         ParseQueryParamType::Entity(_) => {

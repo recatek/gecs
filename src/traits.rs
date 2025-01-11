@@ -156,7 +156,7 @@ where
         Self: 'a;
 
     /// The borrow type when performing sequential borrows of an entity's components.
-    type Borrow<'a>
+    type Borrow<'a>: Borrow
     where
         Self: 'a;
 
@@ -441,6 +441,12 @@ pub trait ArchetypeHas<C>: Archetype {
 /// The `View` trait should be implemented only by the `ecs_world!` macro.
 /// This is not intended for manual implementation by any user data structures.
 pub trait View {
+    type Archetype: Archetype;
+
+    /// Returns the archetype dense index that this view refers to.
+    fn index(&self) -> usize;
+
+    /// Fetches the given component from this view.
     #[inline(always)]
     fn component<C>(&self) -> &C
     where
@@ -449,6 +455,7 @@ pub trait View {
         <Self as ViewHas<C>>::resolve_component(self)
     }
 
+    /// Mutably fetches the given component from this view.
     #[inline(always)]
     fn component_mut<C>(&mut self) -> &mut C
     where
@@ -507,6 +514,60 @@ pub trait ViewHas<C>: View {
     fn resolve_component_mut(&mut self) -> &mut C;
 }
 
+/// A `Borrow` is a borrowed reference to a specific entity's components within an archetype.
+///
+/// This can be used in generic functions to access components from entity handles. Note that this
+/// borrows an entire column of an archetype's components at a time, so with multiple entities
+/// within the same archetype, only one set of component type/column for each can be exclusively
+/// borrowed at a time.
+///
+/// The `Borrow` trait should be implemented only by the `ecs_world!` macro.
+/// This is not intended for manual implementation by any user data structures.
+pub trait Borrow {
+    type Archetype: Archetype;
+
+    /// Returns the archetype dense index that this borrow refers to.
+    fn index(&self) -> usize;
+
+    /// Returns the entity handle that this borrow refers to.
+    fn entity(&self) -> &Entity<Self::Archetype>;
+
+    /// Gets the given component from this borrow. Performs a runtime check for safety.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any other borrow has exclusive/mut access to any entry for this type of component
+    /// within this same archetype, even if it is for a different entity.
+    #[inline(always)]
+    fn component<C>(&self) -> Ref<C>
+    where
+        Self: BorrowHas<C>,
+    {
+        <Self as BorrowHas<C>>::resolve_component(self)
+    }
+
+    /// Gets the given component mutably from this borrow. Performs a runtime check for safety.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any other borrow has any type of access to any entry for this type of component
+    /// within this same archetype, even if it is for a different entity.
+    #[inline(always)]
+    fn component_mut<C>(&self) -> RefMut<C>
+    where
+        Self: BorrowHas<C>,
+    {
+        <Self as BorrowHas<C>>::resolve_component_mut(self)
+    }
+}
+
+pub trait BorrowHas<C>: Borrow {
+    #[doc(hidden)]
+    fn resolve_component(&self) -> Ref<C>;
+    #[doc(hidden)]
+    fn resolve_component_mut(&self) -> RefMut<C>;
+}
+
 /// Trait promising that a given ECS world can resolve a type of entity key.
 ///
 /// This is implemented for [`Entity`], [`EntityDirect`]. [`EntityAny`], and [`EntityDirectAny`].
@@ -542,6 +603,7 @@ pub trait ArchetypeCanResolve<K: EntityKey> {
 
 #[doc(hidden)]
 pub trait EntityKey: Clone + Copy {
+    #[doc(hidden)]
     type DestroyOutput;
 }
 

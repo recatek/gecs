@@ -102,9 +102,9 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
             #(#section_archetype)*
 
-            #[doc = r"The generated ECS world. See [`World`](gecs::traits::World) for more information."]
-            #[doc = r""]
-            #[doc = r"Contained archetypes (may change based on `#[cfg]` state): "]
+            /// The generated ECS world. See [`World`](gecs::traits::World) for more information.
+            ///
+            /// Contained archetypes (may change based on `#[cfg]` state):
             #(#[doc = #world_doc_archetypes])*
             #[derive(Default)]
             pub struct #World {
@@ -555,9 +555,9 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         .collect::<Vec<_>>();
 
     quote!(
-        #[doc = r"A generated ECS archetype. See [`Archetype`](gecs::traits::Archetype) for more information."]
-        #[doc = r""]
-        #[doc = r"Contained components (may change based on `#[cfg]` state): "]
+        /// A generated ECS archetype. See [`Archetype`](gecs::traits::Archetype) for more information.
+        ///
+        /// Contained components (may change based on `#[cfg]` state):
         #(#[doc = #archetype_doc_components])*
         #[derive(Default)]
         #[repr(transparent)]
@@ -633,28 +633,6 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 self.data.iter_mut()
             }
 
-            // #[inline(always)]
-            // fn begin_borrow<'a, K: EntityKey>(
-            //     &'a self,
-            //     entity: K,
-            // ) -> Option<#ArchetypeBorrow<'a>>
-            // where
-            //     #StorageN<#StorageArgs>: StorageCanResolve<K>,
-            // {
-            //     self.data.begin_borrow(entity).map(#ArchetypeBorrow)
-            // }
-            //
-            // #[inline(always)]
-            // fn get_view_mut<'a, K: EntityKey>(
-            //     &'a mut self,
-            //     entity_key: K,
-            // ) -> Option<#ArchetypeView<'a>>
-            // where
-            //     #StorageN<#StorageArgs>: StorageCanResolve<K>,
-            // {
-            //     self.data.get_view_mut(entity_key)
-            // }
-
             #[inline(always)]
             fn get_all_slices_mut(&mut self) -> #ArchetypeSlices {
                 self.data.get_all_slices_mut()
@@ -702,38 +680,24 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
         )*
 
-        #[repr(transparent)]
-        #[derive(Clone, Copy)]
-        pub struct #ArchetypeBorrow<'a>(#BorrowN<'a, #StorageArgs>);
+        pub struct #ArchetypeSlices<'a> {
+            pub entity: &'a [Entity<#Archetype>],
+            #(
+                pub #component: &'a mut [#Component],
+            )*
+        }
 
-        impl<'a> #ArchetypeBorrow<'a> {
+        impl<'a> #SlicesN<'a, #ContentArgs> for #ArchetypeSlices<'a> {
             #[inline(always)]
-            pub fn index(&self) -> usize {
-                self.0.index()
-            }
-
-            #[inline(always)]
-            pub fn entity(&self) -> &Entity<#Archetype> {
-                self.0.entity()
-            }
-
-            #[inline(always)]
-            pub fn borrow_component<C>(&self) -> Ref<C>
-            where
-                #Archetype: for<'c> ArchetypeHas<C, Borrow<'c> = #ArchetypeBorrow<'c>>
-            {
-                #Archetype::resolve_borrow_component(self)
-            }
-
-            #[inline(always)]
-            pub fn borrow_component_mut<C>(&self) -> RefMut<C>
-            where
-                #Archetype: for<'c> ArchetypeHas<C, Borrow<'c> = #ArchetypeBorrow<'c>>
-            {
-                #Archetype::resolve_borrow_component_mut(self)
+            fn new(
+                entity: &'a [Entity<#Archetype>],
+                #(#component: &'a mut [#Component]),*
+            ) -> Self {
+                Self { entity, #(#component),* }
             }
         }
 
+        /// See [`View`](gecs::traits::View) for more information on this type.
         pub struct #ArchetypeView<'a> {
             index: usize,
             pub entity: &'a Entity<#Archetype>,
@@ -742,21 +706,16 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             )*
         }
 
-        pub struct #ArchetypeSlices<'a> {
-            pub entity: &'a [Entity<#Archetype>],
-            #(
-                pub #component: &'a mut [#Component],
-            )*
-        }
+        impl<'a> View for #ArchetypeView<'a> {
+            type Archetype = #Archetype;
 
-        impl<'a> #ArchetypeView<'a> {
             #[inline(always)]
-            pub fn index(&self) -> usize {
+            fn index(&self) -> usize {
                 self.index
             }
 
             #[inline(always)]
-            pub fn component<C>(&self) -> &C
+            fn component<C>(&self) -> &C
             where
                 Self: ViewHas<C>
             {
@@ -764,15 +723,13 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
 
             #[inline(always)]
-            pub fn component_mut<C>(&mut self) -> &mut C
+            fn component_mut<C>(&mut self) -> &mut C
             where
                 Self: ViewHas<C>
             {
                 <Self as ViewHas<C>>::resolve_component_mut(self)
             }
         }
-
-        impl<'a> View for #ArchetypeView<'a> {}
 
         #(
             impl<'a> ViewHas<#Component> for #ArchetypeView<'a> {
@@ -799,15 +756,38 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
         }
 
-        impl<'a> #SlicesN<'a, #ContentArgs> for #ArchetypeSlices<'a> {
+        /// See [`Borrow`](gecs::traits::Borrow) for more information on this type.
+        #[repr(transparent)]
+        #[derive(Clone, Copy)]
+        pub struct #ArchetypeBorrow<'a>(#BorrowN<'a, #StorageArgs>);
+
+        impl<'a> Borrow for #ArchetypeBorrow<'a> {
+            type Archetype = #Archetype;
+
             #[inline(always)]
-            fn new(
-                entity: &'a [Entity<#Archetype>],
-                #(#component: &'a mut [#Component]),*
-            ) -> Self {
-                Self { entity, #(#component),* }
+            fn index(&self) -> usize {
+                self.0.index()
+            }
+
+            #[inline(always)]
+            fn entity(&self) -> &Entity<#Archetype> {
+                self.0.entity()
             }
         }
+
+        #(
+            impl<'a> BorrowHas<#Component> for #ArchetypeBorrow<'a> {
+                #[inline(always)]
+                fn resolve_component(&self) -> Ref<#Component> {
+                    #Archetype::resolve_borrow_component(self)
+                }
+
+                #[inline(always)]
+                fn resolve_component_mut(&self) -> RefMut<#Component> {
+                    #Archetype::resolve_borrow_component_mut(self)
+                }
+            }
+        )*
 
         impl ArchetypeCanResolve<Entity<#Archetype>> for #Archetype {
             #[inline(always)]

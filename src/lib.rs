@@ -759,6 +759,7 @@ pub mod prelude {
     pub use traits::{World, WorldHas};
     pub use traits::{Archetype, ArchetypeHas};
     pub use traits::{View, ViewHas};
+    pub use traits::{Borrow, BorrowHas};
 }
 
 #[doc(hidden)]
@@ -793,4 +794,5 @@ pub mod __internal {
     pub use traits::{World, WorldHas};
     pub use traits::{Archetype, ArchetypeHas};
     pub use traits::{View, ViewHas};
+    pub use traits::{Borrow, BorrowHas};
 }
