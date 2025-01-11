@@ -739,10 +739,117 @@ pub struct OneOf {
     hidden: (),
 }
 
+/// A dispatch enum for resolving a dynamic [`EntityAny`](crate::entity::EntityAny) or
+/// [`EntityDirectAny`](crate::entity::EntityDirectAny) key to a specific Archetype disambiguation.
+/// Use `try_into` to perform the conversion (which returns `Result<ArchetypeSelectId, EcsError>`).
+///
+/// See also: [`EcsError`](crate::error::EcsError)
+///
+/// # Examples
+///
+/// ```rust
+/// use gecs::prelude::*;
+///
+/// pub struct CompA(pub u32);
+/// pub struct CompB(pub u32);
+/// pub struct CompC(pub u32);
+///
+/// ecs_world! {
+///     ecs_archetype!(ArchFoo, CompA, CompB);
+///     ecs_archetype!(ArchBar, CompA, CompC);
+/// }
+///
+/// fn main() {
+///     let mut world = EcsWorld::default();
+///
+///     let entity_typed = world.create::<ArchFoo>((CompA(0), CompB(0)));
+///     let entity_any = entity_typed.into_any(); // Entity<ArchFoo> -> EntityAny
+///
+///     // The try_into in this case returns a Result<ArchetypeSelectId, EcsError>
+///     assert!(matches!(entity_any.try_into(), Ok(ArchetypeSelectId::ArchFoo)));
+///     // For convenience, this also trivially works on typed entities
+///     assert!(matches!(entity_typed.try_into(), Ok(ArchetypeSelectId::ArchFoo)));
+/// }
+/// ```
+#[cfg(doc)]
+pub enum ArchetypeSelectId { }
+
+/// A dispatch enum for resolving a dynamic [`EntityAny`](crate::entity::EntityAny)
+/// key to a typed [`Entity`](crate::entity::Entity) key. Use `try_into` to perform the
+/// conversion (which returns `Result<ArchetypeSelectEntity, EcsError>`).
+///
+/// See also: [`EcsError`](crate::error::EcsError)
+///
+/// # Examples
+///
+/// ```rust
+/// use gecs::prelude::*;
+///
+/// pub struct CompA(pub u32);
+/// pub struct CompB(pub u32);
+/// pub struct CompC(pub u32);
+///
+/// ecs_world! {
+///     ecs_archetype!(ArchFoo, CompA, CompB);
+///     ecs_archetype!(ArchBar, CompA, CompC);
+/// }
+///
+/// fn main() {
+///     let mut world = EcsWorld::default();
+///
+///     let entity_typed = world.create::<ArchFoo>((CompA(0), CompB(0)));
+///     let entity_any = entity_typed.into_any(); // Entity<ArchFoo> -> EntityAny
+///
+///     // The try_into in this case returns a Result<ArchetypeSelectId, EcsError>
+///     assert!(matches!(entity_any.try_into(), Ok(ArchetypeSelectEntity::ArchFoo(entity_direct))));
+///     // For convenience, this also trivially works on typed entities
+///     assert!(matches!(entity_typed.try_into(), Ok(ArchetypeSelectEntity::ArchFoo(entity_direct))));
+/// }
+/// ```
+#[cfg(doc)]
+pub enum ArchetypeSelectEntity { }
+
+/// A dispatch enum for resolving a dynamic [`EntityDirectAny`](crate::entity::EntityDirectAny)
+/// key to a typed [`EntityDirect`](crate::entity::EntityDirect) key. Use `try_into` to perform the
+/// conversion (which returns `Result<ArchetypeSelectEntityDirect, EcsError>`).
+///
+/// See also: [`EcsError`](crate::error::EcsError)
+///
+/// # Examples
+///
+/// ```rust
+/// use gecs::prelude::*;
+///
+/// pub struct CompA(pub u32);
+/// pub struct CompB(pub u32);
+/// pub struct CompC(pub u32);
+///
+/// ecs_world! {
+///     ecs_archetype!(ArchFoo, CompA, CompB);
+///     ecs_archetype!(ArchBar, CompA, CompC);
+/// }
+///
+/// fn main() {
+///     let mut world = EcsWorld::default();
+///
+///     let entity_typed = world.create::<ArchFoo>((CompA(0), CompB(0)));
+///     let entity_direct = world.to_direct(entity_typed).unwrap(); // Entity<ArchFoo> -> EntityDirect<ArchFoo>
+///     let entity_direct_any = entity_direct.into_any(); // EntityDirect<ArchFoo> -> EntityDirectAny
+///
+///     // The try_into in this case returns a Result<ArchetypeSelectId, EcsError>
+///     assert!(matches!(entity_direct_any.try_into(), Ok(ArchetypeSelectEntityDirect::ArchFoo(entity_direct))));
+///     // For convenience, this also trivially works on typed entities
+///     assert!(matches!(entity_direct.try_into(), Ok(ArchetypeSelectEntityDirect::ArchFoo(entity_direct))));
+/// }
+/// ```
+#[cfg(doc)]
+pub enum ArchetypeSelectEntityDirect { }
+
+
 #[cfg(not(doc))]
 pub use gecs_macros::{ecs_component_id, ecs_world};
 
-/// `use gecs::prelude::*;` to import common macros, traits, and types.
+/// You can `use gecs::prelude::*` to import common macros, traits, and types.
 #[rustfmt::skip]
 pub mod prelude {
     use super::*;

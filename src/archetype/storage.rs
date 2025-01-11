@@ -168,6 +168,15 @@ macro_rules! declare_storage_dynamic_n {
                     <Self as StorageCanResolve<K>>::resolve_for(self, entity)
                 }
 
+                /// Converts an entity key to direct entity that bypasses slot lookup.
+                #[inline(always)]
+                pub fn to_direct<K: EntityKey>(&self, entity: K) -> Option<K::DirectOutput>
+                where
+                    Self: StorageCanResolve<K>
+                {
+                    <Self as StorageCanResolve<K>>::resolve_direct(self, entity)
+                }
+
                 /// Creates a borrow context to accelerate accessing borrowed data for an entity.
                 #[inline(always)]
                 pub fn begin_borrow<K: EntityKey>(
@@ -568,6 +577,12 @@ macro_rules! declare_storage_dynamic_n {
                     Some(dense_index_usize)
                 }
 
+                #[inline(always)]
+                fn resolve_direct(&self, entity: Entity<A>) -> Option<EntityDirect<A>> {
+                    let (_, dense_index) = self.resolve_entity(entity)?;
+                    Some(EntityDirect::new(dense_index, self.version()))
+                }
+
                 #[inline]
                 fn resolve_destroy(&mut self, entity: Entity<A>) -> Option<A::Components> {
                     unsafe {
@@ -595,6 +610,11 @@ macro_rules! declare_storage_dynamic_n {
                     }
 
                     Some(dense_index_usize)
+                }
+
+                #[inline(always)]
+                fn resolve_direct(&self, entity: EntityDirect<A>) -> Option<EntityDirect<A>> {
+                    Some(entity) // Trivially return, as we're already an EntityDirect
                 }
 
                 #[inline]

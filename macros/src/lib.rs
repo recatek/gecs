@@ -10,14 +10,14 @@ use generate::FetchMode;
 
 use parse::*;
 
-/// See `ecs_component_id!` in the `gecs` docs for more info.
+/// See `ecs_component_id` in the `gecs` docs for more information.
 #[proc_macro]
 pub fn ecs_component_id(args: TokenStream) -> TokenStream {
     let util = parse_macro_input!(args as ParseEcsComponentId);
     generate::generate_ecs_component_id(util).into()
 }
 
-/// See `ecs_world!` in the `gecs` docs for more info.
+/// See `ecs_world` in the `gecs` docs for more information.
 #[proc_macro]
 pub fn ecs_world(args: TokenStream) -> TokenStream {
     __expand_ecs_world(args) // Redirect for consistency

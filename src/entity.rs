@@ -460,18 +460,22 @@ impl<A: Archetype> Eq for EntityDirect<A> {}
 
 impl<A: Archetype> EntityKey for Entity<A> {
     type DestroyOutput = Option<A::Components>;
+    type DirectOutput = EntityDirect<A>;
 }
 
 impl<A: Archetype> EntityKey for EntityDirect<A> {
     type DestroyOutput = Option<A::Components>;
+    type DirectOutput = EntityDirect<A>;
 }
 
 impl EntityKey for EntityAny {
     type DestroyOutput = Option<()>;
+    type DirectOutput = EntityDirectAny;
 }
 
 impl EntityKey for EntityDirectAny {
     type DestroyOutput = Option<()>;
+    type DirectOutput = EntityDirectAny;
 }
 
 #[cfg(debug_assertions)]

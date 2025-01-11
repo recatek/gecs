@@ -17,7 +17,6 @@ use crate::parse::{
     ParseQueryParamType,
 };
 
-
 #[allow(non_snake_case)]
 pub fn generate_ecs_component_id(util: ParseEcsComponentId) -> TokenStream {
     let Component = &util.component;

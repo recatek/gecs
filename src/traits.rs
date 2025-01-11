@@ -94,9 +94,21 @@ pub trait World: Sized {
         <Self as WorldHas<A>>::resolve_create_within_capacity(self, components)
     }
 
-    /// If the entity exists in the world, this destroys it.
+    /// If the entity exists in the world, this returns a direct entity pointing to its data.
+    /// See [`EntityDirect`] and [`EntityDirectAny`] for more information.
     ///
-    /// # Returns
+    /// # Panics
+    ///
+    /// This will panic if given a dynamic key ([`EntityAny`] or [`EntityDirectAny`]) with an
+    /// archetype ID that is not known to this ECS world.
+    fn to_direct<K: EntityKey>(&self, entity: K) -> Option<K::DirectOutput>
+    where
+        Self: WorldCanResolve<K>,
+    {
+        <Self as WorldCanResolve<K>>::resolve_direct(self, entity)
+    }
+
+    /// If the entity exists in the world, this destroys it.
     ///
     /// This returns an `Option<(C0, C1, ..., Cn)>` where `(C0, C1, ..., Cn)` are the entity's
     /// former (now removed) components. A `Some` result means the entity was found and destroyed.
@@ -106,6 +118,11 @@ pub trait World: Sized {
     /// return component type tuple can't be known at compile time. To get the components, convert
     /// the any-type entity to a known type ahead of time using [`Entity::try_into()`] and the
     /// resulting entity type selection enum.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if given a dynamic key ([`EntityAny`] or [`EntityDirectAny`]) with an
+    /// archetype ID that is not known to the ECS world that this archetype was built within.
     #[inline(always)]
     fn destroy<K: EntityKey>(&mut self, entity: K) -> K::DestroyOutput
     where
@@ -241,7 +258,27 @@ where
         <Self as ArchetypeCanResolve<K>>::resolve_for(self, entity)
     }
 
+    /// If the entity exists in the archetype, this returns a direct entity pointing to its data.
+    /// See [`EntityDirect`] and [`EntityDirectAny`] for more information.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if given a dynamic key ([`EntityAny`] or [`EntityDirectAny`]) with an
+    /// archetype ID that is not known to the ECS world that this archetype was built within.
+    #[inline(always)]
+    fn to_direct<K: EntityKey>(&self, entity: K) -> Option<K::DirectOutput>
+    where
+        Self: ArchetypeCanResolve<K>,
+    {
+        <Self as ArchetypeCanResolve<K>>::resolve_direct(self, entity)
+    }
+
     /// Returns a view containing mutable references to all of this entity's components.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if given a dynamic key ([`EntityAny`] or [`EntityDirectAny`]) with an
+    /// archetype ID that is not known to the ECS world that this archetype was built within.
     #[inline(always)]
     fn view<K: EntityKey>(&mut self, entity: K) -> Option<Self::View<'_>>
     where
@@ -251,6 +288,12 @@ where
     }
 
     /// Returns a view containing mutable references to all of this entity's components.
+    ///
+    ///
+    /// # Panics
+    ///
+    /// This will panic if given a dynamic key ([`EntityAny`] or [`EntityDirectAny`]) with an
+    /// archetype ID that is not known to the ECS world that this archetype was built within.
     #[inline(always)]
     fn borrow<K: EntityKey>(&self, entity: K) -> Option<Self::Borrow<'_>>
     where
@@ -261,11 +304,14 @@ where
 
     /// If the entity exists in the archetype, this destroys it.
     ///
-    /// # Returns
-    ///
     /// This returns an `Option<(C0, C1, ..., Cn)>` where `(C0, C1, ..., Cn)` are the entity's
     /// former (now removed) components. A `Some` result means the entity was found and destroyed.
     /// A `None` result means the given entity handle was invalid.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if given a dynamic key ([`EntityAny`] or [`EntityDirectAny`]) with an
+    /// archetype ID that is not known to the ECS world that this archetype was built within.
     #[inline(always)]
     fn destroy<K: EntityKey>(&mut self, entity: K) -> Option<Self::Components>
     where
@@ -579,6 +625,9 @@ pub trait BorrowHas<C>: Borrow {
 /// This is implemented for [`Entity`], [`EntityDirect`]. [`EntityAny`], and [`EntityDirectAny`].
 pub trait WorldCanResolve<K: EntityKey> {
     #[doc(hidden)]
+    fn resolve_direct(&self, entity: K) -> Option<K::DirectOutput>;
+
+    #[doc(hidden)]
     fn resolve_destroy(&mut self, entity: K) -> K::DestroyOutput;
 }
 
@@ -588,6 +637,9 @@ pub trait WorldCanResolve<K: EntityKey> {
 pub trait ArchetypeCanResolve<K: EntityKey> {
     #[doc(hidden)]
     fn resolve_for(&self, entity: K) -> Option<usize>;
+
+    #[doc(hidden)]
+    fn resolve_direct(&self, entity: K) -> Option<K::DirectOutput>;
 
     #[doc(hidden)]
     fn resolve_view(&mut self, entity: K) -> Option<Self::View<'_>>
@@ -611,12 +663,16 @@ pub trait ArchetypeCanResolve<K: EntityKey> {
 pub trait EntityKey: Clone + Copy {
     #[doc(hidden)]
     type DestroyOutput;
+    #[doc(hidden)]
+    type DirectOutput;
 }
 
 #[doc(hidden)]
 pub trait StorageCanResolve<K: EntityKey> {
     #[doc(hidden)]
     fn resolve_for(&self, entity: K) -> Option<usize>;
+    #[doc(hidden)]
+    fn resolve_direct(&self, entity: K) -> Option<K::DirectOutput>;
     #[doc(hidden)]
     fn resolve_destroy(&mut self, entity: K) -> K::DestroyOutput;
 }
