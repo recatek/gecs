@@ -434,7 +434,13 @@ pub trait ArchetypeHas<C>: Archetype {
     fn resolve_borrow_component_mut<'a>(borrow: &'a Self::Borrow<'a>) -> RefMut<'a, C>;
 }
 
-/// A `View` is a reference to a specific entity's components within an archetype.
+// NOTE: There's no point in trying to make a View/ViewMut split because each column is in a
+// RefCell anyway, so you can't make non-mut references to them without borrowing, and Borrow
+// already exists for that. Borrow also does it better, since it doesn't fully borrow each slice.
+
+/// A `View` is a mutable reference to a specific entity's components within an archetype. It
+/// allows direct access to all of a specific entity's components, but exclusively borrows the
+/// entire archetype in the process (for more flexibility here at a runtime cost, see [`Borrow`]).
 ///
 /// This can be used in generic functions to access components from entity handles.
 ///
