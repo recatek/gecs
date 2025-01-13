@@ -88,6 +88,55 @@ pub trait World: Sized {
     ///     world.destroy(entity_b);                          // Destroy in second archetype
     ///
     ///     // Collect the events for all archetypes
+    ///     let events = world.iter_events().collect::<Vec<_>>();
+    ///
+    ///     // Observe the order here! Events are grouped by archetype first, and then by
+    ///     // order within that archetype -- there is no cross-archetype ordering awareness.
+    ///     // Note also that we use entity.into() because the events contain EntityAny handles.
+    ///     assert_eq!(
+    ///         events,
+    ///         vec![
+    ///             &EcsEvent::Created(entity_a.into()),   // Create in first archetype
+    ///             &EcsEvent::Destroyed(entity_a.into()), // Destroy in first archetype
+    ///             &EcsEvent::Created(entity_b.into()),   // Create in second archetype
+    ///             &EcsEvent::Destroyed(entity_b.into()), // Destroy in second archetype
+    ///         ]
+    ///     );
+    ///
+    ///     // The events have not been consumed (we're just iterating them)
+    ///     let events = world.iter_events().collect::<Vec<_>>();
+    ///     assert!(events.is_empty() == false);
+    /// }
+    /// ```
+    #[cfg(feature = "events")]
+    fn iter_events(&self) -> impl Iterator<Item = &EcsEvent>;
+
+    /// Drains and returns all the [`EcsEvent`]s not yet collected for this world.
+    /// These events will be in order as they occurred to each archetype, and each archetype's
+    /// events will be ordered as they appear in the [`ecs_world`](gecs::ecs_world) macro that
+    /// created that ECS world. However, there is no ordering of events between archetypes.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gecs::prelude::*;
+    ///
+    /// pub struct CompA;
+    ///
+    /// ecs_world! {
+    ///     ecs_archetype!(ArchFoo, CompA);
+    ///     ecs_archetype!(ArchBar, CompA);
+    /// }
+    ///
+    /// fn main() {
+    ///     let mut world = EcsWorld::default();
+    ///
+    ///     let entity_a = world.create::<ArchFoo>((CompA,)); // Create in first archetype
+    ///     let entity_b = world.create::<ArchBar>((CompA,)); // Create in second archetype
+    ///     world.destroy(entity_a);                          // Destroy in first archetype
+    ///     world.destroy(entity_b);                          // Destroy in second archetype
+    ///
+    ///     // Collect the events for all archetypes
     ///     let events = world.drain_events().collect::<Vec<_>>();
     ///
     ///     // Observe the order here! Events are grouped by archetype first, and then by
@@ -110,6 +159,10 @@ pub trait World: Sized {
     /// ```
     #[cfg(feature = "events")]
     fn drain_events(&mut self) -> impl Iterator<Item = EcsEvent>;
+
+    /// Clears the currently stored [`EcsEvent`]s in all archetypes in this world.
+    #[cfg(feature = "events")]
+    fn clear_events(&mut self);
 
     /// Creates a new entity with the given components to this archetype storage.
     /// Returns a typed entity handle pointing to the new entity in the archetype.
@@ -272,6 +325,62 @@ where
     /// Returns the generational version of the archetype. Intended for internal use.
     fn version(&self) -> ArchetypeVersion;
 
+    /// Iterates over all of the [`EcsEvent`]s not yet cleared or drained for this archetype.
+    /// These events will be in order as they occurred to this archetype, but have no
+    /// ordering awareness of when events happened in other archetypes in the parent world.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gecs::prelude::*;
+    ///
+    /// pub struct CompA;
+    ///
+    /// ecs_world! {
+    ///     ecs_archetype!(ArchFoo, CompA);
+    ///     ecs_archetype!(ArchBar, CompA);
+    /// }
+    ///
+    /// fn main() {
+    ///     let mut world = EcsWorld::default();
+    ///
+    ///     let entity_a = world.create::<ArchFoo>((CompA,)); // Create in first archetype
+    ///     let entity_b = world.create::<ArchBar>((CompA,)); // Create in second archetype
+    ///     world.destroy(entity_a);                          // Destroy in first archetype
+    ///     world.destroy(entity_b);                          // Destroy in second archetype
+    ///
+    ///     // Collect the events for each archetype individually
+    ///     let events_a = world.arch_foo.iter_events().collect::<Vec<_>>();
+    ///     let events_b = world.arch_bar.iter_events().collect::<Vec<_>>();
+    ///
+    ///     // Note that we use entity.into() because the events contain EntityAny handles.
+    ///     assert_eq!(
+    ///         events_a,
+    ///         vec![
+    ///             &EcsEvent::Created(entity_a.into()),   // Create in first archetype
+    ///             &EcsEvent::Destroyed(entity_a.into()), // Destroy in first archetype
+    ///         ]
+    ///     );
+    ///
+    ///     assert_eq!(
+    ///         events_b,
+    ///         vec![
+    ///             &EcsEvent::Created(entity_b.into()),   // Create in second archetype
+    ///             &EcsEvent::Destroyed(entity_b.into()), // Destroy in second archetype
+    ///         ]
+    ///     );
+    ///
+    ///
+    ///     // The events have not been consumed (we're just iterating them)
+    ///     let events_a = world.arch_foo.iter_events().collect::<Vec<_>>();
+    ///     let events_b = world.arch_bar.iter_events().collect::<Vec<_>>();
+    ///     assert!(events_a.is_empty() == false);
+    ///     assert!(events_b.is_empty() == false);
+    /// }
+    /// ```
+    #[cfg(feature = "events")]
+    fn iter_events(&self) -> impl Iterator<Item = &EcsEvent>;
+
     /// Drains and returns all the [`EcsEvent`]s not yet collected for this archetype.
     /// These events will be in order as they occurred to this archetype, but have no
     /// ordering awareness of when events happened in other archetypes in the parent world.
@@ -326,6 +435,10 @@ where
     /// ```
     #[cfg(feature = "events")]
     fn drain_events(&mut self) -> impl Iterator<Item = EcsEvent>;
+
+    /// Clears the currently stored [`EcsEvent`]s in this archetype.
+    #[cfg(feature = "events")]
+    fn clear_events(&mut self);
 
     /// Creates a new entity with the given components to this archetype storage.
     /// Returns a typed entity handle pointing to the new entity in the archetype.

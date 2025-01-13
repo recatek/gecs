@@ -312,11 +312,25 @@ macro_rules! declare_storage_dynamic_n {
                     }
                 )*
 
+                /// Iterates over all of the entity create/destroy events for this storage.
+                #[cfg(feature = "events")]
+                #[inline(always)]
+                pub fn iter_events(&self) -> impl Iterator<Item = &EcsEvent> + '_ {
+                    self.events.iter()
+                }
+
                 /// Drains the active event queue of its entity create/destroy events.
                 #[cfg(feature = "events")]
                 #[inline(always)]
                 pub fn drain_events(&mut self) -> impl Iterator<Item = EcsEvent> + '_ {
                     self.events.drain(..)
+                }
+
+                /// Clears the current event queue of all entity create/destroy events.
+                #[cfg(feature = "events")]
+                #[inline(always)]
+                pub fn clear_events(&mut self) {
+                    self.events.clear()
                 }
 
                 /// Resolves the slot index and data index for a given entity.
