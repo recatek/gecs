@@ -17,6 +17,9 @@ use crate::traits::{Archetype, EntityKey, StorageCanResolve};
 use crate::util::{debug_checked_assume, num_assert_leq};
 use crate::version::ArchetypeVersion;
 
+#[cfg(feature = "events")]
+use crate::event::EcsEvent;
+
 macro_rules! declare_storage_dynamic_n {
     (
         $name:ident,
@@ -37,6 +40,9 @@ macro_rules! declare_storage_dynamic_n {
                 // No RefCell here since we never grant mutable access externally
                 entities: DataPtr<Entity<A>>,
                 #(d~I: RefCell<DataPtr<T~I>>,)*
+
+                #[cfg(feature = "events")]
+                events: Vec<EcsEvent>, // Optional queue tracking create/destroy events
             }
 
             impl<A: Archetype, #(T~I,)*> $name<A, #(T~I,)*>
@@ -68,6 +74,9 @@ macro_rules! declare_storage_dynamic_n {
                         slots,
                         entities: DataPtr::with_capacity(capacity),
                         #(d~I: RefCell::new(DataPtr::with_capacity(capacity)),)*
+
+                        #[cfg(feature = "events")]
+                        events: Vec::new(),
                     }
                 }
 
@@ -114,7 +123,7 @@ macro_rules! declare_storage_dynamic_n {
                         }
                     }
 
-                    unsafe { self.force_push(data) }
+                    unsafe { self.force_create(data) }
                 }
 
                 /// Adds a new entity if there is sufficient spare capacity to store it.
@@ -136,7 +145,7 @@ macro_rules! declare_storage_dynamic_n {
                         return Err(data);
                     }
 
-                    Ok(unsafe { self.force_push(data) })
+                    Ok(unsafe { self.force_create(data) })
                 }
 
                 /// Removes the given entity from storage if it exists there.
@@ -303,6 +312,13 @@ macro_rules! declare_storage_dynamic_n {
                     }
                 )*
 
+                /// Drains the active event queue of its entity create/destroy events.
+                #[cfg(feature = "events")]
+                #[inline(always)]
+                pub fn drain_events(&mut self) -> impl Iterator<Item = EcsEvent> + '_ {
+                    self.events.drain(..)
+                }
+
                 /// Resolves the slot index and data index for a given entity.
                 /// Both indices are guaranteed to point to valid corresponding cells.
                 #[inline(always)]
@@ -459,7 +475,7 @@ macro_rules! declare_storage_dynamic_n {
                 /// It is up to the caller to guarantee the following:
                 /// - The storage has enough allocated room for the data.
                 #[inline(always)]
-                unsafe fn force_push(&mut self, data: (#(T~I,)*)) -> Entity<A> {
+                unsafe fn force_create(&mut self, data: (#(T~I,)*)) -> Entity<A> {
                     debug_assert!(self.len < self.capacity);
 
                     unsafe {
@@ -489,17 +505,22 @@ macro_rules! declare_storage_dynamic_n {
                         self.entities.write(index, entity);
                         #(self.d~I.get_mut().write(index, data.I);)*
 
+                        #[cfg(feature = "events")]
+                        {
+                            self.events.push(EcsEvent::Created(entity.into()));
+                        }
+
                         entity
                     }
                 }
 
-               /// Destroys the given slot and data.
-               ///
-               /// # Safety
-               ///
-               /// The caller must guarantee that slot_index and dense_index refer to valid
-               /// corresponding slot and data cells within range (and implicitly, self.len > 0).
-                unsafe fn destroy_resolved(
+                /// Destroys the given slot and data.
+                ///
+                /// # Safety
+                ///
+                /// The caller must guarantee that slot_index and dense_index refer to valid
+                /// corresponding slot and data cells within range (and implicitly, self.len > 0).
+                unsafe fn force_destroy(
                     &mut self,
                     indices: (TrimmedIndex, TrimmedIndex), // (slot_index, dense_index)
                 ) -> (#(T~I,)*) {
@@ -516,6 +537,18 @@ macro_rules! declare_storage_dynamic_n {
 
                         let entities = self.entities.slice(self.len);
                         debug_assert!(entities.len() == self.len);
+
+                        // Make sure the entity backtracks to the same slot we're removing now.
+                        debug_assert!(entities[dense_index_usize].slot_index() == slot_index);
+                        debug_assert_eq!(
+                            entities[dense_index_usize].version(),
+                            self.slots.slice(self.capacity())[slot_index_usize].version());
+
+                        #[cfg(feature = "events")]
+                        {
+                            let entity = *entities.get_unchecked(dense_index_usize);
+                            self.events.push(EcsEvent::Destroyed(entity.into()));
+                        }
 
                         // SAFETY: We know self.len > 0 because we got Some from resolve_slot.
                         let last_dense_index = self.len - 1;
@@ -587,7 +620,7 @@ macro_rules! declare_storage_dynamic_n {
                 fn resolve_destroy(&mut self, entity: Entity<A>) -> Option<A::Components> {
                     unsafe {
                         // SAFETY: We know that resolve_entity returns valid corresponding slots.
-                        Some(self.destroy_resolved(self.resolve_entity(entity)?))
+                        Some(self.force_destroy(self.resolve_entity(entity)?))
                     }
                 }
             }
@@ -621,7 +654,7 @@ macro_rules! declare_storage_dynamic_n {
                 fn resolve_destroy(&mut self, entity: EntityDirect<A>) -> Option<(#(T~I,)*)> {
                     unsafe {
                         // SAFETY: We know that resolve_direct returns valid corresponding slots.
-                        Some(self.destroy_resolved(self.resolve_direct(entity)?))
+                        Some(self.force_destroy(self.resolve_direct(entity)?))
                     }
                 }
             }

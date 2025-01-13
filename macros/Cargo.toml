@@ -12,6 +12,7 @@ proc-macro = true
 
 [features]
 default = []
+events = []
 
 [dependencies]
 convert_case = { version = "0.6" }

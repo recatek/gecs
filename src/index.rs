@@ -6,6 +6,7 @@ pub(crate) const MAX_DATA_INDEX: u32 = MAX_DATA_CAPACITY - 1;
 
 /// A size-checked index that can always fit in an entity and live slot.
 #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub(crate) struct TrimmedIndex(u32);
 
 impl TrimmedIndex {

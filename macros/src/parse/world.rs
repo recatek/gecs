@@ -112,6 +112,13 @@ impl Parse for ParseEcsWorld {
 
         // TODO: Check for duplicates?
 
+        if archetypes.is_empty() {
+            return Err(syn::Error::new(
+                input.span(),
+                "ecs world must have at least one archetype",
+            ));
+        }
+
         Ok(Self { name, archetypes })
     }
 }
