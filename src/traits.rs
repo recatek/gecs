@@ -252,6 +252,15 @@ where
     /// data index for a specific entity using this function, use the `resolve` function.
     fn get_all_slices_mut(&mut self) -> Self::Slices<'_>;
 
+    /// Returns true if this archetype contains the given entity key.
+    #[inline(always)]
+    fn contains<K: EntityKey>(&self, entity: K) -> bool
+    where
+        Self: ArchetypeCanResolve<K>,
+    {
+        <Self as ArchetypeCanResolve<K>>::resolve_for(self, entity).is_some()
+    }
+
     /// If the entity exists in the archetype, this returns its dense data slice index.
     /// The returned index is guaranteed to be within bounds of the dense data slices.
     #[inline(always)]
