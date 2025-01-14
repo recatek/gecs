@@ -17,9 +17,6 @@ use crate::traits::{Archetype, EntityKey, StorageCanResolve};
 use crate::util::{debug_checked_assume, num_assert_leq};
 use crate::version::ArchetypeVersion;
 
-#[cfg(feature = "events")]
-use crate::event::EcsEvent;
-
 macro_rules! declare_storage_dynamic_n {
     (
         $name:ident,
@@ -40,9 +37,6 @@ macro_rules! declare_storage_dynamic_n {
                 // No RefCell here since we never grant mutable access externally
                 entities: DataPtr<Entity<A>>,
                 #(d~I: RefCell<DataPtr<T~I>>,)*
-
-                #[cfg(feature = "events")]
-                events: Vec<EcsEvent>, // Optional queue tracking create/destroy events
             }
 
             impl<A: Archetype, #(T~I,)*> $name<A, #(T~I,)*>
@@ -74,9 +68,6 @@ macro_rules! declare_storage_dynamic_n {
                         slots,
                         entities: DataPtr::with_capacity(capacity),
                         #(d~I: RefCell::new(DataPtr::with_capacity(capacity)),)*
-
-                        #[cfg(feature = "events")]
-                        events: Vec::new(),
                     }
                 }
 
@@ -312,27 +303,6 @@ macro_rules! declare_storage_dynamic_n {
                     }
                 )*
 
-                /// Iterates over all of the entity create/destroy events for this storage.
-                #[cfg(feature = "events")]
-                #[inline(always)]
-                pub fn iter_events(&self) -> impl Iterator<Item = &EcsEvent> + '_ {
-                    self.events.iter()
-                }
-
-                /// Drains the active event queue of its entity create/destroy events.
-                #[cfg(feature = "events")]
-                #[inline(always)]
-                pub fn drain_events(&mut self) -> impl Iterator<Item = EcsEvent> + '_ {
-                    self.events.drain(..)
-                }
-
-                /// Clears the current event queue of all entity create/destroy events.
-                #[cfg(feature = "events")]
-                #[inline(always)]
-                pub fn clear_events(&mut self) {
-                    self.events.clear()
-                }
-
                 /// Resolves the slot index and data index for a given entity.
                 /// Both indices are guaranteed to point to valid corresponding cells.
                 #[inline(always)]
@@ -519,11 +489,6 @@ macro_rules! declare_storage_dynamic_n {
                         self.entities.write(index, entity);
                         #(self.d~I.get_mut().write(index, data.I);)*
 
-                        #[cfg(feature = "events")]
-                        {
-                            self.events.push(EcsEvent::Created(entity.into()));
-                        }
-
                         entity
                     }
                 }
@@ -557,12 +522,6 @@ macro_rules! declare_storage_dynamic_n {
                         debug_assert_eq!(
                             entities[dense_index_usize].version(),
                             self.slots.slice(self.capacity())[slot_index_usize].version());
-
-                        #[cfg(feature = "events")]
-                        {
-                            let entity = *entities.get_unchecked(dense_index_usize);
-                            self.events.push(EcsEvent::Destroyed(entity.into()));
-                        }
 
                         // SAFETY: We know self.len > 0 because we got Some from resolve_slot.
                         let last_dense_index = self.len - 1;

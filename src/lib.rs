@@ -103,10 +103,6 @@ pub mod version;
 /// Enums for controlling iteration stepping.
 pub mod iter;
 
-/// Events for reporting entity creation and destruction.
-#[cfg(feature = "events")]
-pub mod event;
-
 mod macros {
     /// Macro for declaring a new ECS world struct with archetype storage.
     ///
@@ -870,9 +866,6 @@ pub mod prelude {
     pub use traits::{Archetype, ArchetypeHas};
     pub use traits::{View, ViewHas};
     pub use traits::{Borrow, BorrowHas};
-
-    #[cfg(feature = "events")]
-    pub use event::EcsEvent;
 }
 
 #[doc(hidden)]
@@ -908,7 +901,4 @@ pub mod __internal {
     pub use traits::{Archetype, ArchetypeHas};
     pub use traits::{View, ViewHas};
     pub use traits::{Borrow, BorrowHas};
-
-    #[cfg(feature = "events")]
-    pub use event::EcsEvent;
 }

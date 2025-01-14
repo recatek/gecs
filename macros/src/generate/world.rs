@@ -63,7 +63,6 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         .iter()
         .map(|archetype| with_capacity_new(archetype))
         .collect::<Vec<_>>();
-    let section_events = section_events_world(world_data);
 
     // Documentation helpers
     #[rustfmt::skip]
@@ -134,9 +133,6 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 const NUM_ARCHETYPES: usize = #num_archetypes;
 
                 type Capacities = #WorldCapacity;
-
-                // Will only appear if we have the events feature enabled.
-                #section_events
 
                 #[inline(always)]
                 fn new() -> Self {
@@ -611,9 +607,6 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         .map(|component| format_ident!("{}", to_snake(&component.name)))
         .collect::<Vec<_>>();
 
-    // Generated subsections
-    let section_events = section_events_archetype();
-
     // Documentation helpers
     let archetype_doc_component_types = archetype_data
         .components
@@ -651,9 +644,6 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
             type IterArgs<'a> = #IterArgs;
             type IterMutArgs<'a> = #IterMutArgs;
-
-            // Will only appear if we have the events feature enabled.
-            #section_events
 
             #[inline(always)]
             fn new() -> Self {
@@ -1066,69 +1056,4 @@ fn with_capacity_param(archetype_data: &DataArchetype) -> TokenStream {
 fn with_capacity_new(archetype_data: &DataArchetype) -> TokenStream {
     let archetype = format_ident!("{}", to_snake(&archetype_data.name));
     quote!(with_capacity(capacity.#archetype))
-}
-
-#[allow(non_snake_case)]
-fn section_events_world(world_data: &DataWorld) -> TokenStream {
-    if cfg!(feature = "events") {
-        let archetype_fields = world_data
-            .archetypes
-            .iter()
-            .rev() // Reverse the list because we'll chain inside-out
-            .map(|archetype| format_ident!("{}", to_snake(&archetype.name)))
-            .collect::<Vec<_>>();
-
-        // We throw a compile error if we don't have any archetypes, so we must have at least one.
-        let archetype = &archetype_fields[0];
-        let mut iter_body = quote!(self.#archetype.iter_events());
-        let mut drain_body = quote!(self.#archetype.drain_events());
-
-        // Keep nesting the chain operations
-        for archetype in archetype_fields[1..].iter() {
-            iter_body = quote!(self.#archetype.iter_events().chain(#iter_body));
-            drain_body = quote!(self.#archetype.drain_events().chain(#drain_body));
-        }
-
-        quote!(
-            #[inline(always)]
-            fn iter_events(&self) -> impl Iterator<Item = &EcsEvent> {
-                #iter_body
-            }
-
-            #[inline(always)]
-            fn drain_events(&mut self) -> impl Iterator<Item = EcsEvent> {
-                #drain_body
-            }
-
-            #[inline(always)]
-            fn clear_events(&mut self) {
-                #(self.#archetype_fields.clear_events();)*
-            }
-        )
-    } else {
-        quote!()
-    }
-}
-
-fn section_events_archetype() -> TokenStream {
-    if cfg!(feature = "events") {
-        quote!(
-            #[inline(always)]
-            fn iter_events(&self) -> impl Iterator<Item = &EcsEvent> {
-                self.data.iter_events()
-            }
-
-            #[inline(always)]
-            fn drain_events(&mut self) -> impl Iterator<Item = EcsEvent> {
-                self.data.drain_events()
-            }
-
-            #[inline(always)]
-            fn clear_events(&mut self) {
-                self.data.clear_events()
-            }
-        )
-    } else {
-        quote!()
-    }
 }
