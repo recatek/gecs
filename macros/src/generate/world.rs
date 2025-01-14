@@ -676,6 +676,11 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
 
             #[inline(always)]
+            fn entities(&self) -> &[Entity<#Archetype>] {
+                self.data.get_slice_entities()
+            }
+
+            #[inline(always)]
             fn create(
                 &mut self,
                 data: (#(#Component,)*),

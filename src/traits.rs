@@ -220,6 +220,10 @@ where
     /// Returns the generational version of the archetype. Intended for internal use.
     fn version(&self) -> ArchetypeVersion;
 
+    /// Returns a read-only slice of all entities in this archetype.
+    /// This slice is ordered arbitrarily and may change at later points.
+    fn entities(&self) -> &[Entity<Self>];
+
     /// Creates a new entity with the given components to this archetype storage.
     /// Returns a typed entity handle pointing to the new entity in the archetype.
     ///
