@@ -94,6 +94,11 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         #[doc(hidden)]
         pub use #ecs_world_sealed::{#ArchetypeSelectInternalWorld};
 
+        /// Convenience mod for accessing only archetypes in exports (for blob exports, etc.)
+        pub mod archetypes {
+            #(pub use super::#Archetype;)*
+        }
+
         mod #ecs_world_sealed {
             use super::*;
 
