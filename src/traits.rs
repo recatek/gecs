@@ -94,6 +94,21 @@ pub trait World: Sized {
         <Self as WorldHas<A>>::resolve_create_within_capacity(self, components)
     }
 
+    /// Returns true if this world contains the given entity key.
+    ///
+    ///
+    /// # Panics
+    ///
+    /// This will panic if given a dynamic key ([`EntityAny`] or [`EntityDirectAny`]) with an
+    /// archetype ID that is not known to this ECS world.
+    #[inline(always)]
+    fn contains<K: EntityKey>(&self, entity: K) -> bool
+    where
+        Self: WorldCanResolve<K>,
+    {
+        <Self as WorldCanResolve<K>>::resolve_contains(self, entity)
+    }
+
     /// If the entity exists in the world, this returns a direct entity pointing to its data.
     /// See [`EntityDirect`] and [`EntityDirectAny`] for more information.
     ///
@@ -637,6 +652,9 @@ pub trait BorrowHas<C>: Borrow {
 ///
 /// This is implemented for [`Entity`], [`EntityDirect`]. [`EntityAny`], and [`EntityDirectAny`].
 pub trait WorldCanResolve<K: EntityKey> {
+    #[doc(hidden)]
+    fn resolve_contains(&self, entity: K) -> bool;
+
     #[doc(hidden)]
     fn resolve_direct(&self, entity: K) -> Option<K::DirectOutput>;
 

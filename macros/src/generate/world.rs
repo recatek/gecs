@@ -278,6 +278,14 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
                 impl WorldCanResolve<Entity<#Archetype>> for #World {
                     #[inline(always)]
+                    fn resolve_contains(
+                        &self,
+                        entity: Entity<#Archetype>,
+                    ) -> bool {
+                        self.archetype::<#Archetype>().contains(entity)
+                    }
+
+                    #[inline(always)]
                     fn resolve_direct(
                         &self,
                         entity: Entity<#Archetype>,
@@ -295,6 +303,14 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 }
 
                 impl WorldCanResolve<EntityDirect<#Archetype>> for #World {
+                    #[inline(always)]
+                    fn resolve_contains(
+                        &self,
+                        entity: EntityDirect<#Archetype>,
+                    ) -> bool {
+                        self.archetype::<#Archetype>().contains(entity)
+                    }
+
                     #[inline(always)]
                     fn resolve_direct(
                         &self,
@@ -326,6 +342,20 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
             impl WorldCanResolve<EntityAny> for #World {
                 #[inline(always)]
+                fn resolve_contains(
+                    &self,
+                    entity: EntityAny,
+                ) -> bool {
+                    match entity.try_into() {
+                        #(
+                            Ok(#ArchetypeSelectEntity::#Archetype(entity)) =>
+                                self.#archetype.contains(entity),
+                        )*
+                        Err(_) => panic!("invalid entity type"),
+                    }
+                }
+
+                #[inline(always)]
                 fn resolve_direct(
                     &self,
                     entity: EntityAny,
@@ -355,6 +385,20 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             }
 
             impl WorldCanResolve<EntityDirectAny> for #World {
+                #[inline(always)]
+                fn resolve_contains(
+                    &self,
+                    entity: EntityDirectAny,
+                ) -> bool {
+                    match entity.try_into() {
+                        #(
+                            Ok(#ArchetypeSelectEntityDirect::#Archetype(entity)) =>
+                                self.#archetype.contains(entity),
+                        )*
+                        Err(_) => panic!("invalid entity type"),
+                    }
+                }
+
                 #[inline(always)]
                 fn resolve_direct(
                     &self,
