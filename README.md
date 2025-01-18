@@ -22,13 +22,24 @@ The goals for gecs are (in descending priority order):
 - Simplicity and focus in features
 
 All of the code that gecs generates in user crates is safe, and users of gecs can
-use `#[deny(unsafe_code)]` in their own crates. Note that gecs does use unsafe code
-internally to allow for compiler optimizations around known invariants. It is not a
-goal of this library to be written entirely in safe Rust.
+use `#![forbid(unsafe_code)]` in their own crates. Note that gecs does use unsafe
+code internally to allow for compiler optimizations around known invariants. It is
+not a goal of this library to be written entirely in safe Rust.
 
 # Getting Started
 
-See the `ecs_world!`, `ecs_find!`, and `ecs_iter!` macros for more information.
+See the <code>[ecs_world!]</code> macro for information on how to construct an ECS
+world, and the <code>[ecs_find!]</code> and <code>[ecs_iter!]</code> macros for 
+information on how to perform full ECS queries. See the <code>[World]</code> and 
+<code>[Archetype]</code> traits to see how to interact directly with the world.
+
+[ecs_world!]: https://docs.rs/gecs/latest/gecs/macro.ecs_world.html
+[ecs_find!]: https://docs.rs/gecs/latest/gecs/macro.ecs_find.html
+[ecs_iter!]: https://docs.rs/gecs/latest/gecs/macro.ecs_iter.html
+[World]: https://docs.rs/gecs/latest/gecs/traits/trait.World.html
+[Archetype]: https://docs.rs/gecs/latest/gecs/traits/trait.Archetype.html
+
+
 The following example creates a world with three components and two archetypes:
 
 ```rust

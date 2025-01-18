@@ -10,6 +10,9 @@ readme = "README.md"
 keywords = ["ecs", "entity"]
 categories = ["data-structures", "game-engines"]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 default = []
 

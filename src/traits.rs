@@ -6,7 +6,7 @@ use crate::version::ArchetypeVersion;
 #[cfg(doc)]
 use crate::entity::EntityDirectAny;
 
-#[cfg(feature = "events")]
+#[cfg(any(doc, feature = "events"))]
 use crate::entity::EntityAny;
 
 /// The base trait for an ECS world in gecs.
@@ -132,10 +132,10 @@ pub trait World: Sized {
     /// former (now removed) components. A `Some` result means the entity was found and destroyed.
     /// A `None` result means the given entity handle was invalid.
     ///
-    /// If called with [`EntityAny`] or [`EntityDirectAny`] this instead return `Option<()>` as the
-    /// return component type tuple can't be known at compile time. To get the components, convert
-    /// the any-type entity to a known type ahead of time using [`Entity::try_into()`] and the
-    /// resulting entity type selection enum.
+    /// If called with [`EntityAny`] or [`EntityDirectAny`] this instead returns `Option<()>` as the
+    /// return component type tuple can't be known at compile time. To get the components from the
+    /// entity on destruction, convert the any-type entity into a typed entity before destroying it
+    /// (see [`ArchetypeSelectEntity`](crate::ArchetypeSelectEntity) for example).
     ///
     /// # Panics
     ///
