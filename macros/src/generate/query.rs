@@ -61,8 +61,7 @@ pub fn generate_query_find(
     // TODO PERF: We could avoid binding entirely if we know that the params have no OneOf.
 
     // Types
-    let ArchetypeSelectInternalWorld =
-        format_ident!("__ArchetypeSelectInternal{}", world_data.name);
+    let __WorldSelectTotal = format_ident!("__{}SelectTotal", world_data.name);
 
     // Variables and fields
     let world = &query_data.world;
@@ -124,7 +123,7 @@ pub fn generate_query_find(
             };
 
             queries.push(quote!(
-                #ArchetypeSelectInternalWorld::#Archetype(#resolved_entity) => {
+                #__WorldSelectTotal::#Archetype(#resolved_entity) => {
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
@@ -135,7 +134,7 @@ pub fn generate_query_find(
 
                     #fetch.map(|found| closure(#(#attrs #bind),*))
                 }
-                #ArchetypeSelectInternalWorld::#ArchetypeDirect(#resolved_entity) => {
+                #__WorldSelectTotal::#ArchetypeDirect(#resolved_entity) => {
                     // Alias the current archetype for use in the closure.
                     type MatchedArchetype = #Archetype;
                     // The closure needs to be made per-archetype because of OneOf types.
@@ -158,7 +157,7 @@ pub fn generate_query_find(
     } else {
         Ok(quote!(
             {
-                match #ArchetypeSelectInternalWorld::try_from(#entity).expect("invalid entity type") {
+                match #__WorldSelectTotal::try_from(#entity).expect("invalid entity type") {
                     #(#queries)*
                     _ => None,
                 }
@@ -194,6 +193,12 @@ fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
+        ParseQueryParamType::With(_) => {
+            todo!() // Not yet implemented
+        }
+        ParseQueryParamType::Without(_) => {
+            todo!() // Not yet implemented
+        }
     }
 }
 
@@ -226,6 +231,12 @@ fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
         }
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
+        }
+                ParseQueryParamType::With(_) => {
+            todo!() // Not yet implemented
+        }
+        ParseQueryParamType::Without(_) => {
+            todo!() // Not yet implemented
         }
     }
 }
@@ -496,6 +507,12 @@ fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
+                ParseQueryParamType::With(_) => {
+            todo!() // Not yet implemented
+        }
+        ParseQueryParamType::Without(_) => {
+            todo!() // Not yet implemented
+        }
     }
 }
 
@@ -529,6 +546,12 @@ fn iter_bind_borrow(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
+                ParseQueryParamType::With(_) => {
+            todo!() // Not yet implemented
+        }
+        ParseQueryParamType::Without(_) => {
+            todo!() // Not yet implemented
+        }
     }
 }
 
@@ -549,6 +572,8 @@ fn to_type(param: &ParseQueryParam, archetype: &DataArchetype) -> TokenStream {
         ParseQueryParamType::EntityDirectAny => quote!(EntityDirectAny),
         ParseQueryParamType::EntityDirectWild => quote!(EntityDirect<#archetype_name>),
         ParseQueryParamType::OneOf(_) => panic!("must unpack OneOf first"),
+        ParseQueryParamType::With(_) => todo!(),
+        ParseQueryParamType::Without(_) => todo!(),
     }
 }
 
@@ -650,6 +675,12 @@ fn bind_query_params(
                     } else {
                         continue; // No need to check more
                     }
+                }
+                ParseQueryParamType::With(_) => {
+                    todo!() // Not yet implemented
+                }
+                ParseQueryParamType::Without(_) => {
+                    todo!() // Not yet implemented
                 }
             }
         }

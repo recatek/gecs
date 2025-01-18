@@ -9,7 +9,7 @@ use crate::generate::util::to_snake;
 #[allow(unused_variables)] // For unused feature-controlled generation elements
 pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     let world_snake = to_snake(&world_data.name);
-    let unique_hash = xxh3_128(raw_input.as_bytes());
+    let input_hash = xxh3_128(raw_input.as_bytes());
 
     // Module
     let ecs_world_sealed = format_ident!("ecs_{}_sealed", world_snake);
@@ -20,13 +20,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     // Types and traits
     let World = format_ident!("{}", world_data.name);
     let WorldCapacity = format_ident!("{}Capacity", world_data.name);
-
-    let ArchetypeSelectId = format_ident!("ArchetypeSelectId");
-    let ArchetypeSelectEntity = format_ident!("ArchetypeSelectEntity");
-    let ArchetypeSelectEntityDirect = format_ident!("ArchetypeSelectEntityDirect");
-
-    let ArchetypeSelectInternalWorld =
-        format_ident!("__ArchetypeSelectInternal{}", world_data.name);
+    let __WorldSelectTotal = format_ident!("__{}SelectTotal", world_data.name);
 
     let Archetype = world_data
         .archetypes
@@ -75,12 +69,11 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         .collect::<Vec<_>>();
 
     // Macros
-    let __expand_ecs_find_unique = format_ident!("__expand_ecs_find_{}", unique_hash);
-    let __expand_ecs_find_borrow_unique = format_ident!("__expand_ecs_find_borrow_{}", unique_hash);
-    let __expand_ecs_iter_unique = format_ident!("__expand_ecs_iter_{}", unique_hash);
-    let __expand_ecs_iter_borrow_unique = format_ident!("__expand_ecs_iter_borrow_{}", unique_hash);
-    let __expand_ecs_iter_destroy_unique =
-        format_ident!("__expand_ecs_iter_destroy_{}", unique_hash);
+    let __expand_ecs_find_hash = format_ident!("__expand_ecs_find_{}", input_hash);
+    let __expand_ecs_find_borrow_hash = format_ident!("__expand_ecs_find_borrow_{}", input_hash);
+    let __expand_ecs_iter_hash = format_ident!("__expand_ecs_iter_{}", input_hash);
+    let __expand_ecs_iter_borrow_hash = format_ident!("__expand_ecs_iter_borrow_{}", input_hash);
+    let __expand_ecs_iter_destroy_hash = format_ident!("__expand_ecs_iter_destroy_{}", input_hash);
 
     quote!(
         #( pub use #ecs_world_sealed::#Archetype; )*
@@ -88,13 +81,14 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         pub use #ecs_world_sealed::{
             #World,
             #WorldCapacity,
-            #ArchetypeSelectId,
-            #ArchetypeSelectEntity,
-            #ArchetypeSelectEntityDirect
+
+            SelectArchetype,
+            SelectEntity,
+            SelectEntityDirect
         };
 
         #[doc(hidden)]
-        pub use #ecs_world_sealed::{#ArchetypeSelectInternalWorld};
+        pub use #ecs_world_sealed::{#__WorldSelectTotal};
 
         /// Convenience mod for accessing only archetypes in exports (for blob exports, etc.)
         pub mod archetypes {
@@ -202,85 +196,86 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             )*
 
             #[derive(Clone, Copy)]
-            /// See `ArchetypeSelectId` in the `gecs` docs for more information.
-            pub enum #ArchetypeSelectId {
+            /// See `SelectArchetype` in the `gecs` docs for more information.
+            pub enum SelectArchetype {
                 #( #Archetype, )*
             }
 
             #[derive(Clone, Copy)]
-            /// See `ArchetypeSelectEntity` in the `gecs` docs for more information.
-            pub enum #ArchetypeSelectEntity {
+            /// See `SelectEntity` in the `gecs` docs for more information.
+            pub enum SelectEntity {
                 #( #Archetype(Entity<#Archetype>), )*
             }
 
             #[derive(Clone, Copy)]
-            /// See `ArchetypeSelectEntityDirect` in the `gecs` docs for more information.
-            pub enum #ArchetypeSelectEntityDirect {
+            /// See `SelectEntityDirect` in the `gecs` docs for more information.
+            pub enum SelectEntityDirect {
                 #( #Archetype(EntityDirect<#Archetype>), )*
             }
 
             // Combined dispatch table for resolving both entity key types.
+            /// Used internally by world queries. Not for general use.
             #[doc(hidden)]
-            pub enum #ArchetypeSelectInternalWorld {
+            pub enum #__WorldSelectTotal {
                 #( #Archetype(Entity<#Archetype>), )*
                 #( #ArchetypeDirect(EntityDirect<#Archetype>), )*
             }
 
             // Resolve dispatch implementation
             #(
-                impl From<Entity<#Archetype>> for #ArchetypeSelectId {
+                impl From<Entity<#Archetype>> for SelectArchetype {
                     #[inline(always)]
                     fn from(entity: Entity<#Archetype>) -> Self {
-                        #ArchetypeSelectId::#Archetype
+                        SelectArchetype::#Archetype
                     }
                 }
 
-                impl From<Entity<#Archetype>> for #ArchetypeSelectEntity {
+                impl From<Entity<#Archetype>> for SelectEntity {
                     #[inline(always)]
                     fn from(entity: Entity<#Archetype>) -> Self {
-                        #ArchetypeSelectEntity::#Archetype(entity)
+                        SelectEntity::#Archetype(entity)
                     }
                 }
 
-                impl From<&Entity<#Archetype>> for #ArchetypeSelectEntity {
+                impl From<&Entity<#Archetype>> for SelectEntity {
                     #[inline(always)]
                     fn from(entity: &Entity<#Archetype>) -> Self {
-                        #ArchetypeSelectEntity::#Archetype(*entity)
+                        SelectEntity::#Archetype(*entity)
                     }
                 }
 
-                impl From<EntityDirect<#Archetype>> for #ArchetypeSelectId {
+                impl From<EntityDirect<#Archetype>> for SelectArchetype {
                     #[inline(always)]
                     fn from(entity: EntityDirect<#Archetype>) -> Self {
-                        #ArchetypeSelectId::#Archetype
+                        SelectArchetype::#Archetype
                     }
                 }
 
-                impl From<EntityDirect<#Archetype>> for #ArchetypeSelectEntityDirect {
+                impl From<EntityDirect<#Archetype>> for SelectEntityDirect {
                     #[inline(always)]
                     fn from(entity: EntityDirect<#Archetype>) -> Self {
-                        #ArchetypeSelectEntityDirect::#Archetype(entity)
+                        SelectEntityDirect::#Archetype(entity)
                     }
                 }
 
-                impl From<&EntityDirect<#Archetype>> for #ArchetypeSelectEntityDirect {
+                impl From<&EntityDirect<#Archetype>> for SelectEntityDirect {
                     #[inline(always)]
                     fn from(entity: &EntityDirect<#Archetype>) -> Self {
-                        #ArchetypeSelectEntityDirect::#Archetype(*entity)
+                        SelectEntityDirect::#Archetype(*entity)
                     }
                 }
 
-                impl From<Entity<#Archetype>> for #ArchetypeSelectInternalWorld {
+                impl From<Entity<#Archetype>> for #__WorldSelectTotal {
                     #[inline(always)]
                     fn from(entity: Entity<#Archetype>) -> Self {
-                        #ArchetypeSelectInternalWorld::#Archetype(entity)
+                        #__WorldSelectTotal::#Archetype(entity)
                     }
                 }
 
-                impl From<EntityDirect<#Archetype>> for #ArchetypeSelectInternalWorld {
+                impl From<EntityDirect<#Archetype>> for #__WorldSelectTotal {
                     #[inline(always)]
                     fn from(entity: EntityDirect<#Archetype>) -> Self {
-                        #ArchetypeSelectInternalWorld::#ArchetypeDirect(entity)
+                        #__WorldSelectTotal::#ArchetypeDirect(entity)
                     }
                 }
 
@@ -337,12 +332,12 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 }
             )*
 
-            impl #ArchetypeSelectId {
+            impl SelectArchetype {
                 #[inline(always)]
                 pub fn archetype_id(self) -> ArchetypeId {
                     match self {
                         #(
-                            #ArchetypeSelectId::#Archetype => #Archetype::ARCHETYPE_ID,
+                            SelectArchetype::#Archetype => #Archetype::ARCHETYPE_ID,
                         )*
                     }
                 }
@@ -356,7 +351,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 ) -> bool {
                     match entity.try_into() {
                         #(
-                            Ok(#ArchetypeSelectEntity::#Archetype(entity)) =>
+                            Ok(SelectEntity::#Archetype(entity)) =>
                                 self.#archetype.contains(entity),
                         )*
                         Err(_) => panic!("invalid entity type"),
@@ -370,7 +365,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 ) -> Option<EntityDirectAny> {
                     match entity.try_into() {
                         #(
-                            Ok(#ArchetypeSelectEntity::#Archetype(entity)) =>
+                            Ok(SelectEntity::#Archetype(entity)) =>
                                 self.#archetype.to_direct(entity).map(|e| e.into()),
                         )*
                         Err(_) => panic!("invalid entity type"),
@@ -384,7 +379,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 ) -> Option<()> {
                     match entity.try_into() {
                         #(
-                            Ok(#ArchetypeSelectEntity::#Archetype(entity)) =>
+                            Ok(SelectEntity::#Archetype(entity)) =>
                                 self.#archetype.destroy(entity).map(|_| ()),
                         )*
                         Err(_) => panic!("invalid entity type"),
@@ -400,7 +395,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 ) -> bool {
                     match entity.try_into() {
                         #(
-                            Ok(#ArchetypeSelectEntityDirect::#Archetype(entity)) =>
+                            Ok(SelectEntityDirect::#Archetype(entity)) =>
                                 self.#archetype.contains(entity),
                         )*
                         Err(_) => panic!("invalid entity type"),
@@ -414,7 +409,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 ) -> Option<EntityDirectAny> {
                     match entity.try_into() {
                         #(
-                            Ok(#ArchetypeSelectEntityDirect::#Archetype(entity)) =>
+                            Ok(SelectEntityDirect::#Archetype(entity)) =>
                                 self.#archetype.to_direct(entity).map(|e| e.into()),
                         )*
                         Err(_) => panic!("invalid entity type"),
@@ -428,7 +423,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 ) -> Option<()> {
                     match entity.try_into() {
                         #(
-                            Ok(#ArchetypeSelectEntityDirect::#Archetype(entity)) =>
+                            Ok(SelectEntityDirect::#Archetype(entity)) =>
                                 self.#archetype.destroy(entity).map(|_| ()),
                         )*
                         Err(_) => panic!("invalid entity type"),
@@ -436,35 +431,35 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 }
             }
 
-            impl TryFrom<ArchetypeId> for #ArchetypeSelectId {
+            impl TryFrom<ArchetypeId> for SelectArchetype {
                 type Error = EcsError;
 
                 #[inline(always)]
                 fn try_from(id: ArchetypeId) -> Result<Self, EcsError> {
                     match id {
                         #(
-                            #Archetype::ARCHETYPE_ID => Ok(#ArchetypeSelectId::#Archetype),
+                            #Archetype::ARCHETYPE_ID => Ok(SelectArchetype::#Archetype),
                         )*
                         _ => Err(EcsError::InvalidEntityType),
                     }
                 }
             }
 
-            impl TryFrom<EntityAny> for #ArchetypeSelectId {
+            impl TryFrom<EntityAny> for SelectArchetype {
                 type Error = EcsError;
 
                 #[inline(always)]
                 fn try_from(entity: EntityAny) -> Result<Self, EcsError> {
                     match entity.archetype_id() {
                         #(
-                            #Archetype::ARCHETYPE_ID => Ok(#ArchetypeSelectId::#Archetype),
+                            #Archetype::ARCHETYPE_ID => Ok(SelectArchetype::#Archetype),
                         )*
                         _ => Err(EcsError::InvalidEntityType),
                     }
                 }
             }
 
-            impl TryFrom<EntityAny> for #ArchetypeSelectEntity {
+            impl TryFrom<EntityAny> for SelectEntity {
                 type Error = EcsError;
 
                 #[inline(always)]
@@ -473,7 +468,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                         #(
                             #Archetype::ARCHETYPE_ID => {
                                 // We can use from_any_unchecked because we just checked the archetype
-                                Ok(#ArchetypeSelectEntity::#Archetype(
+                                Ok(SelectEntity::#Archetype(
                                     Entity::<#Archetype>::from_any_unchecked(entity))
                                 )
                             },
@@ -483,7 +478,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 }
             }
 
-            impl TryFrom<EntityDirectAny> for #ArchetypeSelectEntityDirect {
+            impl TryFrom<EntityDirectAny> for SelectEntityDirect {
                 type Error = EcsError;
 
                 #[inline(always)]
@@ -492,7 +487,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                         #(
                             #Archetype::ARCHETYPE_ID => {
                                 // We can use from_any_unchecked because we just checked the archetype
-                                Ok(#ArchetypeSelectEntityDirect::#Archetype(
+                                Ok(SelectEntityDirect::#Archetype(
                                     EntityDirect::<#Archetype>::from_any_unchecked(entity))
                                 )
                             },
@@ -502,7 +497,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 }
             }
 
-            impl TryFrom<EntityAny> for #ArchetypeSelectInternalWorld {
+            impl TryFrom<EntityAny> for #__WorldSelectTotal {
                 type Error = EcsError;
 
                 #[inline(always)]
@@ -511,7 +506,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                         #(
                             #Archetype::ARCHETYPE_ID => {
                                 // We can use from_any_unchecked because we just checked the archetype
-                                Ok(#ArchetypeSelectInternalWorld::#Archetype(
+                                Ok(#__WorldSelectTotal::#Archetype(
                                     Entity::<#Archetype>::from_any_unchecked(entity)
                                 ))
                             },
@@ -521,7 +516,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 }
             }
 
-            impl TryFrom<EntityDirectAny> for #ArchetypeSelectInternalWorld {
+            impl TryFrom<EntityDirectAny> for #__WorldSelectTotal {
                 type Error = EcsError;
 
                 #[inline(always)]
@@ -530,7 +525,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                         #(
                             #Archetype::ARCHETYPE_ID => {
                                 // We can use from_any_unchecked because we just checked the archetype
-                                Ok(#ArchetypeSelectInternalWorld::#ArchetypeDirect(
+                                Ok(#__WorldSelectTotal::#ArchetypeDirect(
                                     EntityDirect::<#Archetype>::from_any_unchecked(entity))
                                 )
                             },
@@ -544,7 +539,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         #[macro_export]
         #[doc(hidden)]
         /// See `ecs_find` in the `gecs` docs for more information.
-        macro_rules! #__expand_ecs_find_unique {
+        macro_rules! #__expand_ecs_find_hash {
             ($($args:tt)*) => {
                 ::gecs::__internal::__expand_ecs_find!(#WORLD_DATA, $($args)*)
             }
@@ -553,7 +548,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         #[macro_export]
         #[doc(hidden)]
         /// See `ecs_find_borrow` in the `gecs` docs for more information.
-        macro_rules! #__expand_ecs_find_borrow_unique {
+        macro_rules! #__expand_ecs_find_borrow_hash {
             ($($args:tt)*) => {
                 ::gecs::__internal::__expand_ecs_find_borrow!(#WORLD_DATA, $($args)*)
             }
@@ -562,7 +557,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         #[macro_export]
         #[doc(hidden)]
         /// See `ecs_iter` in the `gecs` docs for more information.
-        macro_rules! #__expand_ecs_iter_unique {
+        macro_rules! #__expand_ecs_iter_hash {
             ($($args:tt)*) => {
                 ::gecs::__internal::__expand_ecs_iter!(#WORLD_DATA, $($args)*)
             }
@@ -571,7 +566,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         #[macro_export]
         #[doc(hidden)]
         /// See `ecs_iter_borrow` in the `gecs` docs for more information.
-        macro_rules! #__expand_ecs_iter_borrow_unique {
+        macro_rules! #__expand_ecs_iter_borrow_hash {
             ($($args:tt)*) => {
                 ::gecs::__internal::__expand_ecs_iter_borrow!(#WORLD_DATA, $($args)*)
             }
@@ -580,22 +575,22 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         #[macro_export]
         #[doc(hidden)]
         /// See `ecs_iter_destroy` in the `gecs` docs for more information.
-        macro_rules! #__expand_ecs_iter_destroy_unique {
+        macro_rules! #__expand_ecs_iter_destroy_hash {
             ($($args:tt)*) => {
                 ::gecs::__internal::__expand_ecs_iter_destroy!(#WORLD_DATA, $($args)*)
             }
         }
 
         #[doc(inline)]
-        pub use #__expand_ecs_find_unique as ecs_find;
+        pub use #__expand_ecs_find_hash as ecs_find;
         #[doc(inline)]
-        pub use #__expand_ecs_find_borrow_unique as ecs_find_borrow;
+        pub use #__expand_ecs_find_borrow_hash as ecs_find_borrow;
         #[doc(inline)]
-        pub use #__expand_ecs_iter_unique as ecs_iter;
+        pub use #__expand_ecs_iter_hash as ecs_iter;
         #[doc(inline)]
-        pub use #__expand_ecs_iter_borrow_unique as ecs_iter_borrow;
+        pub use #__expand_ecs_iter_borrow_hash as ecs_iter_borrow;
         #[doc(inline)]
-        pub use #__expand_ecs_iter_destroy_unique as ecs_iter_destroy;
+        pub use #__expand_ecs_iter_destroy_hash as ecs_iter_destroy;
     )
 }
 
@@ -623,8 +618,6 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let ArchetypeBorrow = format_ident!("{}Borrow", archetype_data.name);
     let ArchetypeView = format_ident!("{}View", archetype_data.name);
     let ArchetypeSlices = format_ident!("{}Slices", archetype_data.name);
-    let ArchetypeSelectEntity = format_ident!("ArchetypeSelectEntity");
-    let ArchetypeSelectEntityDirect = format_ident!("ArchetypeSelectEntityDirect");
 
     let ViewN = format_ident!("View{}", count_str);
     let SlicesN = format_ident!("Slices{}", count_str);
@@ -1001,7 +994,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn resolve_for(&self, key: EntityAny) -> Option<usize> {
                 match key.try_into() {
-                    Ok(#ArchetypeSelectEntity::#Archetype(entity)) => {
+                    Ok(SelectEntity::#Archetype(entity)) => {
                         self.data.resolve(entity)
                     },
                     Ok(_) => None, // Wrong archetype ID in the entity
@@ -1012,7 +1005,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn resolve_direct(&self, key: EntityAny) -> Option<EntityDirectAny> {
                 match key.try_into() {
-                    Ok(#ArchetypeSelectEntity::#Archetype(entity)) => {
+                    Ok(SelectEntity::#Archetype(entity)) => {
                         self.data.resolve_direct(entity).map(|e| e.into())
                     },
                     Ok(_) => None, // Wrong archetype ID in the entity
@@ -1023,7 +1016,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn resolve_view(&mut self, key: EntityAny) -> Option<<Self as Archetype>::View<'_>> {
                 match key.try_into() {
-                    Ok(#ArchetypeSelectEntity::#Archetype(entity)) => {
+                    Ok(SelectEntity::#Archetype(entity)) => {
                         self.data.get_view_mut(entity)
                     },
                     Ok(_) => None, // Wrong archetype ID in the entity
@@ -1034,7 +1027,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn resolve_borrow(&self, key: EntityAny) -> Option<<Self as Archetype>::Borrow<'_>> {
                 match key.try_into() {
-                    Ok(#ArchetypeSelectEntity::#Archetype(entity)) => {
+                    Ok(SelectEntity::#Archetype(entity)) => {
                         self.data.begin_borrow(entity).map(#ArchetypeBorrow)
                     },
                     Ok(_) => None, // Wrong archetype ID in the entity
@@ -1045,7 +1038,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn resolve_destroy(&mut self, key: EntityAny) -> Option<(#(#Component,)*)> {
                 match key.try_into() {
-                    Ok(#ArchetypeSelectEntity::#Archetype(entity)) => {
+                    Ok(SelectEntity::#Archetype(entity)) => {
                         self.data.destroy(entity)
                     },
                     Ok(_) => None, // Wrong archetype ID in the entity
@@ -1058,7 +1051,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn resolve_for(&self, key: EntityDirectAny) -> Option<usize> {
                 match key.try_into() {
-                    Ok(#ArchetypeSelectEntityDirect::#Archetype(entity)) => {
+                    Ok(SelectEntityDirect::#Archetype(entity)) => {
                         self.data.resolve(entity)
                     },
                     Ok(_) => None, // Wrong archetype ID in the entity
@@ -1069,7 +1062,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn resolve_direct(&self, key: EntityDirectAny) -> Option<EntityDirectAny> {
                 match key.try_into() {
-                    Ok(#ArchetypeSelectEntityDirect::#Archetype(entity)) => {
+                    Ok(SelectEntityDirect::#Archetype(entity)) => {
                         self.data.resolve_direct(entity).map(|e| e.into())
                     },
                     Ok(_) => None, // Wrong archetype ID in the entity
@@ -1080,7 +1073,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn resolve_view(&mut self, key: EntityDirectAny) -> Option<<Self as Archetype>::View<'_>> {
                 match key.try_into() {
-                    Ok(#ArchetypeSelectEntityDirect::#Archetype(entity)) => {
+                    Ok(SelectEntityDirect::#Archetype(entity)) => {
                         self.data.get_view_mut(entity)
                     },
                     Ok(_) => None, // Wrong archetype ID in the entity
@@ -1091,7 +1084,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn resolve_borrow(&self, key: EntityDirectAny) -> Option<<Self as Archetype>::Borrow<'_>> {
                 match key.try_into() {
-                    Ok(#ArchetypeSelectEntityDirect::#Archetype(entity)) => {
+                    Ok(SelectEntityDirect::#Archetype(entity)) => {
                         self.data.begin_borrow(entity).map(#ArchetypeBorrow)
                     },
                     Ok(_) => None, // Wrong archetype ID in the entity
@@ -1102,7 +1095,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn resolve_destroy(&mut self, key: EntityDirectAny) -> Option<(#(#Component,)*)> {
                 match key.try_into() {
-                    Ok(#ArchetypeSelectEntityDirect::#Archetype(entity)) => {
+                    Ok(SelectEntityDirect::#Archetype(entity)) => {
                         self.data.destroy(entity)
                     },
                     Ok(_) => None, // Wrong archetype ID in the entity

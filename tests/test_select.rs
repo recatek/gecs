@@ -27,8 +27,8 @@ fn test_select() {
         .create((CompA(1), CompZ));
 
     match entity.try_into() {
-        Ok(ArchetypeSelectEntity::ArchFoo(entity)) => assert!(world.contains(entity)),
-        Ok(ArchetypeSelectEntity::ArchBar(_)) => panic!(),
+        Ok(SelectEntity::ArchFoo(entity)) => assert!(world.contains(entity)),
+        Ok(SelectEntity::ArchBar(_)) => panic!(),
         Err(_) => panic!(),
     };
 }
@@ -43,8 +43,8 @@ fn test_select_direct() {
     let entity: EntityDirect<ArchFoo> = world.resolve_direct(entity).unwrap();
 
     match entity.try_into() {
-        Ok(ArchetypeSelectEntityDirect::ArchFoo(entity)) => assert!(world.contains(entity)),
-        Ok(ArchetypeSelectEntityDirect::ArchBar(_)) => panic!(),
+        Ok(SelectEntityDirect::ArchFoo(entity)) => assert!(world.contains(entity)),
+        Ok(SelectEntityDirect::ArchBar(_)) => panic!(),
         Err(_) => panic!(),
     };
 }
@@ -60,8 +60,8 @@ fn test_select_any() {
         .into_any();
 
     match entity.try_into() {
-        Ok(ArchetypeSelectEntity::ArchFoo(entity)) => assert!(world.contains(entity)),
-        Ok(ArchetypeSelectEntity::ArchBar(_)) => panic!(),
+        Ok(SelectEntity::ArchFoo(entity)) => assert!(world.contains(entity)),
+        Ok(SelectEntity::ArchBar(_)) => panic!(),
         Err(_) => panic!(),
     };
 }
@@ -76,8 +76,8 @@ fn test_select_any_direct() {
     let entity: EntityDirectAny = world.resolve_direct(entity).unwrap().into_any();
 
     match entity.try_into() {
-        Ok(ArchetypeSelectEntityDirect::ArchFoo(entity)) => assert!(world.contains(entity)),
-        Ok(ArchetypeSelectEntityDirect::ArchBar(_)) => panic!(),
+        Ok(SelectEntityDirect::ArchFoo(entity)) => assert!(world.contains(entity)),
+        Ok(SelectEntityDirect::ArchBar(_)) => panic!(),
         Err(_) => panic!(),
     };
 }

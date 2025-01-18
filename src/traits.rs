@@ -135,7 +135,7 @@ pub trait World: Sized {
     /// If called with [`EntityAny`] or [`EntityDirectAny`] this instead returns `Option<()>` as the
     /// return component type tuple can't be known at compile time. To get the components from the
     /// entity on destruction, convert the any-type entity into a typed entity before destroying it
-    /// (see [`ArchetypeSelectEntity`](crate::ArchetypeSelectEntity) for example).
+    /// (see [`SelectEntity`](crate::SelectEntity) for example).
     ///
     /// # Panics
     ///

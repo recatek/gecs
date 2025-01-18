@@ -15,7 +15,10 @@ mod kw {
     syn::custom_keyword!(EntityAny);
     syn::custom_keyword!(EntityDirect);
     syn::custom_keyword!(EntityDirectAny);
+
     syn::custom_keyword!(OneOf);
+    syn::custom_keyword!(With);
+    syn::custom_keyword!(Without);
 }
 
 #[derive(Debug)]
@@ -57,14 +60,19 @@ pub struct ParseQueryParam {
 
 #[derive(Clone, Debug)]
 pub enum ParseQueryParamType {
-    Component(Ident),
-    Entity(Ident),
-    EntityAny,
-    EntityWild, // Entity<_>
-    EntityDirect(Ident),
-    EntityDirectAny,
-    EntityDirectWild,
-    OneOf(Box<[Ident]>),
+    Component(Ident),    // CompFoo
+    Entity(Ident),       // Entity<A>
+    EntityWild,          // Entity<_>
+    EntityAny,           // EntityAny
+    EntityDirect(Ident), // EntityDirect<A>
+    EntityDirectWild,    // EntityDirect<_>
+    EntityDirectAny,     // EntityDirectAny
+    OneOf(Box<[Ident]>), // OneOf<CompFoo, CompBar>
+
+    #[allow(dead_code)]
+    With(Ident),         // With<CompFoo> -- TODO: RESERVED
+    #[allow(dead_code)]
+    Without(Ident),      // Without<CompFoo> -- TODO: RESERVED
 }
 
 impl Parse for ParseQueryFind {
@@ -273,6 +281,10 @@ impl Parse for ParseQueryParamType {
                     break Err(lookahead.error());
                 }
             }
+        } else if lookahead.peek(kw::With) {
+            Err(syn::Error::new(input.span(), "reserved keyword 'With' not yet implemented"))
+        } else if lookahead.peek(kw::Without) {
+            Err(syn::Error::new(input.span(), "reserved keyword 'Without' not yet implemented"))
         } else if lookahead.peek(Ident) {
             // Component
             Ok(ParseQueryParamType::Component(input.parse()?))

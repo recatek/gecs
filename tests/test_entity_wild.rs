@@ -32,8 +32,8 @@ fn test_one_of_basic() {
 
     ecs_iter!(world, |entity: &Entity<_>| {
         match entity.into() {
-            ArchetypeSelectEntity::ArchFoo(entity) => check_entity_type_a(entity),
-            ArchetypeSelectEntity::ArchBar(entity) => check_entity_type_b(entity),
+            SelectEntity::ArchFoo(entity) => check_entity_type_a(entity),
+            SelectEntity::ArchBar(entity) => check_entity_type_b(entity),
         }
     });
 
