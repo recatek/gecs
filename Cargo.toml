@@ -20,6 +20,12 @@ default = []
 # creating/destroying entities, but has a (probabilistically insignificant) risk of allowing reuse of stale handles.
 wrapping_version = []
 
+# Adds event tracking for entity creation/destruction. Has the following perf consequences:
+# - Adds additional allocation overhead to the ECS world for each per-archetype event queue.
+# - Every entity creation or destruction pushes an event to an archetype's event queue.
+# - Event queues will accumulate indefinitely and must be regularly drained using clear_events.
+events = ['gecs_macros/events']
+
 [dependencies]
 gecs_macros = { version = "0.3.0", path = "macros", default-features = false }
 

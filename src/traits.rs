@@ -4,7 +4,10 @@ use crate::entity::{ArchetypeId, Entity, EntityDirect};
 use crate::version::ArchetypeVersion;
 
 #[cfg(doc)]
-use crate::entity::{EntityAny, EntityDirectAny};
+use crate::entity::EntityDirectAny;
+
+#[cfg(feature = "events")]
+use crate::entity::EntityAny;
 
 /// The base trait for an ECS world in gecs.
 ///
@@ -163,6 +166,74 @@ pub trait World: Sized {
     {
         <Self as WorldHas<A>>::resolve_archetype_mut(self)
     }
+
+    /// Returns an iterator over all the entities created since the last time entity events were
+    /// cleared on the world or on any specific archetypes. This list has no ordering guarantees.
+    /// Note that entities appear in this list even if they have since been destroyed.
+    ///
+    /// These events accumulate until they are cleared by [`clear_events`](World::clear_events).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gecs::prelude::*;
+    ///
+    /// pub struct CompA;
+    ///
+    /// ecs_world! {
+    ///     ecs_archetype!(ArchFoo, CompA);
+    ///     ecs_archetype!(ArchBar, CompA);
+    /// }
+    ///
+    /// fn main() {
+    ///     let mut world = EcsWorld::default();
+    ///
+    ///     let entity_a = world.create::<ArchFoo>((CompA,));
+    ///     let entity_b = world.create::<ArchBar>((CompA,));
+    ///     world.destroy(entity_a);
+    ///     world.destroy(entity_b);
+    ///
+    ///     // Created events persist even after the entity is destroyed.
+    ///     let created = world.iter_created().collect::<Vec<_>>();
+    ///     assert_eq!(created.len(), 2);
+    ///     assert!(created.contains(&&entity_a.into()));
+    ///     assert!(created.contains(&&entity_b.into()));
+    ///
+    ///     let destroyed = world.iter_destroyed().collect::<Vec<_>>();
+    ///     assert_eq!(created.len(), 2);
+    ///     assert!(created.contains(&&entity_a.into()));
+    ///     assert!(created.contains(&&entity_b.into()));
+    ///
+    ///     world.clear_events();
+    ///     assert_eq!(world.iter_created().count(), 0);
+    ///     assert_eq!(world.iter_destroyed().count(), 0);
+    /// }
+    /// ```
+    #[cfg(feature = "events")]
+    fn iter_created(&self) -> impl Iterator<Item = &EntityAny>;
+
+    /// Returns an iterator over all the entities created since the last time entity events were
+    /// cleared on the world or on any specific archetypes. This list has no ordering guarantees.
+    ///
+    /// These events accumulate until they are cleared by [`clear_events`](World::clear_events).
+    ///
+    /// # Examples
+    ///
+    /// See [`Archetype::iter_created`].
+    #[cfg(feature = "events")]
+    fn iter_destroyed(&self) -> impl Iterator<Item = &EntityAny>;
+
+    /// Clears the currently stored entity creation/destruction events in this archetype.
+    /// This must be done periodically to prevent events from accumulating indefinitely.
+    ///
+    /// This clears the events in all archetypes in the world. See the archetype-level
+    /// [`Archetype::clear_events`] function to clear events only for a specific archetype.
+    ///
+    /// # Examples
+    ///
+    /// See [`World::iter_created`].
+    #[cfg(feature = "events")]
+    fn clear_events(&mut self);
 }
 
 /// A trait describing each archetype in a given ECS world.
@@ -399,6 +470,73 @@ where
     {
         <Self as ArchetypeHas<C>>::resolve_borrow_slice_mut(self)
     }
+
+    /// Returns an iterator over all the entities created since the last time entity events were
+    /// cleared on the world or on this specific archetype. This list has no ordering guarantees.
+    /// Note that entities appear in this list even if they have since been destroyed.
+    ///
+    /// These events accumulate until they are cleared by [`clear_events`](Archetype::clear_events).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gecs::prelude::*;
+    ///
+    /// pub struct CompA;
+    ///
+    /// ecs_world! {
+    ///     ecs_archetype!(ArchFoo, CompA);
+    /// }
+    ///
+    /// fn main() {
+    ///     let mut world = EcsWorld::default();
+    ///
+    ///     let entity_a = world.arch_foo.create((CompA,));
+    ///     let entity_b = world.arch_foo.create((CompA,));
+    ///     world.arch_foo.destroy(entity_a);
+    ///     world.arch_foo.destroy(entity_b);
+    ///
+    ///     // Created events persist even after the entity is destroyed.
+    ///     let created = world.arch_foo.iter_created().collect::<Vec<_>>();
+    ///     assert_eq!(created.len(), 2);
+    ///     assert!(created.contains(&&entity_a));
+    ///     assert!(created.contains(&&entity_b));
+    ///
+    ///     let destroyed = world.arch_foo.iter_destroyed().collect::<Vec<_>>();
+    ///     assert_eq!(created.len(), 2);
+    ///     assert!(created.contains(&&entity_a));
+    ///     assert!(created.contains(&&entity_b));
+    ///
+    ///     world.arch_foo.clear_events();
+    ///     assert_eq!(world.arch_foo.iter_created().count(), 0);
+    ///     assert_eq!(world.arch_foo.iter_destroyed().count(), 0);
+    /// }
+    /// ```
+    #[cfg(feature = "events")]
+    fn iter_created(&self) -> impl Iterator<Item = &Entity<Self>>;
+
+    /// Returns an iterator over all the entities destroyed since the last time entity events were
+    /// cleared on the world or on this specific archetype. This list has no ordering guarantees.
+    ///
+    /// These events accumulate until they are cleared by [`clear_events`](Archetype::clear_events).
+    ///
+    /// # Examples
+    ///
+    /// See [`Archetype::iter_created`].
+    #[cfg(feature = "events")]
+    fn iter_destroyed(&self) -> impl Iterator<Item = &Entity<Self>>;
+
+    /// Clears the currently stored entity creation/destruction events in this archetype.
+    /// This must be done periodically to prevent events from accumulating indefinitely.
+    ///
+    /// This clears only the events in this particular archetype. See the world-level
+    /// [`World::clear_events`] function to clear events for all archetypes in a world.
+    ///
+    /// # Examples
+    ///
+    /// See [`Archetype::iter_created`].
+    #[cfg(feature = "events")]
+    fn clear_events(&mut self);
 
     #[doc(hidden)]
     fn get_slice_entities(&self) -> &[Entity<Self>];

@@ -37,6 +37,11 @@ macro_rules! declare_storage_dynamic_n {
                 // No RefCell here since we never grant mutable access externally
                 entities: DataPtr<Entity<A>>,
                 #(d~I: RefCell<DataPtr<T~I>>,)*
+
+                #[cfg(feature = "events")]
+                created: Vec<Entity<A>>,
+                #[cfg(feature = "events")]
+                destroyed: Vec<Entity<A>>,
             }
 
             impl<A: Archetype, #(T~I,)*> $name<A, #(T~I,)*>
@@ -68,6 +73,11 @@ macro_rules! declare_storage_dynamic_n {
                         slots,
                         entities: DataPtr::with_capacity(capacity),
                         #(d~I: RefCell::new(DataPtr::with_capacity(capacity)),)*
+
+                        #[cfg(feature = "events")]
+                        created: Vec::new(), // Shouldn't initially allocate
+                        #[cfg(feature = "events")]
+                        destroyed: Vec::new(), // Shouldn't initially allocate
                     }
                 }
 
@@ -90,6 +100,22 @@ macro_rules! declare_storage_dynamic_n {
                 #[inline(always)]
                 pub const fn version(&self) -> ArchetypeVersion {
                     self.version
+                }
+
+                #[cfg(feature = "events")]
+                pub fn created(&self) -> &[Entity<A>] {
+                    &self.created
+                }
+
+                #[cfg(feature = "events")]
+                pub fn destroyed(&self) -> &[Entity<A>] {
+                    &self.destroyed
+                }
+
+                #[cfg(feature = "events")]
+                pub fn clear_events(&mut self) {
+                    self.created.clear();
+                    self.destroyed.clear();
                 }
 
                 /// Adds a new entity with the given components to this storage.
@@ -489,6 +515,11 @@ macro_rules! declare_storage_dynamic_n {
                         self.entities.write(index, entity);
                         #(self.d~I.get_mut().write(index, data.I);)*
 
+                        #[cfg(feature = "events")]
+                        {
+                            self.created.push(entity);
+                        }
+
                         entity
                     }
                 }
@@ -522,6 +553,11 @@ macro_rules! declare_storage_dynamic_n {
                         debug_assert_eq!(
                             entities[dense_index_usize].version(),
                             self.slots.slice(self.capacity())[slot_index_usize].version());
+
+                        #[cfg(feature = "events")]
+                        {
+                            self.destroyed.push(*entities.get_unchecked(dense_index_usize));
+                        }
 
                         // SAFETY: We know self.len > 0 because we got Some from resolve_slot.
                         let last_dense_index = self.len - 1;

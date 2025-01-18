@@ -63,6 +63,8 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         .iter()
         .map(|archetype| with_capacity_new(archetype))
         .collect::<Vec<_>>();
+    let section_event_iter = section_event_iter(&world_data);
+    let section_events = section_events_world(&world_data);
 
     // Documentation helpers
     #[rustfmt::skip]
@@ -108,6 +110,9 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
             #(#section_archetype)*
 
+            // Will only appear if we have the events feature enabled.
+            #section_event_iter
+
             /// The generated ECS world. See [`World`](gecs::traits::World) for more information.
             ///
             /// Contained archetypes[^1]:
@@ -138,6 +143,9 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 const NUM_ARCHETYPES: usize = #num_archetypes;
 
                 type Capacities = #WorldCapacity;
+
+                // Will only appear if we have the events feature enabled.
+                #section_events
 
                 #[inline(always)]
                 fn new() -> Self {
@@ -656,6 +664,9 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         .map(|component| format_ident!("{}", to_snake(&component.name)))
         .collect::<Vec<_>>();
 
+    // Generated subsections
+    let section_events = section_events_archetype(&archetype_data);
+
     // Documentation helpers
     let archetype_doc_component_types = archetype_data
         .components
@@ -693,6 +704,9 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
             type IterArgs<'a> = #IterArgs;
             type IterMutArgs<'a> = #IterMutArgs;
+
+            // Will only appear if we have the events feature enabled.
+            #section_events
 
             #[inline(always)]
             fn new() -> Self {
@@ -1110,4 +1124,151 @@ fn with_capacity_param(archetype_data: &DataArchetype) -> TokenStream {
 fn with_capacity_new(archetype_data: &DataArchetype) -> TokenStream {
     let archetype = format_ident!("{}", to_snake(&archetype_data.name));
     quote!(with_capacity(capacity.#archetype))
+}
+
+#[allow(non_snake_case)]
+fn section_event_iter(_world_data: &DataWorld) -> TokenStream {
+    if cfg!(feature = "events") {
+        let Archetype = _world_data
+            .archetypes
+            .iter()
+            .map(|archetype| format_ident!("{}", archetype.name))
+            .collect::<Vec<_>>();
+        let iter = _world_data
+            .archetypes
+            .iter()
+            .map(|archetype| format_ident!("iter_{}", to_snake(&archetype.name)))
+            .collect::<Vec<_>>();
+        let index = (0.._world_data.archetypes.len()).collect::<Vec<_>>();
+
+        // Increment self.which in every step except the very last
+        let mut next = Vec::new();
+        if _world_data.archetypes.is_empty() == false {
+            for _ in 0.._world_data.archetypes.len() - 1 {
+                next.push(quote!(self.which += 1));
+            }
+            next.push(quote!({}));
+        }
+
+        quote!(
+            use std::slice::Iter;
+
+            pub struct EcsEventIterator<'a> {
+                // We don't actually use archetype IDs since they aren't guaranteed to be
+                // sequential -- this is just to make sure that we have a correct max size.
+                which: ArchetypeId,
+
+                #(#iter: Iter<'a, Entity<#Archetype>>,)*
+            }
+
+            impl<'a> Iterator for EcsEventIterator<'a> {
+                type Item = &'a EntityAny;
+
+                #[inline]
+                fn next(&mut self) -> Option<Self::Item> {
+                    #(
+                        if self.which == #index as ArchetypeId {
+                            match self.#iter.next() {
+                                Some(next) => return Some(next.into()),
+                                None => #next,
+                            }
+                        }
+                    )*
+
+                    None
+                }
+
+                #[inline]
+                fn size_hint(&self) -> (usize, Option<usize>) {
+                    let mut min = 0;
+                    let mut max = 0;
+
+                    #(
+                        if self.which <= #index as ArchetypeId  {
+                            let (iter_min, iter_max) = self.#iter.size_hint();
+                            min += iter_min;
+                            max += match iter_max {
+                                Some(iter_max) => iter_max,
+
+                                // This should just compile out due to how slice::Iter works and
+                                // inlines. This is here as a backup in case the internals change.
+                                None => return (0, None),
+                            }
+                        }
+                    )*
+
+                    (min, Some(max))
+                }
+            }
+        )
+    } else {
+        quote!()
+    }
+}
+
+#[allow(non_snake_case)]
+fn section_events_world(_world_data: &DataWorld) -> TokenStream {
+    if cfg!(feature = "events") {
+        let iter = _world_data
+            .archetypes
+            .iter()
+            .map(|archetype| format_ident!("iter_{}", to_snake(&archetype.name)))
+            .collect::<Vec<_>>();
+        let archetype = _world_data
+            .archetypes
+            .iter()
+            .map(|archetype| format_ident!("{}", to_snake(&archetype.name)))
+            .collect::<Vec<_>>();
+
+        quote!(
+            #[inline(always)]
+            fn iter_created(&self) -> impl Iterator<Item = &EntityAny> {
+                EcsEventIterator {
+                    which: 0,
+                    #(#iter: self.#archetype.data.created().iter(),)*
+                }
+            }
+
+            #[inline(always)]
+            fn iter_destroyed(&self) -> impl Iterator<Item = &EntityAny> {
+                EcsEventIterator {
+                    which: 0,
+                    #(#iter: self.#archetype.data.destroyed().iter(),)*
+                }
+            }
+
+            #[inline(always)]
+            fn clear_events(&mut self) {
+                #(self.#archetype.clear_events();)*
+            }
+        )
+    } else {
+        quote!()
+    }
+}
+
+#[allow(non_snake_case)]
+fn section_events_archetype(_archetype_data: &DataArchetype) -> TokenStream {
+    if cfg!(feature = "events") {
+        let Archetype = format_ident!("{}", &_archetype_data.name);
+
+        quote!(
+            #[inline(always)]
+            fn iter_created(&self) -> impl Iterator<Item = &Entity<#Archetype>> {
+                self.data.created().iter()
+            }
+
+            #[inline(always)]
+            fn iter_destroyed(&self) -> impl Iterator<Item = &Entity<#Archetype>> {
+                self.data.destroyed().iter()
+            }
+
+            #[inline(always)]
+            fn clear_events(&mut self) {
+                self.data.clear_events()
+            }
+        )
+    } else {
+        quote!()
+    }
 }
