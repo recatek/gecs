@@ -534,6 +534,86 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                     }
                 }
             }
+
+            impl TryFrom<&EntityAny> for #__WorldSelectTotal {
+                type Error = EcsError;
+
+                #[inline(always)]
+                fn try_from(entity: &EntityAny) -> Result<Self, EcsError> {
+                    (*entity).try_into()
+                }
+            }
+
+            impl TryFrom<&EntityDirectAny> for #__WorldSelectTotal {
+                type Error = EcsError;
+
+                #[inline(always)]
+                fn try_from(entity: &EntityDirectAny) -> Result<Self, EcsError> {
+                    (*entity).try_into()
+                }
+            }
+
+            impl<A: Archetype> TryFrom<&Entity<A>> for #__WorldSelectTotal
+                where #__WorldSelectTotal: TryFrom<Entity<A>, Error = EcsError>
+            {
+                type Error = EcsError;
+
+                #[inline(always)]
+                fn try_from(entity: &Entity<A>) -> Result<Self, EcsError> {
+                    (*entity).try_into()
+                }
+            }
+
+            impl<A: Archetype> TryFrom<&EntityDirect<A>> for #__WorldSelectTotal
+                where #__WorldSelectTotal: TryFrom<EntityDirect<A>, Error = EcsError>
+            {
+                type Error = EcsError;
+
+                #[inline(always)]
+                fn try_from(entity: &EntityDirect<A>) -> Result<Self, EcsError> {
+                    (*entity).try_into()
+                }
+            }
+
+            impl TryFrom<&mut EntityAny> for #__WorldSelectTotal {
+                type Error = EcsError;
+
+                #[inline(always)]
+                fn try_from(entity: &mut EntityAny) -> Result<Self, EcsError> {
+                    (*entity).try_into()
+                }
+            }
+
+            impl TryFrom<&mut EntityDirectAny> for #__WorldSelectTotal {
+                type Error = EcsError;
+
+                #[inline(always)]
+                fn try_from(entity: &mut EntityDirectAny) -> Result<Self, EcsError> {
+                    (*entity).try_into()
+                }
+            }
+
+            impl<A: Archetype> TryFrom<&mut Entity<A>> for #__WorldSelectTotal
+                where #__WorldSelectTotal: TryFrom<Entity<A>, Error = EcsError>
+            {
+                type Error = EcsError;
+
+                #[inline(always)]
+                fn try_from(entity: &mut Entity<A>) -> Result<Self, EcsError> {
+                    (*entity).try_into()
+                }
+            }
+
+            impl<A: Archetype> TryFrom<&mut EntityDirect<A>> for #__WorldSelectTotal
+                where #__WorldSelectTotal: TryFrom<EntityDirect<A>, Error = EcsError>
+            {
+                type Error = EcsError;
+
+                #[inline(always)]
+                fn try_from(entity: &mut EntityDirect<A>) -> Result<Self, EcsError> {
+                    (*entity).try_into()
+                }
+            }
         }
 
         #[macro_export]
