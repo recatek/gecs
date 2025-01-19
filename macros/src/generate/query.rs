@@ -193,6 +193,9 @@ fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
+        ParseQueryParamType::Option(_) => {
+            todo!() // Not yet implemented
+        }
         ParseQueryParamType::With(_) => {
             todo!() // Not yet implemented
         }
@@ -232,7 +235,10 @@ fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
-                ParseQueryParamType::With(_) => {
+        ParseQueryParamType::Option(_) => {
+            todo!() // Not yet implemented
+        }
+        ParseQueryParamType::With(_) => {
             todo!() // Not yet implemented
         }
         ParseQueryParamType::Without(_) => {
@@ -507,7 +513,10 @@ fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
-                ParseQueryParamType::With(_) => {
+        ParseQueryParamType::Option(_) => {
+            todo!() // Not yet implemented
+        }
+        ParseQueryParamType::With(_) => {
             todo!() // Not yet implemented
         }
         ParseQueryParamType::Without(_) => {
@@ -546,7 +555,10 @@ fn iter_bind_borrow(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
-                ParseQueryParamType::With(_) => {
+        ParseQueryParamType::Option(_) => {
+            todo!() // Not yet implemented
+        }
+        ParseQueryParamType::With(_) => {
             todo!() // Not yet implemented
         }
         ParseQueryParamType::Without(_) => {
@@ -572,6 +584,7 @@ fn to_type(param: &ParseQueryParam, archetype: &DataArchetype) -> TokenStream {
         ParseQueryParamType::EntityDirectAny => quote!(EntityDirectAny),
         ParseQueryParamType::EntityDirectWild => quote!(EntityDirect<#archetype_name>),
         ParseQueryParamType::OneOf(_) => panic!("must unpack OneOf first"),
+        ParseQueryParamType::Option(_) => todo!(),
         ParseQueryParamType::With(_) => todo!(),
         ParseQueryParamType::Without(_) => todo!(),
     }
@@ -675,6 +688,9 @@ fn bind_query_params(
                     } else {
                         continue; // No need to check more
                     }
+                }
+                ParseQueryParamType::Option(_) => {
+                    todo!() // Not yet implemented
                 }
                 ParseQueryParamType::With(_) => {
                     todo!() // Not yet implemented

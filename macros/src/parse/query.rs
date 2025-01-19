@@ -17,6 +17,7 @@ mod kw {
     syn::custom_keyword!(EntityDirectAny);
 
     syn::custom_keyword!(OneOf);
+    syn::custom_keyword!(Option);
     syn::custom_keyword!(With);
     syn::custom_keyword!(Without);
 }
@@ -59,19 +60,22 @@ pub struct ParseQueryParam {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub enum ParseQueryParamType {
-    Component(Ident),    // CompFoo
+    Component(Ident), // CompFoo
+
+    // Entity Types
     Entity(Ident),       // Entity<A>
     EntityWild,          // Entity<_>
     EntityAny,           // EntityAny
     EntityDirect(Ident), // EntityDirect<A>
     EntityDirectWild,    // EntityDirect<_>
     EntityDirectAny,     // EntityDirectAny
-    OneOf(Box<[Ident]>), // OneOf<CompFoo, CompBar>
 
-    #[allow(dead_code)]
+    // Special Types
+    OneOf(Box<[Ident]>), // OneOf<CompFoo, CompBar>
+    Option(Ident),       // Option<CompFoo> -- TODO: RESERVED
     With(Ident),         // With<CompFoo> -- TODO: RESERVED
-    #[allow(dead_code)]
     Without(Ident),      // Without<CompFoo> -- TODO: RESERVED
 }
 
@@ -281,10 +285,21 @@ impl Parse for ParseQueryParamType {
                     break Err(lookahead.error());
                 }
             }
+        } else if lookahead.peek(kw::Option) {
+            Err(syn::Error::new(
+                input.span(),
+                "reserved special 'Option' not yet implemented",
+            ))
         } else if lookahead.peek(kw::With) {
-            Err(syn::Error::new(input.span(), "reserved keyword 'With' not yet implemented"))
+            Err(syn::Error::new(
+                input.span(),
+                "reserved special 'With' not yet implemented",
+            ))
         } else if lookahead.peek(kw::Without) {
-            Err(syn::Error::new(input.span(), "reserved keyword 'Without' not yet implemented"))
+            Err(syn::Error::new(
+                input.span(),
+                "reserved special 'Without' not yet implemented",
+            ))
         } else if lookahead.peek(Ident) {
             // Component
             Ok(ParseQueryParamType::Component(input.parse()?))
