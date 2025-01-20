@@ -71,12 +71,12 @@ pub trait World: Sized {
     #[inline(always)]
     fn create<A: Archetype>(
         &mut self, //.
-        components: A::Components,
+        components: impl Into<A::Components>,
     ) -> Entity<A>
     where
         Self: WorldHas<A>,
     {
-        <Self as WorldHas<A>>::resolve_create(self, components)
+        <Self as WorldHas<A>>::resolve_create(self, components.into())
     }
 
     /// Creates a new entity if there is sufficient spare capacity to store it.
@@ -89,12 +89,12 @@ pub trait World: Sized {
     #[inline(always)]
     fn create_within_capacity<A: Archetype>(
         &mut self, //.
-        components: A::Components,
+        components: impl Into<A::Components>,
     ) -> Result<Entity<A>, A::Components>
     where
         Self: WorldHas<A>,
     {
-        <Self as WorldHas<A>>::resolve_create_within_capacity(self, components)
+        <Self as WorldHas<A>>::resolve_create_within_capacity(self, components.into())
     }
 
     /// Returns true if this world contains the given entity key.
@@ -327,8 +327,8 @@ where
     /// A unique type ID assigned to this archetype in generation.
     const ARCHETYPE_ID: ArchetypeId;
 
-    /// A tuple of the components in this archetype.
-    type Components;
+    /// A struct with named storage to each component in this archetype.
+    type Components: Components<Archetype = Self>;
 
     /// The slices type when accessing all of this archetype's slices simultaneously.
     type Slices<'a>
@@ -393,7 +393,7 @@ where
     /// # Panics
     ///
     /// Panics if the archetype can no longer expand to accommodate the new data.
-    fn create(&mut self, data: Self::Components) -> Entity<Self>;
+    fn create(&mut self, components: impl Into<Self::Components>) -> Entity<Self>;
 
     /// Creates a new entity if there is sufficient spare capacity to store it.
     /// Returns a typed entity handle pointing to the new entity in the archetype.
@@ -402,7 +402,7 @@ where
     /// capacity. Instead, it will return an error along with given components.
     fn create_within_capacity(
         &mut self,
-        data: Self::Components,
+        components: impl Into<Self::Components>,
     ) -> Result<Entity<Self>, Self::Components>;
 
     /// Returns an iterator over all of the entities and their data.
@@ -598,70 +598,6 @@ where
         <Self as ArchetypeHas<C>>::resolve_borrow_slice_mut(self)
     }
 
-    /// Extracts a component reference by type from this archetype's component tuple.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use gecs::prelude::*;
-    ///
-    /// pub struct CompA(u32);
-    /// pub struct CompB(u32);
-    ///
-    /// ecs_world! {
-    ///     ecs_archetype!(ArchFoo, CompA, CompB);
-    /// }
-    ///
-    /// fn main() {
-    ///     let mut world = EcsWorld::default();
-    ///
-    ///     let entity_a = world.create::<ArchFoo>((CompA(1), CompB(2),));
-    ///     let components = world.destroy(entity_a).unwrap();
-    ///
-    ///     assert_eq!(ArchFoo::extract::<CompB>(&components).0, 2)
-    /// }
-    /// ```
-    #[inline(always)]
-    fn extract<C>(components: &Self::Components) -> &C
-    where
-        Self: ArchetypeHas<C>,
-    {
-        <Self as ArchetypeHas<C>>::resolve_extract(components)
-    }
-
-    /// Extracts a mutable component reference by type from this archetype's component tuple.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use gecs::prelude::*;
-    ///
-    /// pub struct CompA(u32);
-    /// pub struct CompB(u32);
-    ///
-    /// ecs_world! {
-    ///     ecs_archetype!(ArchFoo, CompA, CompB);
-    /// }
-    ///
-    /// fn main() {
-    ///     let mut world = EcsWorld::default();
-    ///
-    ///     let entity_a = world.create::<ArchFoo>((CompA(1), CompB(2),));
-    ///     let mut components = world.destroy(entity_a).unwrap();
-    ///
-    ///     ArchFoo::extract_mut::<CompB>(&mut components).0 += 1;
-    ///
-    ///     assert_eq!(ArchFoo::extract::<CompB>(&components).0, 3)
-    /// }
-    /// ```
-    #[inline(always)]
-    fn extract_mut<C>(components: &mut Self::Components) -> &mut C
-    where
-        Self: ArchetypeHas<C>,
-    {
-        <Self as ArchetypeHas<C>>::resolve_extract_mut(components)
-    }
-
     /// Returns an iterator over all the entities created since the last time entity events were
     /// cleared on the world or on this specific archetype. This list has no ordering guarantees.
     /// Note that entities appear in this list even if they have since been destroyed.
@@ -836,14 +772,28 @@ pub trait ArchetypeHas<C>: Archetype {
     #[doc(hidden)]
     fn resolve_borrow_component_mut<'a>(borrow: &'a Self::Borrow<'a>) -> RefMut<'a, C>;
     #[doc(hidden)]
-    fn resolve_extract(components: &Self::Components) -> &C;
+    fn resolve_extract(named: &Self::Components) -> &C;
     #[doc(hidden)]
-    fn resolve_extract_mut(components: &mut Self::Components) -> &mut C;
+    fn resolve_extract_mut(named: &mut Self::Components) -> &mut C;
 }
 
-// NOTE: There's no point in trying to make a View/ViewMut split because each column is in a
-// RefCell anyway, so you can't make non-mut references to them without borrowing, and Borrow
-// already exists for that. Borrow also does it better, since it doesn't fully borrow each slice.
+pub trait Components {
+    type Archetype: Archetype;
+
+    type Tuple;
+
+    fn get<C>(&self) -> &C
+    where
+        Self::Archetype: ArchetypeHas<C>;
+
+    fn get_mut<C>(&mut self) -> &mut C
+    where
+        Self::Archetype: ArchetypeHas<C>;
+
+    /// Converts this named components struct into a raw tuple of components, in the same order.
+    /// This is a convenience function for when `into` won't work without explicit types.
+    fn into_tuple(self) -> Self::Tuple;
+}
 
 /// A `View` is a mutable reference to a specific entity's components within an archetype. It
 /// allows direct access to all of a specific entity's components, but exclusively borrows the
@@ -853,6 +803,10 @@ pub trait ArchetypeHas<C>: Archetype {
 ///
 /// The `View` trait should be implemented only by the `ecs_world!` macro.
 /// This is not intended for manual implementation by any user data structures.
+//
+// DEV NOTE: There's no point in trying to make a View/ViewMut split because each column is in
+// a RefCell anyway, so you can't make non-mut references to them without borrowing, and Borrow
+// already exists for that. Borrow also does it better, since it doesn't fully borrow each slice.
 pub trait View {
     type Archetype: Archetype;
 

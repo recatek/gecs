@@ -793,6 +793,7 @@ pub mod prelude {
 
     pub use traits::{World, WorldHas};
     pub use traits::{Archetype, ArchetypeHas};
+    pub use traits::Components;
     pub use traits::{View, ViewHas};
     pub use traits::{Borrow, BorrowHas};
 }
@@ -819,6 +820,7 @@ pub mod __internal {
 
     pub use archetype::slices::*;
     pub use archetype::storage::*;
+    pub use archetype::components::*;
     pub use archetype::view::*;
 
     pub use iter::{EcsStepDestroy, EcsStep};
@@ -828,6 +830,7 @@ pub mod __internal {
 
     pub use traits::{World, WorldHas};
     pub use traits::{Archetype, ArchetypeHas};
+    pub use traits::Components;
     pub use traits::{View, ViewHas};
     pub use traits::{Borrow, BorrowHas};
 }

@@ -63,13 +63,6 @@ macro_rules! declare_iter_n {
     };
 }
 
-// Declare entries for up to 16 components.
-seq!(N in 1..=16 {
-    declare_iter_n!(Iter~N, IterMut~N, N);
-});
-
-// Declare additional entries for up to 32 components.
+seq!(N in 1..=16 { declare_iter_n!(Iter~N, IterMut~N, N); });
 #[cfg(feature = "32_components")]
-seq!(N in 17..=32 {
-    declare_iter_n!(Iter~N, IterMut~N, N);
-});
+seq!(N in 17..=32 { declare_iter_n!(Iter~N, IterMut~N, N); });

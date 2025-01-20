@@ -1,4 +1,4 @@
-use proc_macro2::{TokenStream, Literal};
+use proc_macro2::{Literal, TokenStream};
 use quote::{format_ident, quote};
 use xxhash_rust::xxh3::xxh3_128;
 
@@ -162,8 +162,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                     fn resolve_create(
                         &mut self,
                         data: <#Archetype as Archetype>::Components,
-                    ) -> Entity<#Archetype>
-                    {
+                    ) -> Entity<#Archetype> {
                         self.#archetype.create(data)
                     }
 
@@ -171,15 +170,15 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                     fn resolve_create_within_capacity(
                         &mut self,
                         data: <#Archetype as Archetype>::Components,
-                    ) -> Result<Entity<#Archetype>, <#Archetype as Archetype>::Components>
-                    {
+                    ) -> Result<Entity<#Archetype>, <#Archetype as Archetype>::Components> {
                         self.#archetype.create_within_capacity(data)
                     }
 
                     #[inline(always)]
-                    fn resolve_destroy(&mut self, entity: Entity<#Archetype>)
-                        -> Option<<#Archetype as Archetype>::Components>
-                    {
+                    fn resolve_destroy(
+                        &mut self,
+                        entity: Entity<#Archetype>,
+                    ) -> Option<<#Archetype as Archetype>::Components> {
                         self.#archetype.destroy(entity)
                     }
 
@@ -702,14 +701,13 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let ArchetypeBorrow = format_ident!("{}Borrow", archetype_data.name);
     let ArchetypeView = format_ident!("{}View", archetype_data.name);
     let ArchetypeSlices = format_ident!("{}Slices", archetype_data.name);
+    let ArchetypeComponents = format_ident!("{}Components", archetype_data.name);
 
+    let ComponentsN = format_ident!("Components{}", count_str);
     let ViewN = format_ident!("View{}", count_str);
     let SlicesN = format_ident!("Slices{}", count_str);
-    let ContentArgs = quote!(#Archetype, #(#Component),*);
-
     let StorageN = format_ident!("Storage{}", count_str);
     let BorrowN = format_ident!("Borrow{}", count_str);
-    let StorageArgs = quote!(#Archetype, #(#Component,)*);
 
     let IterArgs = quote!((&'a Entity<#Archetype>, #(&'a #Component,)*));
     let IterMutArgs = quote!((&'a Entity<#Archetype>, #(&'a mut #Component,)*));
@@ -767,14 +765,14 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         #[repr(transparent)]
         pub struct #Archetype {
             #[doc(hidden)]
-            pub data: #StorageN<#StorageArgs>,
+            pub data: #StorageN<#Archetype, #(#Component),*>,
         }
 
         impl Archetype for #Archetype {
             #[allow(unconditional_panic)]
             const ARCHETYPE_ID: u8 = #ARCHETYPE_ID;
 
-            type Components = (#(#Component,)*);
+            type Components = #ArchetypeComponents;
             type View<'a> = #ArchetypeView<'a>;
             type Borrow<'a> = #ArchetypeBorrow<'a>;
             type Slices<'a> = #ArchetypeSlices<'a>;
@@ -823,17 +821,17 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn create(
                 &mut self,
-                data: (#(#Component,)*),
+                components: impl Into<Self::Components>,
             ) -> Entity<#Archetype> {
-                self.data.push(data)
+                self.data.push(components.into())
             }
 
             #[inline(always)]
             fn create_within_capacity(
                 &mut self,
-                data: (#(#Component,)*),
-            ) -> Result<Entity<#Archetype>, (#(#Component,)*)> {
-                self.data.push_within_capacity(data)
+                components: impl Into<Self::Components>,
+            ) -> Result<Entity<#Archetype>, #ArchetypeComponents> {
+                self.data.push_within_capacity(components.into())
             }
 
             #[inline(always)]
@@ -893,15 +891,75 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
                 #[inline(always)]
                 fn resolve_extract(components: &Self::Components) -> &#Component {
-                    &components.#component_index
+                    &components.#component
                 }
 
                 #[inline(always)]
                 fn resolve_extract_mut(components: &mut Self::Components) -> &mut #Component {
-                    &mut components.#component_index
+                    &mut components.#component
                 }
             }
         )*
+
+        /// Struct for named access to all of the components in an archetype's component tuple.
+        pub struct #ArchetypeComponents {
+            #(
+                pub #component: #Component,
+            )*
+        }
+
+        impl Components for #ArchetypeComponents {
+            type Archetype = #Archetype;
+            type Tuple = (#(#Component,)*);
+
+            fn get<C>(&self) -> &C
+            where
+                Self::Archetype: ArchetypeHas<C>
+            {
+                <Self::Archetype as ArchetypeHas<C>>::resolve_extract(self)
+            }
+
+            fn get_mut<C>(&mut self) -> &mut C
+            where
+                Self::Archetype: ArchetypeHas<C>
+            {
+                <Self::Archetype as ArchetypeHas<C>>::resolve_extract_mut(self)
+            }
+
+            fn into_tuple(self) -> Self::Tuple {
+                (#(self.#component,)*)
+            }
+        }
+
+        impl #ComponentsN<#(#Component,)*> for #ArchetypeComponents {
+            #[inline(always)]
+            fn raw_new(#(#component: #Component,)*) -> Self {
+                Self { #(#component,)* }
+            }
+
+            #[inline(always)]
+            fn raw_get(self) -> (#(#Component,)*) {
+                (#(self.#component,)*)
+            }
+        }
+
+        impl From<(#(#Component,)*)> for #ArchetypeComponents {
+            #[inline(always)]
+            fn from(components: (#(#Component,)*)) -> #ArchetypeComponents {
+                Self {
+                    #(
+                        #component: components.#component_index,
+                    )*
+                }
+            }
+        }
+
+        impl From<#ArchetypeComponents> for (#(#Component,)*) {
+            #[inline(always)]
+            fn from(components: #ArchetypeComponents) -> (#(#Component,)*) {
+                (#(components.#component,)*)
+            }
+        }
 
         /// Access to all of the stored entity and component data within this archetype.
         /// Each index in these parallel slices refers to the components for a given entity.
@@ -918,7 +976,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             )*
         }
 
-        impl<'a> #SlicesN<'a, #ContentArgs> for #ArchetypeSlices<'a> {
+        impl<'a> #SlicesN<'a, #Archetype, #(#Component),*> for #ArchetypeSlices<'a> {
             #[inline(always)]
             fn new(
                 entity: &'a [Entity<#Archetype>],
@@ -981,7 +1039,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
         )*
 
-        impl<'a> #ViewN<'a, #ContentArgs> for #ArchetypeView<'a> {
+        impl<'a> #ViewN<'a, #Archetype, #(#Component),*> for #ArchetypeView<'a> {
             #[inline(always)]
             fn new(
                 index: usize,
@@ -1000,7 +1058,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         /// [^1]: This list may change based on `#[cfg]` state.
         #[repr(transparent)]
         #[derive(Clone, Copy)]
-        pub struct #ArchetypeBorrow<'a>(#BorrowN<'a, #StorageArgs>);
+        pub struct #ArchetypeBorrow<'a>(#BorrowN<'a, #Archetype, #(#Component),*>);
 
         impl<'a> Borrow for #ArchetypeBorrow<'a> {
             type Archetype = #Archetype;
@@ -1052,7 +1110,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
 
             #[inline(always)]
-            fn resolve_destroy(&mut self, key: Entity<#Archetype>) -> Option<(#(#Component,)*)> {
+            fn resolve_destroy(&mut self, key: Entity<#Archetype>) -> Option<<Self as Archetype>::Components> {
                 self.data.destroy(key)
             }
         }
@@ -1079,7 +1137,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
 
             #[inline(always)]
-            fn resolve_destroy(&mut self, key: EntityDirect<#Archetype>) -> Option<(#(#Component,)*)> {
+            fn resolve_destroy(&mut self, key: EntityDirect<#Archetype>) -> Option<<Self as Archetype>::Components> {
                 self.data.destroy(key)
             }
         }
@@ -1130,7 +1188,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
 
             #[inline(always)]
-            fn resolve_destroy(&mut self, key: EntityAny) -> Option<(#(#Component,)*)> {
+            fn resolve_destroy(&mut self, key: EntityAny) -> Option<<Self as Archetype>::Components> {
                 match key.try_into() {
                     Ok(SelectEntity::#Archetype(entity)) => {
                         self.data.destroy(entity)
@@ -1187,7 +1245,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
 
             #[inline(always)]
-            fn resolve_destroy(&mut self, key: EntityDirectAny) -> Option<(#(#Component,)*)> {
+            fn resolve_destroy(&mut self, key: EntityDirectAny) -> Option<<Self as Archetype>::Components> {
                 match key.try_into() {
                     Ok(SelectEntityDirect::#Archetype(entity)) => {
                         self.data.destroy(entity)

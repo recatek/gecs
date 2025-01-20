@@ -13,13 +13,6 @@ macro_rules! declare_view_n {
     };
 }
 
-// Declare entries for up to 16 components.
-seq!(N in 1..=16 {
-    declare_view_n!(View~N, N);
-});
-
-// Declare additional entries for up to 32 components.
+seq!(N in 1..=16 { declare_view_n!(View~N, N); });
 #[cfg(feature = "32_components")]
-seq!(N in 17..=32 {
-    declare_view_n!(View~N, N);
-});
+seq!(N in 17..=32 { declare_view_n!(View~N, N); });

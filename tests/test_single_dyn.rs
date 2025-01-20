@@ -332,19 +332,19 @@ pub fn test_single_dyn_destroy_replace() {
 
     assert_eq!(world.arch_foo.len(), 5);
 
-    assert_eq!(world.arch_foo.destroy(entity_4).unwrap().0.0, 4);
+    assert_eq!(world.arch_foo.destroy(entity_4).unwrap().comp_a.0, 4);
     assert_eq!(world.arch_foo.len(), 4);
 
-    assert_eq!(world.arch_foo.destroy(entity_1).unwrap().0.0, 1);
+    assert_eq!(world.arch_foo.destroy(entity_1).unwrap().comp_a.0, 1);
     assert_eq!(world.arch_foo.len(), 3);
 
-    assert_eq!(world.arch_foo.destroy(entity_2).unwrap().0.0, 2);
+    assert_eq!(world.arch_foo.destroy(entity_2).unwrap().comp_a.0, 2);
     assert_eq!(world.arch_foo.len(), 2);
 
-    assert_eq!(world.arch_foo.destroy(entity_3).unwrap().0.0, 3);
+    assert_eq!(world.arch_foo.destroy(entity_3).unwrap().comp_a.0, 3);
     assert_eq!(world.arch_foo.len(), 1);
 
-    assert_eq!(world.arch_foo.destroy(entity_0).unwrap().0.0, 0);
+    assert_eq!(world.arch_foo.destroy(entity_0).unwrap().comp_a.0, 0);
     assert_eq!(world.arch_foo.len(), 0);
 
     assert!(ecs_find!(world, entity_0, |_: &CompA| panic!()).is_none());

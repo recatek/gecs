@@ -11,18 +11,20 @@ use crate::archetype::iter::*;
 use crate::archetype::slices::*;
 use crate::archetype::slot::{Slot, SlotIndex};
 use crate::archetype::view::*;
+use crate::archetype::components::*;
 use crate::entity::{Entity, EntityDirect};
 use crate::index::{TrimmedIndex, MAX_DATA_CAPACITY};
 use crate::traits::{Archetype, EntityKey, StorageCanResolve};
 use crate::util::{debug_checked_assume, num_assert_leq};
 use crate::version::ArchetypeVersion;
 
-macro_rules! declare_storage_dynamic_n {
+macro_rules! declare_storage_n {
     (
         $name:ident,
         $borrow:ident,
         $iter:ident,
         $iter_mut:ident,
+        $components:ident,
         $slices:ident,
         $view:ident,
         $n:literal
@@ -45,6 +47,8 @@ macro_rules! declare_storage_dynamic_n {
             }
 
             impl<A: Archetype, #(T~I,)*> $name<A, #(T~I,)*>
+            where
+                A::Components: $components<#(T~I,)*>,
             {
                 #[inline(always)]
                 pub fn new() -> Self {
@@ -125,9 +129,9 @@ macro_rules! declare_storage_dynamic_n {
                 ///
                 /// Panics if the storage can no longer expand to accommodate the new data.
                 #[inline(always)]
-                pub fn push(
+                pub fn push<D: $components<#(T~I,)*>>(
                     &mut self,
-                    data: (#(T~I,)*),
+                    data: D,
                 ) -> Entity<A> {
                     debug_assert!(self.len <= self.capacity());
 
@@ -149,10 +153,10 @@ macro_rules! declare_storage_dynamic_n {
                 /// Unlike `push` this method will not reallocate when there is insufficient
                 /// capacity. Instead, it will return an error along with given components.
                 #[inline(always)]
-                pub fn push_within_capacity(
+                pub fn push_within_capacity<D: $components<#(T~I,)*>>(
                     &mut self,
-                    data: (#(T~I,)*),
-                ) -> Result<Entity<A>, (#(T~I,)*)> {
+                    data: D,
+                ) -> Result<Entity<A>, D> {
                     debug_assert!(self.len <= self.capacity());
 
                     if self.len >= self.capacity() {
@@ -485,7 +489,7 @@ macro_rules! declare_storage_dynamic_n {
                 /// It is up to the caller to guarantee the following:
                 /// - The storage has enough allocated room for the data.
                 #[inline(always)]
-                unsafe fn force_create(&mut self, data: (#(T~I,)*)) -> Entity<A> {
+                unsafe fn force_create<D: $components<#(T~I,)*>>(&mut self, data: D) -> Entity<A> {
                     debug_assert!(self.len < self.capacity);
 
                     unsafe {
@@ -512,6 +516,7 @@ macro_rules! declare_storage_dynamic_n {
                         debug_checked_assume!(index < self.len);
 
                         // SAFETY: We know that index < N and points to an empty cell.
+                        let data = data.raw_get();
                         self.entities.write(index, entity);
                         #(self.d~I.get_mut().write(index, data.I);)*
 
@@ -533,7 +538,7 @@ macro_rules! declare_storage_dynamic_n {
                 unsafe fn force_destroy(
                     &mut self,
                     indices: (TrimmedIndex, TrimmedIndex), // (slot_index, dense_index)
-                ) -> (#(T~I,)*) {
+                ) -> A::Components {
                     let (slot_index, dense_index) = indices;
 
                     let result = unsafe {
@@ -569,8 +574,9 @@ macro_rules! declare_storage_dynamic_n {
                         // Perform the swap_remove on our data to drop the target entity.
                         // SAFETY: We guarantee that non-free slots point to valid dense data.
                         self.entities.swap_remove(dense_index_usize, self.len);
-                        let result =
-                            (#(self.d~I.get_mut().swap_remove(dense_index_usize, self.len),)*);
+                        let result = <A::Components as $components<#(T~I,)*>>::raw_new(
+                            #(self.d~I.get_mut().swap_remove(dense_index_usize, self.len),)*
+                        );
 
                         // SAFETY: We know that the slot storage is valid up to our capacity.
                         let slots = self.slots.slice_mut(self.capacity());
@@ -601,7 +607,7 @@ macro_rules! declare_storage_dynamic_n {
 
             impl<A: Archetype, #(T~I,)*> StorageCanResolve<Entity<A>> for $name<A, #(T~I,)*>
             where
-                A: Archetype<Components = (#(T~I,)*)>,
+                A::Components: $components<#(T~I,)*>,
             {
                 #[inline(always)]
                 fn resolve_for(&self, entity: Entity<A>) -> Option<usize> {
@@ -636,7 +642,7 @@ macro_rules! declare_storage_dynamic_n {
 
             impl<A: Archetype, #(T~I,)*> StorageCanResolve<EntityDirect<A>> for $name<A, #(T~I,)*>
             where
-                A: Archetype<Components = (#(T~I,)*)>,
+                A::Components: $components<#(T~I,)*>,
             {
                 #[inline(always)]
                 fn resolve_for(&self, entity: EntityDirect<A>) -> Option<usize> {
@@ -660,7 +666,7 @@ macro_rules! declare_storage_dynamic_n {
                 }
 
                 #[inline]
-                fn resolve_destroy(&mut self, entity: EntityDirect<A>) -> Option<(#(T~I,)*)> {
+                fn resolve_destroy(&mut self, entity: EntityDirect<A>) -> Option<A::Components> {
                     unsafe {
                         // SAFETY: We know that resolve_direct returns valid corresponding slots.
                         Some(self.force_destroy(self.resolve_direct(entity)?))
@@ -686,8 +692,9 @@ macro_rules! declare_storage_dynamic_n {
                 }
             }
 
-            impl<A: Archetype, #(T~I,)*> Default
-                for $name<A, #(T~I,)*>
+            impl<A: Archetype, #(T~I,)*> Default for $name<A, #(T~I,)*>
+            where
+                A::Components: $components<#(T~I,)*>,
             {
                 #[inline(always)]
                 fn default() -> Self {
@@ -700,7 +707,9 @@ macro_rules! declare_storage_dynamic_n {
                 source: &'a $name<A, #(T~I,)*>,
             }
 
-            impl<'a, A: Archetype, #(T~I,)*> $borrow<'a, A, #(T~I,)*> {
+            impl<'a, A: Archetype, #(T~I,)*> $borrow<'a, A, #(T~I,)*>
+                where A::Components: $components<#(T~I,)*>,
+            {
                 #[inline(always)]
                 pub fn index(&self) -> usize {
                     self.index
@@ -757,27 +766,27 @@ macro_rules! declare_storage_dynamic_n {
     };
 }
 
-// Declare storage for up to 16 components.
 seq!(N in 1..=16 {
-    declare_storage_dynamic_n!(
+    declare_storage_n!(
         Storage~N,
         Borrow~N,
         Iter~N,
         IterMut~N,
+        Components~N,
         Slices~N,
         View~N,
         N
     );
 });
 
-// Declare additional storage for up to 32 components.
 #[cfg(feature = "32_components")]
 seq!(N in 17..=32 {
-    declare_storage_dynamic_n!(
+    declare_storage_n!(
         Storage~N,
         Borrow~N,
         Iter~N,
         IterMut~N,
+        Components~N,
         Slices~N,
         View~N,
         N

@@ -675,34 +675,34 @@ pub fn test_multi_replace() {
     assert_eq!(world.archetype::<ArchFoo>().len(), 5);
     assert_eq!(world.archetype::<ArchBar>().len(), 5);
 
-    assert_eq!(world.destroy(entity_4).unwrap(), (CompA(4), CompB(14)));
+    assert_eq!(world.destroy(entity_4).unwrap().into_tuple(), (CompA(4), CompB(14)));
     assert_eq!(world.archetype::<ArchFoo>().len(), 4);
 
-    assert_eq!(world.destroy(entity_1).unwrap(), (CompA(1), CompB(11)));
+    assert_eq!(world.destroy(entity_1).unwrap().into_tuple(), (CompA(1), CompB(11)));
     assert_eq!(world.archetype::<ArchFoo>().len(), 3);
 
-    assert_eq!(world.destroy(entity_2).unwrap(), (CompA(2), CompB(12)));
+    assert_eq!(world.destroy(entity_2).unwrap().into_tuple(), (CompA(2), CompB(12)));
     assert_eq!(world.archetype::<ArchFoo>().len(), 2);
 
-    assert_eq!(world.destroy(entity_3).unwrap(), (CompA(3), CompB(13)));
+    assert_eq!(world.destroy(entity_3).unwrap().into_tuple(), (CompA(3), CompB(13)));
     assert_eq!(world.archetype::<ArchFoo>().len(), 1);
 
-    assert_eq!(world.destroy(entity_0).unwrap(), (CompA(0), CompB(10)));
+    assert_eq!(world.destroy(entity_0).unwrap().into_tuple(), (CompA(0), CompB(10)));
     assert_eq!(world.archetype::<ArchFoo>().len(), 0);
 
-    assert_eq!(world.destroy(entity_9).unwrap(), (CompA(9), CompC(19)));
+    assert_eq!(world.destroy(entity_9).unwrap().into_tuple(), (CompA(9), CompC(19)));
     assert_eq!(world.archetype::<ArchBar>().len(), 4);
 
-    assert_eq!(world.destroy(entity_6).unwrap(), (CompA(6), CompC(16)));
+    assert_eq!(world.destroy(entity_6).unwrap().into_tuple(), (CompA(6), CompC(16)));
     assert_eq!(world.archetype::<ArchBar>().len(), 3);
 
-    assert_eq!(world.destroy(entity_7).unwrap(), (CompA(7), CompC(17)));
+    assert_eq!(world.destroy(entity_7).unwrap().into_tuple(), (CompA(7), CompC(17)));
     assert_eq!(world.archetype::<ArchBar>().len(), 2);
 
-    assert_eq!(world.destroy(entity_8).unwrap(), (CompA(8), CompC(18)));
+    assert_eq!(world.destroy(entity_8).unwrap().into_tuple(), (CompA(8), CompC(18)));
     assert_eq!(world.archetype::<ArchBar>().len(), 1);
 
-    assert_eq!(world.destroy(entity_5).unwrap(), (CompA(5), CompC(15)));
+    assert_eq!(world.destroy(entity_5).unwrap().into_tuple(), (CompA(5), CompC(15)));
     assert_eq!(world.archetype::<ArchBar>().len(), 0);
 
     assert!(ecs_find!(world, entity_0, |_: &CompA| panic!()).is_none());
@@ -770,5 +770,4 @@ pub fn test_multi_replace() {
     assert!(ecs_find_borrow!(world, entity_7b, |v: &CompA, u: &CompC| assert_eq!((v.0, u.0), (1007, 1017))).is_some());
     assert!(ecs_find_borrow!(world, entity_8b, |v: &CompA, u: &CompC| assert_eq!((v.0, u.0), (1008, 1018))).is_some());
     assert!(ecs_find_borrow!(world, entity_9b, |v: &CompA, u: &CompC| assert_eq!((v.0, u.0), (1009, 1019))).is_some());
-
 }

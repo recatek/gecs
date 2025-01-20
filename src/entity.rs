@@ -100,23 +100,13 @@ impl<A: Archetype> Entity<A> {
         }
     }
 
-    #[inline(always)]
-    pub(crate) fn slot_index(&self) -> TrimmedIndex {
-        self.inner.slot_index()
-    }
-
-    #[inline(always)]
-    pub(crate) fn version(&self) -> SlotVersion {
-        self.inner.version()
-    }
-
-    /// Creates a new typed `Entity` from an `EntityAny`.
+    /// Creates a new typed [`Entity`] from an [`EntityAny`].
     ///
-    /// In match statements, this tends to optimize better than `TryFrom`.
+    /// In match statements, this tends to optimize better than [`TryFrom`].
     ///
     /// # Panics
     ///
-    /// Panics if the given `EntityAny` is not an entity of this type.
+    /// Panics if the given [`EntityAny`] is not an entity of this type.
     #[inline(always)]
     pub fn from_any(entity: EntityAny) -> Self {
         if entity.archetype_id() != A::ARCHETYPE_ID {
@@ -129,7 +119,7 @@ impl<A: Archetype> Entity<A> {
         }
     }
 
-    /// Creates new a typed `Entity` from an `EntityAny` without checking its archetype.
+    /// Creates new a typed [`Entity`] from an [`EntityAny`] without checking its archetype.
     ///
     /// While this is not an unsafe operation in the Rust sense (all bounds checks are still
     /// enforced), this should generally be avoided when possible. The intended use of this
@@ -145,20 +135,30 @@ impl<A: Archetype> Entity<A> {
         }
     }
 
-    /// Converts this `Entity<A>` directly into an `EntityAny`.
-    ///
-    /// Useful for situations where type inference can't deduce a conversion.
-    #[inline(always)]
-    pub fn into_any(self) -> EntityAny {
-        self.inner
-    }
-
     /// Returns this entity's stored `ARCHETYPE_ID` value.
     ///
     /// This is the same `ARCHETYPE_ID` as the archetype this entity belongs to.
     #[inline(always)]
     pub const fn archetype_id(self) -> ArchetypeId {
         A::ARCHETYPE_ID
+    }
+
+    /// Converts this [`Entity`] directly into an [`EntityAny`].
+    ///
+    /// Useful for situations where [`Into`] type inference can't deduce a conversion.
+    #[inline(always)]
+    pub fn into_any(self) -> EntityAny {
+        self.inner
+    }
+
+    #[inline(always)]
+    pub(crate) fn version(&self) -> SlotVersion {
+        self.inner.version()
+    }
+
+    #[inline(always)]
+    pub(crate) fn slot_index(&self) -> TrimmedIndex {
+        self.inner.slot_index()
     }
 }
 
@@ -202,15 +202,6 @@ impl EntityAny {
         (self.key, self.version.get().get())
     }
 
-    #[inline(always)]
-    pub(crate) fn slot_index(&self) -> TrimmedIndex {
-        unsafe {
-            // SAFETY: We know the remaining data can fit in a DataIndex
-            debug_assert!(self.key >> ARCHETYPE_ID_BITS <= MAX_DATA_INDEX);
-            TrimmedIndex::new_u32(self.key >> ARCHETYPE_ID_BITS).unwrap_unchecked()
-        }
-    }
-
     /// Returns this entity's stored `ARCHETYPE_ID` value.
     ///
     /// This is the same `ARCHETYPE_ID` as the archetype this entity belongs to.
@@ -219,15 +210,24 @@ impl EntityAny {
         self.key as ArchetypeId // Trim off the bottom to get the ID
     }
 
+    /// Returns self.
+    #[inline(always)]
+    pub fn into_any(self) -> EntityAny {
+        self
+    }
+
     #[inline(always)]
     pub(crate) const fn version(&self) -> SlotVersion {
         self.version
     }
 
-    /// Returns self.
     #[inline(always)]
-    pub fn into_any(self) -> EntityAny {
-        self
+    pub(crate) fn slot_index(&self) -> TrimmedIndex {
+        unsafe {
+            // SAFETY: We know the remaining data can fit in a DataIndex
+            debug_assert!(self.key >> ARCHETYPE_ID_BITS <= MAX_DATA_INDEX);
+            TrimmedIndex::new_u32(self.key >> ARCHETYPE_ID_BITS).unwrap_unchecked()
+        }
     }
 }
 
@@ -243,23 +243,13 @@ impl<A: Archetype> EntityDirect<A> {
         }
     }
 
-    #[inline(always)]
-    pub(crate) fn dense_index(&self) -> TrimmedIndex {
-        self.inner.dense_index()
-    }
-
-    #[inline(always)]
-    pub(crate) fn version(&self) -> ArchetypeVersion {
-        self.inner.version()
-    }
-
-    /// Creates a new typed `EntityDirect` from an `EntityDirectAny`.
+    /// Creates a new typed [`EntityDirect`] from an [`EntityDirectAny`].
     ///
-    /// In match statements, this tends to optimize better than `TryFrom`.
+    /// In match statements, this tends to optimize better than [`TryFrom`].
     ///
     /// # Panics
     ///
-    /// Panics if the given `EntityDirectAny` is not an entity of this type.
+    /// Panics if the given [`EntityDirectAny`] is not an entity of this type.
     #[inline(always)]
     pub fn from_any(entity: EntityDirectAny) -> Self {
         if entity.archetype_id() != A::ARCHETYPE_ID {
@@ -288,20 +278,30 @@ impl<A: Archetype> EntityDirect<A> {
         }
     }
 
-    /// Converts this `EntityDirect<A>` directly into an `EntityDirectAny`.
-    ///
-    /// Useful for situations where type inference can't deduce a conversion.
-    #[inline(always)]
-    pub fn into_any(self) -> EntityDirectAny {
-        self.inner
-    }
-
     /// Returns this entity's stored `ARCHETYPE_ID` value.
     ///
     /// This is the same `ARCHETYPE_ID` as the archetype this entity belongs to.
     #[inline(always)]
     pub const fn archetype_id(self) -> ArchetypeId {
         A::ARCHETYPE_ID
+    }
+
+    /// Converts this [`EntityDirect`] directly into an [`EntityDirectAny`].
+    ///
+    /// Useful for situations where [`Into`] type inference can't deduce a conversion.
+    #[inline(always)]
+    pub fn into_any(self) -> EntityDirectAny {
+        self.inner
+    }
+
+    #[inline(always)]
+    pub(crate) fn version(&self) -> ArchetypeVersion {
+        self.inner.version()
+    }
+
+    #[inline(always)]
+    pub(crate) fn dense_index(&self) -> TrimmedIndex {
+        self.inner.dense_index()
     }
 }
 
@@ -318,15 +318,6 @@ impl EntityDirectAny {
         Self { key, version }
     }
 
-    #[inline(always)]
-    pub(crate) fn dense_index(&self) -> TrimmedIndex {
-        unsafe {
-            // SAFETY: We know the remaining data can fit in a DataIndex
-            debug_assert!(self.key >> ARCHETYPE_ID_BITS <= MAX_DATA_INDEX);
-            TrimmedIndex::new_u32(self.key >> ARCHETYPE_ID_BITS).unwrap_unchecked()
-        }
-    }
-
     /// Returns this entity's stored `ARCHETYPE_ID` value.
     ///
     /// This is the same `ARCHETYPE_ID` as the archetype this entity belongs to.
@@ -335,15 +326,24 @@ impl EntityDirectAny {
         self.key as ArchetypeId // Trim off the bottom to get the ID
     }
 
+    /// Returns self.
+    #[inline(always)]
+    pub fn into_any(self) -> EntityDirectAny {
+        self
+    }
+
     #[inline(always)]
     pub(crate) const fn version(&self) -> ArchetypeVersion {
         self.version
     }
 
-    /// Returns self.
     #[inline(always)]
-    pub fn into_any(self) -> EntityDirectAny {
-        self
+    pub(crate) fn dense_index(&self) -> TrimmedIndex {
+        unsafe {
+            // SAFETY: We know the remaining data can fit in a DataIndex
+            debug_assert!(self.key >> ARCHETYPE_ID_BITS <= MAX_DATA_INDEX);
+            TrimmedIndex::new_u32(self.key >> ARCHETYPE_ID_BITS).unwrap_unchecked()
+        }
     }
 }
 
