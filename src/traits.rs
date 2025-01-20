@@ -329,6 +329,7 @@ where
 
     /// A tuple of the components in this archetype.
     type Components;
+
     /// The slices type when accessing all of this archetype's slices simultaneously.
     type Slices<'a>
     where
@@ -597,6 +598,70 @@ where
         <Self as ArchetypeHas<C>>::resolve_borrow_slice_mut(self)
     }
 
+    /// Extracts a component reference by type from this archetype's component tuple.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gecs::prelude::*;
+    ///
+    /// pub struct CompA(u32);
+    /// pub struct CompB(u32);
+    ///
+    /// ecs_world! {
+    ///     ecs_archetype!(ArchFoo, CompA, CompB);
+    /// }
+    ///
+    /// fn main() {
+    ///     let mut world = EcsWorld::default();
+    ///
+    ///     let entity_a = world.create::<ArchFoo>((CompA(1), CompB(2),));
+    ///     let components = world.destroy(entity_a).unwrap();
+    ///
+    ///     assert_eq!(ArchFoo::extract::<CompB>(&components).0, 2)
+    /// }
+    /// ```
+    #[inline(always)]
+    fn extract<C>(components: &Self::Components) -> &C
+    where
+        Self: ArchetypeHas<C>,
+    {
+        <Self as ArchetypeHas<C>>::resolve_extract(components)
+    }
+
+    /// Extracts a mutable component reference by type from this archetype's component tuple.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gecs::prelude::*;
+    ///
+    /// pub struct CompA(u32);
+    /// pub struct CompB(u32);
+    ///
+    /// ecs_world! {
+    ///     ecs_archetype!(ArchFoo, CompA, CompB);
+    /// }
+    ///
+    /// fn main() {
+    ///     let mut world = EcsWorld::default();
+    ///
+    ///     let entity_a = world.create::<ArchFoo>((CompA(1), CompB(2),));
+    ///     let mut components = world.destroy(entity_a).unwrap();
+    ///
+    ///     ArchFoo::extract_mut::<CompB>(&mut components).0 += 1;
+    ///
+    ///     assert_eq!(ArchFoo::extract::<CompB>(&components).0, 3)
+    /// }
+    /// ```
+    #[inline(always)]
+    fn extract_mut<C>(components: &mut Self::Components) -> &mut C
+    where
+        Self: ArchetypeHas<C>,
+    {
+        <Self as ArchetypeHas<C>>::resolve_extract_mut(components)
+    }
+
     /// Returns an iterator over all the entities created since the last time entity events were
     /// cleared on the world or on this specific archetype. This list has no ordering guarantees.
     /// Note that entities appear in this list even if they have since been destroyed.
@@ -770,6 +835,10 @@ pub trait ArchetypeHas<C>: Archetype {
     fn resolve_borrow_component<'a>(borrow: &'a Self::Borrow<'a>) -> Ref<'a, C>;
     #[doc(hidden)]
     fn resolve_borrow_component_mut<'a>(borrow: &'a Self::Borrow<'a>) -> RefMut<'a, C>;
+    #[doc(hidden)]
+    fn resolve_extract(components: &Self::Components) -> &C;
+    #[doc(hidden)]
+    fn resolve_extract_mut(components: &mut Self::Components) -> &mut C;
 }
 
 // NOTE: There's no point in trying to make a View/ViewMut split because each column is in a

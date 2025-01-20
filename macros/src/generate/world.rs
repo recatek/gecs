@@ -1,4 +1,4 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, Literal};
 use quote::{format_ident, quote};
 use xxhash_rust::xxh3::xxh3_128;
 
@@ -686,6 +686,10 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         .iter()
         .map(|component| component.id)
         .collect::<Vec<_>>();
+    let component_index = (0..archetype_data.components.len())
+        .into_iter()
+        .map(|idx| Literal::usize_unsuffixed(idx))
+        .collect::<Vec<_>>();
 
     // Types and traits
     let Archetype = format_ident!("{}", archetype_data.name);
@@ -885,6 +889,16 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 #[inline(always)]
                 fn resolve_borrow_component_mut<'a>(borrow: &'a #ArchetypeBorrow<'a>) -> RefMut<'a, #Component> {
                     borrow.0.#borrow_component_mut()
+                }
+
+                #[inline(always)]
+                fn resolve_extract(components: &Self::Components) -> &#Component {
+                    &components.#component_index
+                }
+
+                #[inline(always)]
+                fn resolve_extract_mut(components: &mut Self::Components) -> &mut #Component {
+                    &mut components.#component_index
                 }
             }
         )*
