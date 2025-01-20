@@ -8,7 +8,7 @@ use std::fmt::{Debug, Formatter, Result as FmtResult};
 
 use crate::error::EcsError;
 use crate::index::{TrimmedIndex, MAX_DATA_INDEX};
-use crate::traits::{Archetype, EntityKey};
+use crate::traits::{Archetype, ArchetypeCanResolve, EntityKey, EntityKeyTyped};
 use crate::version::{ArchetypeVersion, SlotVersion};
 
 // NOTE: While this is extremely unlikely to change, if it does, the proc
@@ -469,6 +469,14 @@ impl<A: Archetype> EntityKey for Entity<A> {
 impl<A: Archetype> EntityKey for EntityDirect<A> {
     type DestroyOutput = Option<A::Components>;
     type DirectOutput = EntityDirect<A>;
+}
+
+impl<A: Archetype + ArchetypeCanResolve<Self>> EntityKeyTyped<A> for Entity<A> {
+    type Archetype = A;
+}
+
+impl<A: Archetype + ArchetypeCanResolve<Self>> EntityKeyTyped<A> for EntityDirect<A> {
+    type Archetype = A;
 }
 
 impl EntityKey for EntityAny {

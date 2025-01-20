@@ -119,6 +119,7 @@ pub trait World: Sized {
     ///
     /// This will panic if given a dynamic key ([`EntityAny`] or [`EntityDirectAny`]) with an
     /// archetype ID that is not known to this ECS world.
+    #[inline(always)]
     fn to_direct<K: EntityKey>(&self, entity: K) -> Option<K::DirectOutput>
     where
         Self: WorldCanResolve<K>,
@@ -129,11 +130,6 @@ pub trait World: Sized {
     /// Gets a [`View`] for the given entity across archetypes in the full world.
     /// This is a convenience function for [`Archetype::view`].
     ///
-    /// # Panics
-    ///
-    /// This will panic if given a dynamic key ([`EntityAny`] or [`EntityDirectAny`]) with an
-    /// archetype ID that is not known to the ECS world that this archetype was built within.
-    ///
     /// # Examples
     ///
     /// ```rust
@@ -143,41 +139,35 @@ pub trait World: Sized {
     ///
     /// ecs_world! {
     ///     ecs_archetype!(ArchFoo, CompA);
+    ///     ecs_archetype!(ArchBar, CompA);
     /// }
     ///
     /// fn main() {
     ///     let mut world = EcsWorld::default();
     ///
     ///     let entity_a = world.create::<ArchFoo>((CompA(1),));
-    ///     let entity_a_any: EntityAny = entity_a.into();
-    ///
-    ///     // Types are inferred if using Entity<A>/EntityDirect<A>
+    ///     // Note: Does not work with EntityAny/EntityDirectAny (archetype is unknown)
     ///     let mut view = world.view(entity_a).unwrap();
-    ///     // Type must be specified if using EntityAny/EntityDirectAny (note the underscore!)
-    ///     let mut view = world.view::<ArchFoo, _>(entity_a_any).unwrap();
     ///
     ///     assert!(view.component::<CompA>().0 == 1);
     ///     view.component_mut::<CompA>().0 += 1;
     ///
-    ///     ecs_find!(world, entity_a, |comp_a: &CompA| { assert_eq!(comp_a.0, 2); });
+    ///     let found = ecs_find!(world, entity_a, |comp_a: &CompA| { assert_eq!(comp_a.0, 2); });
+    ///     assert!(found.is_some())
     /// }
     /// ```
-    fn view<A: Archetype, K: EntityKey>(&mut self, entity: K) -> Option<A::View<'_>>
+    #[inline(always)]
+    fn view<A: Archetype, K: EntityKeyTyped<A>>(&mut self, entity: K) -> Option<A::Borrow<'_>>
     where
         Self: WorldHas<A>,
         A: ArchetypeCanResolve<K>,
     {
-        <Self as WorldHas<A>>::resolve_archetype_mut(self).view(entity)
+        <Self as WorldHas<A>>::resolve_archetype_mut(self).borrow(entity)
     }
 
     /// Gets a [`Borrow`] for the given entity across archetypes in the full world.
     /// This is a convenience function for [`Archetype::borrow`].
     ///
-    /// # Panics
-    ///
-    /// This will panic if given a dynamic key ([`EntityAny`] or [`EntityDirectAny`]) with an
-    /// archetype ID that is not known to the ECS world that this archetype was built within.
-    ///
     /// # Examples
     ///
     /// ```rust
@@ -193,20 +183,18 @@ pub trait World: Sized {
     ///     let mut world = EcsWorld::default();
     ///
     ///     let entity_a = world.create::<ArchFoo>((CompA(1),));
-    ///     let entity_a_any: EntityAny = entity_a.into();
-    ///
-    ///     // Types are inferred if using Entity<A>/EntityDirect<A>
-    ///     let borrow = world.borrow(entity_a).unwrap();
-    ///     // Type must be specified if using EntityAny/EntityDirectAny (note the underscore!)
-    ///     let borrow = world.borrow::<ArchFoo, _>(entity_a_any).unwrap();
+    ///     // Note: Does not work with EntityAny/EntityDirectAny (archetype is unknown)
+    ///     let mut borrow = world.view(entity_a).unwrap();
     ///
     ///     assert!(borrow.component::<CompA>().0 == 1);
     ///     borrow.component_mut::<CompA>().0 += 1;
     ///
-    ///     ecs_find!(world, entity_a, |comp_a: &CompA| { assert_eq!(comp_a.0, 2); });
+    ///     let found = ecs_find!(world, entity_a, |comp_a: &CompA| { assert_eq!(comp_a.0, 2); });
+    ///     assert!(found.is_some())
     /// }
     /// ```
-    fn borrow<A: Archetype, K: EntityKey>(&self, entity: K) -> Option<A::Borrow<'_>>
+    #[inline(always)]
+    fn borrow<A: Archetype, K: EntityKeyTyped<A>>(&self, entity: K) -> Option<A::Borrow<'_>>
     where
         Self: WorldHas<A>,
         A: ArchetypeCanResolve<K>,
@@ -482,12 +470,13 @@ where
     ///     let mut world = EcsWorld::default();
     ///
     ///     let entity_a = world.create::<ArchFoo>((CompA(1),));
-    ///
     ///     let mut view = world.arch_foo.view(entity_a).unwrap();
+    ///
     ///     assert!(view.component::<CompA>().0 == 1);
     ///     view.component_mut::<CompA>().0 += 1;
     ///
-    ///     ecs_find!(world, entity_a, |comp_a: &CompA| { assert_eq!(comp_a.0, 2); });
+    ///     let found = ecs_find!(world, entity_a, |comp_a: &CompA| { assert_eq!(comp_a.0, 2); });
+    ///     assert!(found.is_some())
     /// }
     /// ```
     #[inline(always)]
@@ -521,12 +510,13 @@ where
     ///     let mut world = EcsWorld::default();
     ///
     ///     let entity_a = world.create::<ArchFoo>((CompA(1),));
-    ///
     ///     let mut borrow = world.arch_foo.borrow(entity_a).unwrap();
+    ///
     ///     assert!(borrow.component::<CompA>().0 == 1);
     ///     borrow.component_mut::<CompA>().0 += 1;
     ///
-    ///     ecs_find!(world, entity_a, |comp_a: &CompA| { assert_eq!(comp_a.0, 2); });
+    ///     let found = ecs_find!(world, entity_a, |comp_a: &CompA| { assert_eq!(comp_a.0, 2); });
+    ///     assert!(found.is_some())
     /// }
     /// ```
     #[inline(always)]
@@ -970,6 +960,12 @@ pub trait EntityKey: Clone + Copy {
     type DestroyOutput;
     #[doc(hidden)]
     type DirectOutput;
+}
+
+#[doc(hidden)]
+pub trait EntityKeyTyped<A: Archetype + ArchetypeCanResolve<Self>>: EntityKey {
+    #[doc(hidden)]
+    type Archetype: Archetype;
 }
 
 #[doc(hidden)]
