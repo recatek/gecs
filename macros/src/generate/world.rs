@@ -890,12 +890,22 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 }
 
                 #[inline(always)]
-                fn resolve_extract(components: &Self::Components) -> &#Component {
+                fn resolve_extract_view<'a>(view: &'a Self::View<'_>) -> &'a #Component {
+                    &view.#component
+                }
+
+                #[inline(always)]
+                fn resolve_extract_view_mut<'a>(view: &'a mut Self::View<'_>) -> &'a mut #Component {
+                    &mut view.#component
+                }
+
+                #[inline(always)]
+                fn resolve_extract_components(components: &Self::Components) -> &#Component {
                     &components.#component
                 }
 
                 #[inline(always)]
-                fn resolve_extract_mut(components: &mut Self::Components) -> &mut #Component {
+                fn resolve_extract_components_mut(components: &mut Self::Components) -> &mut #Component {
                     &mut components.#component
                 }
             }
@@ -916,14 +926,14 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             where
                 Self::Archetype: ArchetypeHas<C>
             {
-                <Self::Archetype as ArchetypeHas<C>>::resolve_extract(self)
+                <Self::Archetype as ArchetypeHas<C>>::resolve_extract_components(self)
             }
 
             fn get_mut<C>(&mut self) -> &mut C
             where
                 Self::Archetype: ArchetypeHas<C>
             {
-                <Self::Archetype as ArchetypeHas<C>>::resolve_extract_mut(self)
+                <Self::Archetype as ArchetypeHas<C>>::resolve_extract_components_mut(self)
             }
 
             fn into_tuple(self) -> Self::Tuple {
@@ -1000,44 +1010,14 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             )*
         }
 
-        impl<'a> View for #ArchetypeView<'a> {
+        impl<'a> View<'a> for #ArchetypeView<'a> {
             type Archetype = #Archetype;
 
             #[inline(always)]
             fn index(&self) -> usize {
                 self.index
             }
-
-            #[inline(always)]
-            fn component<C>(&self) -> &C
-            where
-                Self: ViewHas<C>
-            {
-                <Self as ViewHas<C>>::resolve_component(self)
-            }
-
-            #[inline(always)]
-            fn component_mut<C>(&mut self) -> &mut C
-            where
-                Self: ViewHas<C>
-            {
-                <Self as ViewHas<C>>::resolve_component_mut(self)
-            }
         }
-
-        #(
-            impl<'a> ViewHas<#Component> for #ArchetypeView<'a> {
-                #[inline(always)]
-                fn resolve_component(&self) -> &#Component {
-                    self.#component
-                }
-
-                #[inline(always)]
-                fn resolve_component_mut(&mut self) -> &mut #Component {
-                    self.#component
-                }
-            }
-        )*
 
         impl<'a> #ViewN<'a, #Archetype, #(#Component),*> for #ArchetypeView<'a> {
             #[inline(always)]

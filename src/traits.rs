@@ -157,12 +157,12 @@ pub trait World: Sized {
     /// }
     /// ```
     #[inline(always)]
-    fn view<A: Archetype, K: EntityKeyTyped<A>>(&mut self, entity: K) -> Option<A::Borrow<'_>>
+    fn view<A: Archetype, K: EntityKeyTyped<A>>(&mut self, entity: K) -> Option<A::View<'_>>
     where
         Self: WorldHas<A>,
         A: ArchetypeCanResolve<K>,
     {
-        <Self as WorldHas<A>>::resolve_archetype_mut(self).borrow(entity)
+        <Self as WorldHas<A>>::resolve_archetype_mut(self).view(entity)
     }
 
     /// Gets a [`Borrow`] for the given entity across archetypes in the full world.
@@ -341,7 +341,7 @@ where
         Self: 'a;
 
     /// The view type when accessing a single entity's components simultaneously.
-    type View<'a>: View
+    type View<'a>: View<'a, Archetype = Self>
     where
         Self: 'a;
 
@@ -772,9 +772,13 @@ pub trait ArchetypeHas<C>: Archetype {
     #[doc(hidden)]
     fn resolve_borrow_component_mut<'a>(borrow: &'a Self::Borrow<'a>) -> RefMut<'a, C>;
     #[doc(hidden)]
-    fn resolve_extract(named: &Self::Components) -> &C;
+    fn resolve_extract_view<'a>(view: &'a Self::View<'_>) -> &'a C;
     #[doc(hidden)]
-    fn resolve_extract_mut(named: &mut Self::Components) -> &mut C;
+    fn resolve_extract_view_mut<'a>(view: &'a mut Self::View<'_>) -> &'a mut C;
+    #[doc(hidden)]
+    fn resolve_extract_components(components: &Self::Components) -> &C;
+    #[doc(hidden)]
+    fn resolve_extract_components_mut(components: &mut Self::Components) -> &mut C;
 }
 
 pub trait Components {
@@ -807,78 +811,29 @@ pub trait Components {
 // DEV NOTE: There's no point in trying to make a View/ViewMut split because each column is in
 // a RefCell anyway, so you can't make non-mut references to them without borrowing, and Borrow
 // already exists for that. Borrow also does it better, since it doesn't fully borrow each slice.
-pub trait View {
-    type Archetype: Archetype;
+pub trait View<'a> {
+    type Archetype: Archetype<View<'a> = Self> + 'a;
 
     /// Returns the archetype dense index that this view refers to.
     fn index(&self) -> usize;
 
     /// Fetches the given component from this view.
     #[inline(always)]
-    fn component<C>(&self) -> &C
+    fn component<'b, C>(&'b self) -> &'b C
     where
-        Self: ViewHas<C>,
+        Self::Archetype: ArchetypeHas<C>
     {
-        <Self as ViewHas<C>>::resolve_component(self)
+        <Self::Archetype as ArchetypeHas<C>>::resolve_extract_view(self)
     }
 
     /// Mutably fetches the given component from this view.
     #[inline(always)]
-    fn component_mut<C>(&mut self) -> &mut C
+    fn component_mut<'b, C>(&'b mut self) -> &'b mut C
     where
-        Self: ViewHas<C>,
+        Self::Archetype: ArchetypeHas<C>
     {
-        <Self as ViewHas<C>>::resolve_component_mut(self)
+        <Self::Archetype as ArchetypeHas<C>>::resolve_extract_view_mut(self)
     }
-}
-
-/// A trait promising that an entity view has a given component.
-///
-/// Used for where bounds on functions that take a view as a generic type.
-///
-/// See [`View`] for the methods that this enables on a type.
-///
-/// Note that macros like `ecs_iter!` do not currently support these kinds of generics.
-/// This is primarily an advanced feature as it requires manual ECS manipulation.
-///
-/// # Examples
-///
-/// ```
-/// use gecs::prelude::*;
-///
-/// pub struct CompA(pub u32);
-/// pub struct CompB(pub u32);
-///
-/// ecs_world! {
-///     // Declare archetype ArchFoo with one component: CompA
-///     ecs_archetype!(ArchFoo, CompA, CompB);
-///     ecs_archetype!(ArchBar, CompA, CompB);
-/// }
-///
-/// fn generic_access_comp_a<V>(view: &mut V) -> u32
-/// where
-///     V: ViewHas<CompA> + ViewHas<CompB>,
-/// {
-///     view.component::<CompA>().0 + view.component::<CompB>().0
-/// }
-///
-/// fn generic_access(world: &mut EcsWorld, foo: Entity<ArchFoo>, bar: Entity<ArchBar>) {
-///     let mut view_foo = world.archetype_mut::<ArchFoo>().view(foo).unwrap();
-///     let val_foo = generic_access_comp_a(&mut view_foo);
-///
-///     let mut view_bar = world.archetype_mut::<ArchBar>().view(bar).unwrap();
-///     let val_bar = generic_access_comp_a(&mut view_bar);
-///
-///     println!("{} {}", val_foo, val_bar);
-/// }
-///
-/// # fn main() {} // Not actually running anything here
-/// ```
-pub trait ViewHas<C>: View {
-    #[doc(hidden)]
-    fn resolve_component(&self) -> &C;
-    #[doc(hidden)]
-    fn resolve_component_mut(&mut self) -> &mut C;
 }
 
 /// A `Borrow` is a borrowed reference to a specific entity's components within an archetype.
