@@ -709,8 +709,8 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let StorageN = format_ident!("Storage{}", count_str);
     let BorrowN = format_ident!("Borrow{}", count_str);
 
-    let IterArgs = quote!((&'a Entity<#Archetype>, #(&'a #Component,)*));
-    let IterMutArgs = quote!((&'a Entity<#Archetype>, #(&'a mut #Component,)*));
+    let IterItem = quote!((&'a Entity<#Archetype>, #(&'a #Component,)*));
+    let IterItemMut = quote!((&'a Entity<#Archetype>, #(&'a mut #Component,)*));
 
     // Function names
     let get_slice = (0..count)
@@ -773,12 +773,13 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             const ARCHETYPE_ID: u8 = #ARCHETYPE_ID;
 
             type Components = #ArchetypeComponents;
+
+            type IterItem<'a> = #IterItem;
+            type IterItemMut<'a> = #IterItemMut;
+
+            type Slices<'a> = #ArchetypeSlices<'a>;
             type View<'a> = #ArchetypeView<'a>;
             type Borrow<'a> = #ArchetypeBorrow<'a>;
-            type Slices<'a> = #ArchetypeSlices<'a>;
-
-            type IterArgs<'a> = #IterArgs;
-            type IterMutArgs<'a> = #IterMutArgs;
 
             // Will only appear if we have the events feature enabled.
             #section_events
@@ -835,23 +836,18 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
 
             #[inline(always)]
-            fn iter(&mut self) -> impl Iterator<Item = Self::IterArgs<'_>> {
+            fn iter(&mut self) -> impl Iterator<Item = Self::IterItem<'_>> {
                 self.data.iter()
             }
 
             #[inline(always)]
-            fn iter_mut(&mut self) -> impl Iterator<Item = Self::IterMutArgs<'_>> {
+            fn iter_mut(&mut self) -> impl Iterator<Item = Self::IterItemMut<'_>> {
                 self.data.iter_mut()
             }
 
             #[inline(always)]
             fn get_all_slices_mut(&mut self) -> #ArchetypeSlices {
                 self.data.get_all_slices_mut()
-            }
-
-            #[inline(always)]
-            fn get_slice_entities(&self) -> &[Entity<#Archetype>] {
-                self.data.get_slice_entities()
             }
         }
 
@@ -880,13 +876,13 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 }
 
                 #[inline(always)]
-                fn resolve_borrow_component<'a>(borrow: &'a #ArchetypeBorrow<'a>) -> Ref<'a, #Component> {
-                    borrow.0.#borrow_component()
+                fn resolve_extract_components(components: &Self::Components) -> &#Component {
+                    &components.#component
                 }
 
                 #[inline(always)]
-                fn resolve_borrow_component_mut<'a>(borrow: &'a #ArchetypeBorrow<'a>) -> RefMut<'a, #Component> {
-                    borrow.0.#borrow_component_mut()
+                fn resolve_extract_components_mut(components: &mut Self::Components) -> &mut #Component {
+                    &mut components.#component
                 }
 
                 #[inline(always)]
@@ -900,13 +896,13 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 }
 
                 #[inline(always)]
-                fn resolve_extract_components(components: &Self::Components) -> &#Component {
-                    &components.#component
+                fn resolve_extract_borrow<'a>(borrow: &'a Self::Borrow<'_>) -> Ref<'a, #Component> {
+                    borrow.0.#borrow_component()
                 }
 
                 #[inline(always)]
-                fn resolve_extract_components_mut(components: &mut Self::Components) -> &mut #Component {
-                    &mut components.#component
+                fn resolve_extract_borrow_mut<'a>(borrow: &'a Self::Borrow<'_>) -> RefMut<'a, #Component> {
+                    borrow.0.#borrow_component_mut()
                 }
             }
         )*
@@ -1040,7 +1036,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         #[derive(Clone, Copy)]
         pub struct #ArchetypeBorrow<'a>(#BorrowN<'a, #Archetype, #(#Component),*>);
 
-        impl<'a> Borrow for #ArchetypeBorrow<'a> {
+        impl<'a> Borrow<'a> for #ArchetypeBorrow<'a> {
             type Archetype = #Archetype;
 
             #[inline(always)]
@@ -1053,20 +1049,6 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 self.0.entity()
             }
         }
-
-        #(
-            impl<'a> BorrowHas<#Component> for #ArchetypeBorrow<'a> {
-                #[inline(always)]
-                fn resolve_component(&self) -> Ref<#Component> {
-                    #Archetype::resolve_borrow_component(self)
-                }
-
-                #[inline(always)]
-                fn resolve_component_mut(&self) -> RefMut<#Component> {
-                    #Archetype::resolve_borrow_component_mut(self)
-                }
-            }
-        )*
 
         impl ArchetypeCanResolve<Entity<#Archetype>> for #Archetype {
             #[inline(always)]

@@ -535,13 +535,13 @@ fn iter_bind_borrow(param: &ParseQueryParam) -> TokenStream {
             }
         }
         ParseQueryParamType::Entity(_) => {
-            quote!(&archetype.get_slice_entities()[idx])
+            quote!(&archetype.entities()[idx])
         }
         ParseQueryParamType::EntityAny => {
-            quote!(&archetype.get_slice_entities()[idx].into())
+            quote!(&archetype.entities()[idx].into())
         }
         ParseQueryParamType::EntityWild => {
-            quote!(&archetype.get_slice_entities()[idx])
+            quote!(&archetype.entities()[idx])
         }
         ParseQueryParamType::EntityDirect(_) => {
             quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version))

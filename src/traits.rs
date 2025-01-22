@@ -314,28 +314,28 @@ where
     /// A struct with named storage to each component in this archetype.
     type Components: Components<Archetype = Self>;
 
+    /// A struct yielded by iterators on this archetype, including the entity itself.
+    type IterItem<'a>
+    where
+        Self: 'a;
+
+    /// A struct yielded by mut iterators on this archetype, including the entity itself.
+    type IterItemMut<'a>
+    where
+        Self: 'a;
+
     /// The slices type when accessing all of this archetype's slices simultaneously.
     type Slices<'a>
     where
         Self: 'a;
 
     /// The borrow type when performing sequential borrows of an entity's components.
-    type Borrow<'a>: Borrow
+    type Borrow<'a>: Borrow<'a, Archetype = Self>
     where
         Self: 'a;
 
     /// The view type when accessing a single entity's components simultaneously.
     type View<'a>: View<'a, Archetype = Self>
-    where
-        Self: 'a;
-
-    /// The arguments (references to components) when iterating.
-    type IterArgs<'a>
-    where
-        Self: 'a;
-
-    /// The arguments (mutable references to components) when mutably iterating.
-    type IterMutArgs<'a>
     where
         Self: 'a;
 
@@ -390,10 +390,10 @@ where
     ) -> Result<Entity<Self>, Self::Components>;
 
     /// Returns an iterator over all of the entities and their data.
-    fn iter(&mut self) -> impl Iterator<Item = Self::IterArgs<'_>>;
+    fn iter(&mut self) -> impl Iterator<Item = Self::IterItem<'_>>;
 
     /// Returns a mutable iterator over all of the entities and their data.
-    fn iter_mut(&mut self) -> impl Iterator<Item = Self::IterMutArgs<'_>>;
+    fn iter_mut(&mut self) -> impl Iterator<Item = Self::IterItemMut<'_>>;
 
     /// Returns mutable slices to all data for all entities in the archetype. To get the
     /// data index for a specific entity using this function, use the `resolve` function.
@@ -627,9 +627,6 @@ where
     /// See [`Archetype::iter_created`].
     #[cfg(feature = "events")]
     fn clear_events(&mut self);
-
-    #[doc(hidden)]
-    fn get_slice_entities(&self) -> &[Entity<Self>];
 }
 
 /// A trait promising that an ECS world has the given archetype.
@@ -730,18 +727,19 @@ pub trait ArchetypeHas<C>: Archetype {
     fn resolve_borrow_slice(&self) -> Ref<[C]>;
     #[doc(hidden)]
     fn resolve_borrow_slice_mut(&self) -> RefMut<[C]>;
+
     #[doc(hidden)]
-    fn resolve_borrow_component<'a>(borrow: &'a Self::Borrow<'a>) -> Ref<'a, C>;
+    fn resolve_extract_components(components: &Self::Components) -> &C;
     #[doc(hidden)]
-    fn resolve_borrow_component_mut<'a>(borrow: &'a Self::Borrow<'a>) -> RefMut<'a, C>;
+    fn resolve_extract_components_mut(components: &mut Self::Components) -> &mut C;
     #[doc(hidden)]
     fn resolve_extract_view<'a>(view: &'a Self::View<'_>) -> &'a C;
     #[doc(hidden)]
     fn resolve_extract_view_mut<'a>(view: &'a mut Self::View<'_>) -> &'a mut C;
     #[doc(hidden)]
-    fn resolve_extract_components(components: &Self::Components) -> &C;
+    fn resolve_extract_borrow<'a>(borrow: &'a Self::Borrow<'_>) -> Ref<'a, C>;
     #[doc(hidden)]
-    fn resolve_extract_components_mut(components: &mut Self::Components) -> &mut C;
+    fn resolve_extract_borrow_mut<'a>(borrow: &'a Self::Borrow<'_>) -> RefMut<'a, C>;
 }
 
 pub trait Components {
@@ -808,8 +806,8 @@ pub trait View<'a> {
 ///
 /// The `Borrow` trait should be implemented only by the `ecs_world!` macro.
 /// This is not intended for manual implementation by any user data structures.
-pub trait Borrow {
-    type Archetype: Archetype;
+pub trait Borrow<'a> {
+    type Archetype: Archetype<Borrow<'a> = Self> + 'a;
 
     /// Returns the archetype dense index that this borrow refers to.
     fn index(&self) -> usize;
@@ -824,11 +822,11 @@ pub trait Borrow {
     /// Panics if any other borrow has exclusive/mut access to any entry for this type of component
     /// within this same archetype, even if it is for a different entity.
     #[inline(always)]
-    fn component<C>(&self) -> Ref<C>
+    fn component<'b, C>(&'b self) -> Ref<'b, C>
     where
-        Self: BorrowHas<C>,
+        Self::Archetype: ArchetypeHas<C>
     {
-        <Self as BorrowHas<C>>::resolve_component(self)
+        <Self::Archetype as ArchetypeHas<C>>::resolve_extract_borrow(self)
     }
 
     /// Gets the given component mutably from this borrow. Performs a runtime check for safety.
@@ -838,19 +836,12 @@ pub trait Borrow {
     /// Panics if any other borrow has any type of access to any entry for this type of component
     /// within this same archetype, even if it is for a different entity.
     #[inline(always)]
-    fn component_mut<C>(&self) -> RefMut<C>
+    fn component_mut<'b, C>(&'b self) -> RefMut<'b, C>
     where
-        Self: BorrowHas<C>,
+        Self::Archetype: ArchetypeHas<C>
     {
-        <Self as BorrowHas<C>>::resolve_component_mut(self)
+        <Self::Archetype as ArchetypeHas<C>>::resolve_extract_borrow_mut(self)
     }
-}
-
-pub trait BorrowHas<C>: Borrow {
-    #[doc(hidden)]
-    fn resolve_component(&self) -> Ref<C>;
-    #[doc(hidden)]
-    fn resolve_component_mut(&self) -> RefMut<C>;
 }
 
 /// Trait promising that a given ECS world can resolve a type of entity key.
