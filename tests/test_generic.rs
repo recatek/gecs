@@ -32,7 +32,7 @@ pub fn test_generic_view_get() {
 
     view_get_increment(&mut world, entity);
 
-    let mut view = world.view(entity).unwrap();
+    let view = world.view(entity).unwrap();
     assert_eq!(view.component::<CompA>().0, 2);
     assert_eq!(view.component::<CompB>().0, 2);
 }

@@ -1070,172 +1070,111 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
         impl ArchetypeCanResolve<Entity<#Archetype>> for #Archetype {
             #[inline(always)]
-            fn resolve_for(&self, key: Entity<#Archetype>) -> Option<usize> {
-                self.data.resolve(key)
+            fn resolve_for(&self, entity: Entity<#Archetype>) -> Option<usize> {
+                self.data.resolve(entity)
             }
 
             #[inline(always)]
-            fn resolve_direct(&self, key: Entity<#Archetype>) -> Option<EntityDirect<#Archetype>> {
-                self.data.to_direct(key)
+            fn resolve_direct(&self, entity: Entity<#Archetype>) -> Option<EntityDirect<#Archetype>> {
+                self.data.to_direct(entity)
             }
 
             #[inline(always)]
-            fn resolve_view(&mut self, key: Entity<#Archetype>) -> Option<<Self as Archetype>::View<'_>> {
-                self.data.get_view_mut(key)
+            fn resolve_view(&mut self, entity: Entity<#Archetype>) -> Option<<Self as Archetype>::View<'_>> {
+                self.data.get_view_mut(entity)
             }
 
             #[inline(always)]
-            fn resolve_borrow(&self, key: Entity<#Archetype>) -> Option<<Self as Archetype>::Borrow<'_>> {
-                self.data.begin_borrow(key).map(#ArchetypeBorrow)
+            fn resolve_borrow(&self, entity: Entity<#Archetype>) -> Option<<Self as Archetype>::Borrow<'_>> {
+                self.data.begin_borrow(entity).map(#ArchetypeBorrow)
             }
 
             #[inline(always)]
-            fn resolve_destroy(&mut self, key: Entity<#Archetype>) -> Option<<Self as Archetype>::Components> {
-                self.data.destroy(key)
+            fn resolve_destroy(&mut self, entity: Entity<#Archetype>) -> Option<<Self as Archetype>::Components> {
+                self.data.destroy(entity)
             }
         }
 
         impl ArchetypeCanResolve<EntityDirect<#Archetype>> for #Archetype {
             #[inline(always)]
-            fn resolve_for(&self, key: EntityDirect<#Archetype>) -> Option<usize> {
-                self.data.resolve(key)
+            fn resolve_for(&self, entity: EntityDirect<#Archetype>) -> Option<usize> {
+                self.data.resolve(entity)
             }
 
             #[inline(always)]
-            fn resolve_direct(&self, key: EntityDirect<#Archetype>) -> Option<EntityDirect<#Archetype>> {
-                self.data.to_direct(key)
+            fn resolve_direct(&self, entity: EntityDirect<#Archetype>) -> Option<EntityDirect<#Archetype>> {
+                self.data.to_direct(entity)
             }
 
             #[inline(always)]
-            fn resolve_view(&mut self, key: EntityDirect<#Archetype>) -> Option<<Self as Archetype>::View<'_>> {
-                self.data.get_view_mut(key)
+            fn resolve_view(&mut self, entity: EntityDirect<#Archetype>) -> Option<<Self as Archetype>::View<'_>> {
+                self.data.get_view_mut(entity)
             }
 
             #[inline(always)]
-            fn resolve_borrow(&self, key: EntityDirect<#Archetype>) -> Option<<Self as Archetype>::Borrow<'_>> {
-                self.data.begin_borrow(key).map(#ArchetypeBorrow)
+            fn resolve_borrow(&self, entity: EntityDirect<#Archetype>) -> Option<<Self as Archetype>::Borrow<'_>> {
+                self.data.begin_borrow(entity).map(#ArchetypeBorrow)
             }
 
             #[inline(always)]
-            fn resolve_destroy(&mut self, key: EntityDirect<#Archetype>) -> Option<<Self as Archetype>::Components> {
-                self.data.destroy(key)
+            fn resolve_destroy(&mut self, entity: EntityDirect<#Archetype>) -> Option<<Self as Archetype>::Components> {
+                self.data.destroy(entity)
             }
         }
 
         impl ArchetypeCanResolve<EntityAny> for #Archetype {
             #[inline(always)]
-            fn resolve_for(&self, key: EntityAny) -> Option<usize> {
-                match key.try_into() {
-                    Ok(SelectEntity::#Archetype(entity)) => {
-                        self.data.resolve(entity)
-                    },
-                    Ok(_) => None, // Wrong archetype ID in the entity
-                    Err(_) => panic!("invalid entity type"),
-                }
+            fn resolve_for(&self, entity: EntityAny) -> Option<usize> {
+                self.data.resolve(Entity::<Self>::try_from(entity).ok()?)
             }
 
             #[inline(always)]
-            fn resolve_direct(&self, key: EntityAny) -> Option<EntityDirectAny> {
-                match key.try_into() {
-                    Ok(SelectEntity::#Archetype(entity)) => {
-                        self.data.resolve_direct(entity).map(|e| e.into())
-                    },
-                    Ok(_) => None, // Wrong archetype ID in the entity
-                    Err(_) => panic!("invalid entity type"),
-                }
+            fn resolve_direct(&self, entity: EntityAny) -> Option<EntityDirectAny> {
+                self.data.resolve_direct(Entity::<Self>::try_from(entity).ok()?).map(Into::into)
             }
 
             #[inline(always)]
-            fn resolve_view(&mut self, key: EntityAny) -> Option<<Self as Archetype>::View<'_>> {
-                match key.try_into() {
-                    Ok(SelectEntity::#Archetype(entity)) => {
-                        self.data.get_view_mut(entity)
-                    },
-                    Ok(_) => None, // Wrong archetype ID in the entity
-                    Err(_) => panic!("invalid entity type"),
-                }
+            fn resolve_view(&mut self, entity: EntityAny) -> Option<<Self as Archetype>::View<'_>> {
+                self.data.get_view_mut(Entity::<Self>::try_from(entity).ok()?)
             }
 
             #[inline(always)]
-            fn resolve_borrow(&self, key: EntityAny) -> Option<<Self as Archetype>::Borrow<'_>> {
-                match key.try_into() {
-                    Ok(SelectEntity::#Archetype(entity)) => {
-                        self.data.begin_borrow(entity).map(#ArchetypeBorrow)
-                    },
-                    Ok(_) => None, // Wrong archetype ID in the entity
-                    Err(_) => panic!("invalid entity type"),
-                }
+            fn resolve_borrow(&self, entity: EntityAny) -> Option<<Self as Archetype>::Borrow<'_>> {
+                self.data.begin_borrow(Entity::<Self>::try_from(entity).ok()?).map(#ArchetypeBorrow)
             }
 
             #[inline(always)]
-            fn resolve_destroy(&mut self, key: EntityAny) -> Option<<Self as Archetype>::Components> {
-                match key.try_into() {
-                    Ok(SelectEntity::#Archetype(entity)) => {
-                        self.data.destroy(entity)
-                    },
-                    Ok(_) => None, // Wrong archetype ID in the entity
-                    Err(_) => panic!("invalid entity type"),
-                }
+            fn resolve_destroy(&mut self, entity: EntityAny) -> Option<<Self as Archetype>::Components> {
+                self.data.destroy(Entity::<Self>::try_from(entity).ok()?)
             }
         }
 
         impl ArchetypeCanResolve<EntityDirectAny> for #Archetype {
             #[inline(always)]
-            fn resolve_for(&self, key: EntityDirectAny) -> Option<usize> {
-                match key.try_into() {
-                    Ok(SelectEntityDirect::#Archetype(entity)) => {
-                        self.data.resolve(entity)
-                    },
-                    Ok(_) => None, // Wrong archetype ID in the entity
-                    Err(_) => panic!("invalid entity type"),
-                }
+            fn resolve_for(&self, entity: EntityDirectAny) -> Option<usize> {
+                self.data.resolve(EntityDirect::<Self>::try_from(entity).ok()?)
             }
 
             #[inline(always)]
-            fn resolve_direct(&self, key: EntityDirectAny) -> Option<EntityDirectAny> {
-                match key.try_into() {
-                    Ok(SelectEntityDirect::#Archetype(entity)) => {
-                        self.data.resolve_direct(entity).map(|e| e.into())
-                    },
-                    Ok(_) => None, // Wrong archetype ID in the entity
-                    Err(_) => panic!("invalid entity type"),
-                }
+            fn resolve_direct(&self, entity: EntityDirectAny) -> Option<EntityDirectAny> {
+                self.data.resolve_direct(EntityDirect::<Self>::try_from(entity).ok()?).map(Into::into)
             }
 
             #[inline(always)]
-            fn resolve_view(&mut self, key: EntityDirectAny) -> Option<<Self as Archetype>::View<'_>> {
-                match key.try_into() {
-                    Ok(SelectEntityDirect::#Archetype(entity)) => {
-                        self.data.get_view_mut(entity)
-                    },
-                    Ok(_) => None, // Wrong archetype ID in the entity
-                    Err(_) => panic!("invalid entity type"),
-                }
+            fn resolve_view(&mut self, entity: EntityDirectAny) -> Option<<Self as Archetype>::View<'_>> {
+                self.data.get_view_mut(EntityDirect::<Self>::try_from(entity).ok()?)
             }
 
             #[inline(always)]
-            fn resolve_borrow(&self, key: EntityDirectAny) -> Option<<Self as Archetype>::Borrow<'_>> {
-                match key.try_into() {
-                    Ok(SelectEntityDirect::#Archetype(entity)) => {
-                        self.data.begin_borrow(entity).map(#ArchetypeBorrow)
-                    },
-                    Ok(_) => None, // Wrong archetype ID in the entity
-                    Err(_) => panic!("invalid entity type"),
-                }
+            fn resolve_borrow(&self, entity: EntityDirectAny) -> Option<<Self as Archetype>::Borrow<'_>> {
+                self.data.begin_borrow(EntityDirect::<Self>::try_from(entity).ok()?).map(#ArchetypeBorrow)
             }
 
             #[inline(always)]
-            fn resolve_destroy(&mut self, key: EntityDirectAny) -> Option<<Self as Archetype>::Components> {
-                match key.try_into() {
-                    Ok(SelectEntityDirect::#Archetype(entity)) => {
-                        self.data.destroy(entity)
-                    },
-                    Ok(_) => None, // Wrong archetype ID in the entity
-                    Err(_) => panic!("invalid entity type"),
-                }
+            fn resolve_destroy(&mut self, entity: EntityDirectAny) -> Option<<Self as Archetype>::Components> {
+                self.data.destroy(EntityDirect::<Self>::try_from(entity).ok()?)
             }
         }
-
     )
 }
 
