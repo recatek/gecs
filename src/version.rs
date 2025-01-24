@@ -4,15 +4,13 @@ use std::num::NonZeroU32;
 const VERSION_START: NonZeroU32 = NonZeroU32::MIN;
 
 #[repr(transparent)]
-#[derive(Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(debug_assertions, derive(Debug))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SlotVersion {
     version: NonZeroU32,
 }
 
 #[repr(transparent)]
-#[derive(Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(debug_assertions, derive(Debug))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ArchetypeVersion {
     version: NonZeroU32,
 }

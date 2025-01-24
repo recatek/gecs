@@ -1,10 +1,9 @@
+use std::fmt::Display;
+use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::num::NonZeroU32;
 use std::mem;
-
-#[cfg(debug_assertions)]
-use std::fmt::{Debug, Formatter, Result as FmtResult};
+use std::num::NonZeroU32;
 
 use crate::error::EcsError;
 use crate::index::{TrimmedIndex, MAX_DATA_INDEX};
@@ -533,7 +532,30 @@ impl<'a, A: Archetype> From<&'a mut EntityDirect<A>> for &'a mut EntityDirectAny
     }
 }
 
-#[cfg(debug_assertions)]
+impl<A: Archetype> Display for Entity<A> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        fmt_entity(&self.inner, f)
+    }
+}
+
+impl<A: Archetype> Display for EntityDirect<A> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        fmt_entity_direct(&self.inner, f)
+    }
+}
+
+impl Display for EntityAny {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        fmt_entity(&self, f)
+    }
+}
+
+impl Display for EntityDirectAny {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        fmt_entity_direct(&self, f)
+    }
+}
+
 impl<A: Archetype> Debug for Entity<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(
@@ -546,7 +568,6 @@ impl<A: Archetype> Debug for Entity<A> {
     }
 }
 
-#[cfg(debug_assertions)]
 impl<A: Archetype> Debug for EntityDirect<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(
@@ -559,7 +580,6 @@ impl<A: Archetype> Debug for EntityDirect<A> {
     }
 }
 
-#[cfg(debug_assertions)]
 impl Debug for EntityAny {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(
@@ -572,7 +592,6 @@ impl Debug for EntityAny {
     }
 }
 
-#[cfg(debug_assertions)]
 impl Debug for EntityDirectAny {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(
@@ -583,6 +602,26 @@ impl Debug for EntityDirectAny {
             self.version().get(),
         )
     }
+}
+
+fn fmt_entity(entity: &EntityAny, f: &mut Formatter<'_>) -> FmtResult {
+    write!(
+        f,
+        "({}, S{}, {})",
+        entity.archetype_id(),
+        u32::from(entity.slot_index()),
+        entity.version().get(),
+    )
+}
+
+fn fmt_entity_direct(entity: &EntityDirectAny, f: &mut Formatter<'_>) -> FmtResult {
+    write!(
+        f,
+        "({}, D{}, {})",
+        entity.archetype_id(),
+        u32::from(entity.dense_index()),
+        entity.version().get(),
+    )
 }
 
 #[doc(hidden)]

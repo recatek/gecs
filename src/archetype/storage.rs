@@ -376,13 +376,13 @@ macro_rules! declare_storage_n {
 
                         #[cfg(debug_assertions)]
                         {
-                            let _dense_index_usize: usize = dense_index.into();
-                            debug_assert!(_dense_index_usize < self.len());
+                            let dense_index_usize: usize = dense_index.into();
+                            debug_assert!(dense_index_usize < self.len());
 
-                            let _entities = self.entities.slice(self.len());
-                            let _lookup = _entities.get_unchecked(_dense_index_usize);
-                            debug_assert!(_lookup.slot_index() == entity.slot_index());
-                            debug_assert!(_lookup.version() == entity.version());
+                            let entities = self.entities.slice(self.len());
+                            let lookup = entities.get_unchecked(dense_index_usize);
+                            debug_assert!(lookup.slot_index() == entity.slot_index());
+                            debug_assert!(lookup.version() == entity.version());
                         }
 
                         Some((slot_index, dense_index))
