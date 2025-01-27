@@ -37,7 +37,6 @@ fn test_size_hint() {
     assert_eq!(min, 4 + 11 + 23 + 6);
     assert_eq!(max, Some(4 + 11 + 23 + 6));
 
-
     let mut iter = world.iter_created();
 
     for _ in 0..10 {

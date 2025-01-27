@@ -782,7 +782,7 @@ pub trait View<'a> {
     #[inline(always)]
     fn component<'b, C>(&'b self) -> &'b C
     where
-        Self::Archetype: ArchetypeHas<C>
+        Self::Archetype: ArchetypeHas<C>,
     {
         <Self::Archetype as ArchetypeHas<C>>::resolve_extract_view(self)
     }
@@ -791,7 +791,7 @@ pub trait View<'a> {
     #[inline(always)]
     fn component_mut<'b, C>(&'b mut self) -> &'b mut C
     where
-        Self::Archetype: ArchetypeHas<C>
+        Self::Archetype: ArchetypeHas<C>,
     {
         <Self::Archetype as ArchetypeHas<C>>::resolve_extract_view_mut(self)
     }
@@ -824,7 +824,7 @@ pub trait Borrow<'a> {
     #[inline(always)]
     fn component<'b, C>(&'b self) -> Ref<'b, C>
     where
-        Self::Archetype: ArchetypeHas<C>
+        Self::Archetype: ArchetypeHas<C>,
     {
         <Self::Archetype as ArchetypeHas<C>>::resolve_extract_borrow(self)
     }
@@ -838,7 +838,7 @@ pub trait Borrow<'a> {
     #[inline(always)]
     fn component_mut<'b, C>(&'b self) -> RefMut<'b, C>
     where
-        Self::Archetype: ArchetypeHas<C>
+        Self::Archetype: ArchetypeHas<C>,
     {
         <Self::Archetype as ArchetypeHas<C>>::resolve_extract_borrow_mut(self)
     }

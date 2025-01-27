@@ -7,11 +7,11 @@ use std::slice;
 
 use seq_macro::seq;
 
+use crate::archetype::components::*;
 use crate::archetype::iter::*;
 use crate::archetype::slices::*;
 use crate::archetype::slot::{Slot, SlotIndex};
 use crate::archetype::view::*;
-use crate::archetype::components::*;
 use crate::entity::{Entity, EntityDirect};
 use crate::index::{TrimmedIndex, MAX_DATA_CAPACITY};
 use crate::traits::{Archetype, EntityKey, StorageCanResolve};
@@ -702,6 +702,63 @@ macro_rules! declare_storage_n {
                 }
             }
 
+            impl<A: Archetype, #(T~I,)*> Clone for $name<A, #(T~I,)*>
+            where
+                A::Components: $components<#(T~I,)*>,
+                #(T~I: Clone,)*
+            {
+                /// Clones this storage, including all of its data.
+                ///
+                /// # Panics
+                ///
+                /// This function will panic if any of its components are mutably borrowed,
+                /// or if there is not enough memory available to perform the clone.
+                #[inline]
+                fn clone(&self) -> Self {
+                    #(let ref_d~I = self.d~I.borrow();)*
+
+                    let mut new_slots = DataPtr::with_capacity(self.capacity);
+                    let mut new_entities = DataPtr::with_capacity(self.capacity);
+                    #(let mut new_d~I = DataPtr::with_capacity(self.capacity);)*
+
+                    unsafe {
+
+                        // SAFETY: We know that the storage is valid up to self.len.
+                        let old_slots = self.slots.slice(self.capacity);
+                        let old_entities = self.entities.slice(self.len);
+                        #(let old_~I = ref_d~I.slice(self.len);)*
+
+                        for idx in 0..self.capacity {
+                            // SAFETY: We know that the slot storage is valid up to our capacity,
+                            // and the new storage has no data that needs to be dropped first.
+                            new_slots.write(idx, old_slots.get_unchecked(idx).clone());
+                        }
+
+                        for idx in 0..self.len {
+                            // SAFETY: We know that the slot storage is valid up to our len,
+                            // and the new storage has no data that needs to be dropped first.
+                            new_entities.write(idx, old_entities.get_unchecked(idx).clone());
+                            #(new_d~I.write(idx, old_~I.get_unchecked(idx).clone());)*
+                        }
+
+                        Self {
+                            len: self.len,
+                            version: self.version,
+                            capacity: self.capacity,
+                            free_head: self.free_head,
+                            slots: new_slots,
+                            entities: new_entities,
+                            #(d~I: RefCell::new(new_d~I),)*
+
+                            #[cfg(feature = "events")]
+                            created: self.created.clone(),
+                            #[cfg(feature = "events")]
+                            destroyed: self.destroyed.clone(),
+                        }
+                    }
+                }
+            }
+
             pub struct $borrow<'a, A: Archetype, #(T~I,)*> {
                 index: usize,
                 source: &'a $name<A, #(T~I,)*>,
@@ -913,7 +970,7 @@ impl<T> DataPtr<T> {
     #[inline(always)]
     unsafe fn write(&mut self, index: usize, val: T) {
         unsafe {
-            // SAFETY: The caller guarantees that this slot is allocated and invalid.
+            // SAFETY: The caller guarantees that this cell is allocated and invalid.
             (*self.0.as_ptr().add(index)).write(val);
         }
     }

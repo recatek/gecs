@@ -1,3 +1,5 @@
+#![allow(non_snake_case)] // Allow for type-like names to make quote!() clearer
+
 mod cfg;
 mod query;
 mod util;

@@ -5,7 +5,7 @@ use xxhash_rust::xxh3::xxh3_128;
 use crate::data::{DataArchetype, DataWorld};
 use crate::generate::util::to_snake;
 
-#[allow(non_snake_case)] // Allow for type-like names to make quote!() clearer
+#[allow(non_snake_case)]
 #[allow(unused_variables)] // For unused feature-controlled generation elements
 pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     let world_snake = to_snake(&world_data.name);
@@ -152,6 +152,24 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 fn with_capacity(capacity: #WorldCapacity) -> Self {
                     Self {
                         #( #archetype: #Archetype::#with_capacity_new, )*
+                    }
+                }
+            }
+
+            impl Clone for #World
+            where
+                #(for<'a> #Archetype: Clone,)*
+            {
+                /// Clones this world, including all of its data.
+                ///
+                /// # Panics
+                ///
+                /// This function will panic if any of its components are mutably borrowed,
+                /// or if there is not enough memory available to perform the clone.
+                #[inline(always)]
+                fn clone(&self) -> Self {
+                    Self {
+                        #(#archetype: self.#archetype.clone(),)*
                     }
                 }
             }
@@ -906,6 +924,24 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 }
             }
         )*
+
+        impl Clone for #Archetype
+        where
+            #(for<'a> #Component: Clone,)*
+        {
+            /// Clones this archetype, including all of its data.
+            ///
+            /// # Panics
+            ///
+            /// This function will panic if any of its components are mutably borrowed,
+            /// or if there is not enough memory available to perform the clone.
+            #[inline(always)]
+            fn clone(&self) -> Self {
+                Self {
+                    data: self.data.clone(),
+                }
+            }
+        }
 
         /// Struct for named access to all of the components in an archetype's component tuple.
         pub struct #ArchetypeComponents {
