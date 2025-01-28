@@ -27,6 +27,11 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         .iter()
         .map(|archetype| format_ident!("{}", archetype.name))
         .collect::<Vec<_>>();
+    let ArchetypeComponents = world_data
+        .archetypes
+        .iter()
+        .map(|archetype| format_ident!("{}Components", archetype.name))
+        .collect::<Vec<_>>();
     let ArchetypeDirect = world_data
         .archetypes
         .iter()
@@ -76,15 +81,18 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     let __expand_ecs_iter_destroy_hash = format_ident!("__expand_ecs_iter_destroy_{}", input_hash);
 
     quote!(
-        #( pub use #ecs_world_sealed::#Archetype; )*
-
         pub use #ecs_world_sealed::{
             #World,
             #WorldCapacity,
 
             SelectArchetype,
             SelectEntity,
-            SelectEntityDirect
+            SelectEntityDirect,
+
+            #(
+                #Archetype,
+                #ArchetypeComponents,
+            )*
         };
 
         #[doc(hidden)]
@@ -92,7 +100,10 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
         /// Convenience mod for accessing only archetypes in exports (for blob exports, etc.)
         pub mod archetypes {
-            #(pub use super::#Archetype;)*
+            #(
+                pub use super::#Archetype;
+                pub use super::#ArchetypeComponents;
+            )*
         }
 
         mod #ecs_world_sealed {
@@ -1000,6 +1011,18 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn from(components: #ArchetypeComponents) -> (#(#Component,)*) {
                 (#(components.#component,)*)
+            }
+        }
+
+        impl Default for #ArchetypeComponents
+        where
+            #(for<'a> #Component: Default,)*
+        {
+            #[inline(always)]
+            fn default() -> Self {
+                Self {
+                    #(#component: #Component::default(),)*
+                }
             }
         }
 

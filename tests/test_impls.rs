@@ -1,10 +1,10 @@
 use gecs::prelude::*;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct CompA(pub u32);
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct CompB(pub u32);
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct CompC(pub u32);
 
 ecs_world! {
@@ -20,6 +20,23 @@ ecs_world! {
         CompA,
         CompC,
     );
+}
+
+#[test]
+pub fn test_default() {
+    let mut world = EcsWorld::default();
+
+    let entity_0 = world.create::<ArchFoo>(ArchFooComponents::default());
+    let entity_1 = world.create::<ArchBar>(ArchBarComponents {
+        comp_a: CompA(1),
+        ..Default::default()
+    });
+
+    let components_0 = world.destroy(entity_0).unwrap();
+    let components_1 = world.destroy(entity_1).unwrap();
+
+    assert_eq!(components_0.comp_a.0, 0);
+    assert_eq!(components_1.comp_a.0, 1);
 }
 
 #[test]
