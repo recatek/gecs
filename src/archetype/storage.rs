@@ -852,6 +852,9 @@ seq!(N in 17..=32 {
 
 pub struct DataPtr<T>(NonNull<MaybeUninit<T>>);
 
+// SAFETY: There's no explicit interior mutability going on here -- this is similar to a Vec-type
+// API for the data stored within, so the send- and sync-ness should be the same as T. This is
+// similar to the nomicon's implementation of RawVec<T>, which also has these unsafe impls added.
 unsafe impl<T> Send for DataPtr<T> where T: Send {}
 unsafe impl<T> Sync for DataPtr<T> where T: Sync {}
 
