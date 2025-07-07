@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 
@@ -10,6 +9,7 @@ use crate::parse::ParseEcsComponentId;
 
 use crate::parse::{
     ParseCfgDecorated,
+    ParseComponentName,
     ParseQueryFind, //.
     ParseQueryIter,
     ParseQueryIterDestroy,
@@ -169,8 +169,8 @@ pub fn generate_query_find(
 #[rustfmt::skip]
 fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
     match &param.param_type {
-        ParseQueryParamType::Component(ident) => { 
-            let ident = to_snake_ident(ident); quote!(found.#ident)
+        ParseQueryParamType::Component(name) => { 
+            let ident = to_snake_name(name); quote!(found.#ident)
         }
         ParseQueryParamType::Entity(_) => {
             quote!(found.entity)
@@ -208,10 +208,10 @@ fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
 #[rustfmt::skip]
 fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
     match &param.param_type {
-        ParseQueryParamType::Component(ident) => {
+        ParseQueryParamType::Component(name) => {
             match param.is_mut { 
-                true => quote!(&mut found.component_mut::<#ident>()),
-                false => quote!(&found.component::<#ident>()),
+                true => quote!(&mut found.component_mut::<#name>()),
+                false => quote!(&found.component::<#name>()),
             }
         }
         ParseQueryParamType::Entity(_) => {
@@ -485,8 +485,8 @@ pub fn generate_query_iter_destroy(
 #[rustfmt::skip]
 fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
     match &param.param_type {
-        ParseQueryParamType::Component(ident) => { 
-            let ident = to_snake_ident(ident); 
+        ParseQueryParamType::Component(name) => { 
+            let ident = to_snake_name(name); 
             match param.is_mut { 
                 true => quote!(&mut slices.#ident[idx]),
                 false => quote!(&slices.#ident[idx]),
@@ -528,10 +528,10 @@ fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
 #[rustfmt::skip]
 fn iter_bind_borrow(param: &ParseQueryParam) -> TokenStream {
     match &param.param_type {
-        ParseQueryParamType::Component(ident) => {
+        ParseQueryParamType::Component(name) => {
             match param.is_mut { 
-                true => quote!(&mut archetype.borrow_slice_mut::<#ident>()[idx]),
-                false => quote!(&archetype.borrow_slice::<#ident>()[idx]),
+                true => quote!(&mut archetype.borrow_slice_mut::<#name>()[idx]),
+                false => quote!(&archetype.borrow_slice::<#name>()[idx]),
             }
         }
         ParseQueryParamType::Entity(_) => {
@@ -576,7 +576,7 @@ fn to_name(param: &ParseQueryParam) -> TokenStream {
 fn to_type(param: &ParseQueryParam, archetype: &DataArchetype) -> TokenStream {
     let archetype_name = format_ident!("{}", archetype.name);
     match &param.param_type {
-        ParseQueryParamType::Component(ident) => quote!(#ident),
+        ParseQueryParamType::Component(name) => quote!(#name),
         ParseQueryParamType::Entity(ident) => quote!(Entity<#ident>),
         ParseQueryParamType::EntityAny => quote!(EntityAny),
         ParseQueryParamType::EntityWild => quote!(Entity<#archetype_name>),
@@ -597,12 +597,20 @@ fn to_maybe_mut(param: &ParseQueryParam) -> TokenStream {
     }
 }
 
-fn to_snake_ident(ident: &Ident) -> Ident {
-    Ident::new(&to_snake_str(&ident.to_string()), ident.span())
-}
+fn to_snake_name(name: &ParseComponentName) -> Ident {
+    let ident = match &name.generic {
+        None => format!(
+            "{}", //.
+            to_snake(&name.name.to_string())
+        ),
+        Some(generic) => format!(
+            "{}_{}",
+            to_snake(&name.name.to_string()),
+            to_snake(&generic.to_string())
+        ),
+    };
 
-fn to_snake_str(name: &String) -> String {
-    name.from_case(Case::Pascal).to_case(Case::Snake)
+    Ident::new(&ident, name.span())
 }
 
 fn to_attributes(param: &ParseQueryParam) -> TokenStream {
@@ -648,7 +656,7 @@ fn bind_query_params(
                     bound.push(param.clone()); // Always matches
                 }
                 ParseQueryParamType::Component(name) => {
-                    if param.is_cfg_enabled == false || archetype.contains_component(name) {
+                    if param.is_cfg_enabled == false || archetype.has_component(name) {
                         bound.push(param.clone());
                     } else {
                         continue; // No need to check more
@@ -712,30 +720,28 @@ fn bind_query_params(
 
 fn bind_one_of(
     archetype: &DataArchetype, //.
-    one_of_args: &[Ident],
+    one_of_args: &[ParseComponentName],
 ) -> syn::Result<Option<ParseQueryParamType>> {
-    let mut found: Option<Ident> = None;
+    let mut found: Option<ParseComponentName> = None;
 
-    for arg in one_of_args.iter() {
-        if archetype.contains_component(arg) {
+    for name in one_of_args.iter() {
+        if archetype.has_component(name) {
             // An OneOf can only match one component in a given archetype
             if let Some(found) = found {
                 return Err(syn::Error::new(
-                    arg.span(),
+                    name.span(),
                     format!(
                         "OneOf parameter is ambiguous for {}, matching both {} and {}",
-                        archetype.name,
-                        found.to_string(),
-                        arg.to_string(),
+                        archetype.name, name, found,
                     ),
                 ));
             }
 
             // We found at least one match for this archetype
-            found = Some(arg.clone());
+            found = Some(name.clone());
         }
     }
 
     // TODO: What about OneOf<Entity<A>, Entity<B>>?
-    Ok(found.map(|ident| ParseQueryParamType::Component(ident)))
+    Ok(found.map(|name| ParseQueryParamType::Component(name)))
 }

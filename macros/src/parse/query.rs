@@ -5,7 +5,9 @@ use syn::parse::{Parse, ParseStream};
 use syn::token::{Colon, Comma, Gt, Lt, Mut};
 use syn::{Expr, Ident, LitStr, Token, Type};
 
-use super::{parse_attributes, HasCfgPredicates, ParseAttributeCfg, ParseAttributeData};
+use super::{
+    parse_attributes, HasCfgPredicates, ParseAttributeCfg, ParseAttributeData, ParseComponentName,
+};
 
 mod kw {
     syn::custom_keyword!(archetype);
@@ -62,7 +64,7 @@ pub struct ParseQueryParam {
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
 pub enum ParseQueryParamType {
-    Component(Ident), // CompFoo
+    Component(ParseComponentName), // CompFoo or CompFoo<T>
 
     // Entity Types
     Entity(Ident),       // Entity<A>
@@ -73,10 +75,10 @@ pub enum ParseQueryParamType {
     EntityDirectAny,     // EntityDirectAny
 
     // Special Types
-    OneOf(Box<[Ident]>), // OneOf<CompFoo, CompBar>
-    Option(Ident),       // Option<CompFoo> -- TODO: RESERVED
-    With(Ident),         // With<CompFoo> -- TODO: RESERVED
-    Without(Ident),      // Without<CompFoo> -- TODO: RESERVED
+    OneOf(Box<[ParseComponentName]>), // OneOf<CompFoo, CompBar<T>>
+    Option(Ident),                    // Option<CompFoo> -- TODO: RESERVED
+    With(Ident),                      // With<CompFoo> -- TODO: RESERVED
+    Without(Ident),                   // Without<CompFoo> -- TODO: RESERVED
 }
 
 impl Parse for ParseQueryFind {
@@ -272,11 +274,13 @@ impl Parse for ParseQueryParamType {
             // OneOf<A, B, C>
             input.parse::<kw::OneOf>()?;
             input.parse::<Token![<]>()?;
-            let mut result = Vec::<Ident>::new();
+            let mut result = Vec::<ParseComponentName>::new();
+
             loop {
                 let lookahead = input.lookahead1();
+
                 if lookahead.peek(Ident) {
-                    result.push(input.parse::<Ident>()?);
+                    result.push(input.parse::<ParseComponentName>()?);
                     input.parse::<Option<Token![,]>>()?;
                 } else if lookahead.peek(Token![>]) {
                     input.parse::<Token![>]>()?;
@@ -301,8 +305,8 @@ impl Parse for ParseQueryParamType {
                 "reserved special 'Without' not yet implemented",
             ))
         } else if lookahead.peek(Ident) {
-            // Component
-            Ok(ParseQueryParamType::Component(input.parse()?))
+            let name = input.parse::<ParseComponentName>()?;
+            Ok(ParseQueryParamType::Component(name))
         } else {
             Err(lookahead.error())
         }

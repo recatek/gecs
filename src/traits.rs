@@ -146,10 +146,10 @@ pub trait World: Sized {
     /// }
     /// ```
     #[inline(always)]
-    fn view<A: Archetype, K: EntityKeyTyped<A>>(&mut self, entity: K) -> Option<A::View<'_>>
+    fn view<A, K: EntityKeyTyped<A>>(&mut self, entity: K) -> Option<A::View<'_>>
     where
         Self: WorldHas<A>,
-        A: ArchetypeCanResolve<K>,
+        A: Archetype + ArchetypeCanResolve<K>,
     {
         <Self as WorldHas<A>>::resolve_archetype_mut(self).view(entity)
     }
@@ -183,10 +183,10 @@ pub trait World: Sized {
     /// }
     /// ```
     #[inline(always)]
-    fn borrow<A: Archetype, K: EntityKeyTyped<A>>(&self, entity: K) -> Option<A::Borrow<'_>>
+    fn borrow<A, K: EntityKeyTyped<A>>(&self, entity: K) -> Option<A::Borrow<'_>>
     where
         Self: WorldHas<A>,
-        A: ArchetypeCanResolve<K>,
+        A: Archetype + ArchetypeCanResolve<K>,
     {
         <Self as WorldHas<A>>::resolve_archetype(self).borrow(entity)
     }
@@ -780,7 +780,7 @@ pub trait View<'a> {
 
     /// Fetches the given component from this view.
     #[inline(always)]
-    fn component<'b, C>(&'b self) -> &'b C
+    fn component<C>(&self) -> &C
     where
         Self::Archetype: ArchetypeHas<C>,
     {
@@ -789,7 +789,7 @@ pub trait View<'a> {
 
     /// Mutably fetches the given component from this view.
     #[inline(always)]
-    fn component_mut<'b, C>(&'b mut self) -> &'b mut C
+    fn component_mut<C>(&mut self) -> &mut C
     where
         Self::Archetype: ArchetypeHas<C>,
     {

@@ -2,7 +2,7 @@ use proc_macro2::{Literal, TokenStream};
 use quote::{format_ident, quote};
 use xxhash_rust::xxh3::xxh3_128;
 
-use crate::data::{DataArchetype, DataWorld};
+use crate::data::{DataArchetype, DataComponentName, DataWorld};
 use crate::generate::util::to_snake;
 
 #[allow(non_snake_case)]
@@ -724,7 +724,10 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let Component = archetype_data
         .components
         .iter()
-        .map(|component| format_ident!("{}", component.name))
+        .map(|component| {
+            let name = &component.name;
+            quote!(#name)
+        })
         .collect::<Vec<_>>();
 
     let ArchetypeBorrow = format_ident!("{}Borrow", archetype_data.name);
@@ -765,7 +768,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let component = archetype_data
         .components
         .iter()
-        .map(|component| format_ident!("{}", to_snake(&component.name)))
+        .map(|component| format_ident!("{}", to_snake_name(&component.name)))
         .collect::<Vec<_>>();
 
     // Generated subsections
@@ -775,12 +778,23 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let archetype_doc_component_types = archetype_data
         .components
         .iter()
-        .map(|component| format!("- [`{}`]", &component.name))
+        .map(|component| {
+            format!(
+                "- [`{}`]", //.
+                component.name.to_string()
+            )
+        })
         .collect::<Vec<_>>();
     let archetype_doc_component_data = archetype_data
         .components
         .iter()
-        .map(|component| format!("- {}: [`{}`]", to_snake(&component.name), &component.name))
+        .map(|component| {
+            format!(
+                "- {}: [`{}`]",
+                to_snake_name(&component.name),
+                &component.name.to_string()
+            )
+        })
         .collect::<Vec<_>>();
 
     quote!(
@@ -1021,7 +1035,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             #[inline(always)]
             fn default() -> Self {
                 Self {
-                    #(#component: #Component::default(),)*
+                    #(#component: Default::default(),)*
                 }
             }
         }
@@ -1375,5 +1389,19 @@ fn section_events_archetype(_archetype_data: &DataArchetype) -> TokenStream {
         )
     } else {
         quote!()
+    }
+}
+
+fn to_snake_name(name: &DataComponentName) -> String {
+    match &name.generic {
+        None => format!(
+            "{}", //.
+            to_snake(&name.name.to_string())
+        ),
+        Some(generic) => format!(
+            "{}_{}",
+            to_snake(&name.name.to_string()),
+            to_snake(&generic.to_string())
+        ),
     }
 }

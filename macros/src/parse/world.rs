@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::format_ident;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
@@ -20,7 +20,8 @@ mod kw {
 }
 
 pub trait HasAttributeId {
-    fn name(&self) -> &Ident;
+    fn name_to_string(&self) -> String;
+    fn span(&self) -> Span;
     fn id(&self) -> Option<u8>;
 }
 
@@ -53,7 +54,7 @@ pub struct ParseArchetype {
 pub struct ParseComponent {
     pub cfgs: Vec<ParseAttributeCfg>,
     pub id: Option<u8>,
-    pub name: Ident,
+    pub name: ParseComponentName,
 }
 
 impl HasCfgPredicates for ParseEcsWorld {
@@ -196,12 +197,7 @@ impl Parse for ParseComponent {
             .into_iter()
             .collect::<Vec<_>>();
 
-        let name = input.parse::<Ident>()?;
-
-        // Don't allow special keyword names as component types
-        if is_allowed_component_name(&name.to_string()) == false {
-            return Err(syn::Error::new_spanned(name, "illegal component name"));
-        }
+        let name = input.parse::<ParseComponentName>()?;
 
         // See if we have a manually-assigned component ID
         let mut component_id = None;

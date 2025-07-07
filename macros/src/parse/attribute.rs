@@ -1,6 +1,6 @@
 use proc_macro2::{Span, TokenStream};
 use syn::parse::{Parse, ParseStream};
-use syn::{bracketed, parenthesized, Ident, LitInt, Token};
+use syn::{bracketed, parenthesized, LitInt, Token};
 
 use super::*;
 
@@ -80,8 +80,12 @@ impl Parse for ParseAttributeId {
 }
 
 impl HasAttributeId for ParseArchetype {
-    fn name(&self) -> &Ident {
-        &self.name
+    fn name_to_string(&self) -> String {
+        self.name.to_string()
+    }
+
+    fn span(&self) -> Span {
+        self.name.span()
     }
 
     fn id(&self) -> Option<u8> {
@@ -90,8 +94,12 @@ impl HasAttributeId for ParseArchetype {
 }
 
 impl HasAttributeId for ParseComponent {
-    fn name(&self) -> &Ident {
-        &self.name
+    fn name_to_string(&self) -> String {
+        self.name.to_string()
+    }
+
+    fn span(&self) -> Span {
+        self.name.span()
     }
 
     fn id(&self) -> Option<u8> {

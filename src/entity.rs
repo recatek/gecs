@@ -546,13 +546,13 @@ impl<A: Archetype> Display for EntityDirect<A> {
 
 impl Display for EntityAny {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        fmt_entity(&self, f)
+        fmt_entity(self, f)
     }
 }
 
 impl Display for EntityDirectAny {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        fmt_entity_direct(&self, f)
+        fmt_entity_direct(self, f)
     }
 }
 

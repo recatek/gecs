@@ -1,10 +1,15 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 
 use base64::Engine as _;
+use proc_macro2::{Span, TokenStream};
+use quote::{quote, ToTokens};
 use speedy::{Readable, Writable};
 use syn::Ident;
 
-use crate::parse::{HasAttributeId, ParseAttributeCfg, ParseCfgDecorated, ParseEcsWorld};
+use crate::parse::{
+    HasAttributeId, ParseAttributeCfg, ParseCfgDecorated, ParseComponentName, ParseEcsWorld,
+};
 
 #[derive(Debug, Readable, Writable)]
 pub struct DataWorld {
@@ -22,7 +27,13 @@ pub struct DataArchetype {
 #[derive(Debug, Readable, Writable)]
 pub struct DataComponent {
     pub id: u8,
+    pub name: DataComponentName,
+}
+
+#[derive(Debug, Readable, Writable, PartialEq)]
+pub struct DataComponentName {
     pub name: String,
+    pub generic: Option<String>,
 }
 
 impl DataWorld {
@@ -63,7 +74,7 @@ impl DataWorld {
 
                 components.push(DataComponent {
                     id: last_component_id.unwrap(), // TODO
-                    name: component.name.to_string(),
+                    name: DataComponentName::new(&component.name),
                 });
             }
 
@@ -96,13 +107,47 @@ impl DataWorld {
 }
 
 impl DataArchetype {
-    pub fn contains_component(&self, name: &Ident) -> bool {
+    pub fn has_component(&self, name: &ParseComponentName) -> bool {
+        let name = DataComponentName::new(name);
+
         for component in self.components.iter() {
-            if component.name == name.to_string() {
+            if component.name == name {
                 return true;
             }
         }
+
         false
+    }
+}
+
+impl DataComponentName {
+    pub fn new(name: &ParseComponentName) -> Self {
+        DataComponentName {
+            name: name.name.to_string(),
+            generic: name.generic.as_ref().map(|g| g.to_string()),
+        }
+    }
+}
+
+impl Display for DataComponentName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(generic) = &self.generic {
+            write!(f, "{}<{}>", self.name, generic)
+        } else {
+            write!(f, "{}", self.name)
+        }
+    }
+}
+
+impl ToTokens for DataComponentName {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let name = Ident::new(&self.name, Span::call_site());
+        name.to_tokens(tokens);
+
+        if let Some(generic) = &self.generic {
+            let generic = Ident::new(generic, Span::call_site());
+            tokens.extend(quote! {<#generic>});
+        }
     }
 }
 
@@ -128,7 +173,7 @@ fn advance_attribute_id(
             if let Some(next) = last.checked_add(1) {
                 Ok(next)
             } else {
-                let span = item.name().span();
+                let span = item.span();
                 Err(syn::Error::new(span, "attribute id may not exceed 255"))
             }
         } else {
@@ -137,9 +182,9 @@ fn advance_attribute_id(
     }?;
 
     // We can't have an archetype ID of 0
-    if let Some(name) = ids.insert(next, item.name().to_string()) {
+    if let Some(name) = ids.insert(next, item.name_to_string()) {
         Err(syn::Error::new(
-            item.name().span(),
+            item.span(),
             format!("attribute id {} is already assigned to {}", next, name,),
         ))
     } else {
