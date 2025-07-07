@@ -30,9 +30,9 @@ impl Parse for ParseComponentName {
         let generic = if input.peek(Token![<]) {
             input.parse::<Token![<]>()?;
             let generic = input.parse::<Ident>()?;
+            input.parse::<Option<Token![,]>>()?;
             input.parse::<Token![>]>()?;
 
-            input.parse::<Option<Token![,]>>()?;
             Some(generic)
         } else {
             None

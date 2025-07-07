@@ -2,20 +2,21 @@ use gecs::prelude::*;
 
 pub struct CompA(pub u32);
 pub struct CompG<T>(T);
+pub struct CompZ; // ZST
 
 ecs_world! {
     ecs_archetype!(
         ArchFoo,
         CompA,
-        #[component_id(10)]
-        CompG<u32>,
+        #[component_id(10)] CompG<u32>,
+        CompZ,
     );
 
     ecs_archetype!(
         ArchBar,
         CompA,
-        #[component_id(20)]
-        CompG<u16>,
+        #[component_id(20)] CompG<u16>,
+        CompZ,
     );
 }
 
@@ -24,13 +25,13 @@ ecs_world! {
 pub fn test_generic_components() {
     let mut world = EcsWorld::default();
 
-    world.create::<ArchFoo>((CompA(0), CompG(0_u32),));
-    world.create::<ArchFoo>((CompA(1), CompG(0_u32),));
-    world.create::<ArchFoo>((CompA(2), CompG(0_u32),));
-    world.create::<ArchFoo>((CompA(3), CompG(0_u32),));
-    world.create::<ArchFoo>((CompA(4), CompG(0_u32),));
+    world.create::<ArchFoo>((CompA(0), CompG(0_u32), CompZ,));
+    world.create::<ArchFoo>((CompA(1), CompG(0_u32), CompZ,));
+    world.create::<ArchFoo>((CompA(2), CompG(0_u32), CompZ,));
+    world.create::<ArchFoo>((CompA(3), CompG(0_u32), CompZ,));
+    world.create::<ArchFoo>((CompA(4), CompG(0_u32), CompZ,));
 
-    world.create::<ArchBar>((CompA(5), CompG(0_u16),));
+    world.create::<ArchBar>((CompA(5), CompG(0_u16), CompZ,));
 
     let mut vec = Vec::new();
 
