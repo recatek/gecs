@@ -32,6 +32,7 @@ impl Parse for ParseComponentName {
             let generic = input.parse::<Ident>()?;
             input.parse::<Token![>]>()?;
 
+            input.parse::<Option<Token![,]>>()?;
             Some(generic)
         } else {
             None
