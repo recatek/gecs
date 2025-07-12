@@ -4,8 +4,8 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 
 use crate::data::{DataArchetype, DataWorld};
-use crate::generate::util::to_snake;
 use crate::parse::ParseEcsComponentId;
+use crate::util;
 
 use crate::parse::{
     ParseCfgDecorated,
@@ -102,7 +102,7 @@ pub fn generate_query_find(
                 .collect::<Vec<_>>(); // Bind-dependent!
 
             // Variables
-            let archetype = format_ident!("{}", to_snake(&archetype.name));
+            let archetype = format_ident!("{}", util::to_snake(&archetype.name));
 
             // Fetch the archetype directly to allow queries to be sneaky with
             // direct archetype access to get cross-archetype nested mutability
@@ -170,7 +170,8 @@ pub fn generate_query_find(
 fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
     match &param.param_type {
         ParseQueryParamType::Component(name) => { 
-            let ident = to_snake_name(name); quote!(found.#ident)
+            let name = Ident::new(&name.as_snake_name(), Span::call_site()).to_token_stream();
+            quote!(found.#name)
         }
         ParseQueryParamType::Entity(_) => {
             quote!(found.entity)
@@ -297,7 +298,7 @@ pub fn generate_query_iter(
                 .collect::<Vec<_>>(); // Bind-dependent!
 
             // Variables
-            let archetype = format_ident!("{}", to_snake(&archetype.name));
+            let archetype = format_ident!("{}", util::to_snake(&archetype.name));
 
             // Fetch the archetype directly to allow queries to be sneaky with
             // direct archetype access to get cross-archetype nested mutability
@@ -409,7 +410,7 @@ pub fn generate_query_iter_destroy(
                 .collect::<Vec<_>>(); // Bind-dependent!
 
             // Variables
-            let archetype = format_ident!("{}", to_snake(&archetype.name));
+            let archetype = format_ident!("{}", util::to_snake(&archetype.name));
 
             // Fetch the archetype directly to allow queries to be sneaky with
             // direct archetype access to get cross-archetype nested mutability
@@ -486,7 +487,7 @@ pub fn generate_query_iter_destroy(
 fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
     match &param.param_type {
         ParseQueryParamType::Component(name) => { 
-            let ident = to_snake_name(name); 
+            let ident = Ident::new(&name.as_snake_name(), Span::call_site());
             match param.is_mut { 
                 true => quote!(&mut slices.#ident[idx]),
                 false => quote!(&slices.#ident[idx]),
@@ -495,32 +496,32 @@ fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::Entity(_) => {
             quote!(&slices.entity[idx])
         }
-        ParseQueryParamType::EntityAny => {
-            quote!(&slices.entity[idx].into())
-        }
         ParseQueryParamType::EntityWild => {
             quote!(&slices.entity[idx])
         }
+        ParseQueryParamType::EntityAny => {
+            quote!(&slices.entity[idx].into())
+        }
         ParseQueryParamType::EntityDirect(_) => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version))
+        }
+        ParseQueryParamType::EntityDirectWild => {
             quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version))
         }
         ParseQueryParamType::EntityDirectAny => {
             quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version).into())
         }
-        ParseQueryParamType::EntityDirectWild => {
-            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version))
-        }
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
         ParseQueryParamType::Option(_) => {
-            todo!() // Not yet implemented
+            todo!("Option not yet supported")
         }
         ParseQueryParamType::With(_) => {
-            todo!() // Not yet implemented
+            todo!("With not yet supported")
         }
         ParseQueryParamType::Without(_) => {
-            todo!() // Not yet implemented
+            todo!("Without not yet supported")
         }
     }
 }
@@ -529,7 +530,7 @@ fn iter_bind_mut(param: &ParseQueryParam) -> TokenStream {
 fn iter_bind_borrow(param: &ParseQueryParam) -> TokenStream {
     match &param.param_type {
         ParseQueryParamType::Component(name) => {
-            match param.is_mut { 
+            match param.is_mut {
                 true => quote!(&mut archetype.borrow_slice_mut::<#name>()[idx]),
                 false => quote!(&archetype.borrow_slice::<#name>()[idx]),
             }
@@ -537,32 +538,32 @@ fn iter_bind_borrow(param: &ParseQueryParam) -> TokenStream {
         ParseQueryParamType::Entity(_) => {
             quote!(&archetype.entities()[idx])
         }
-        ParseQueryParamType::EntityAny => {
-            quote!(&archetype.entities()[idx].into())
-        }
         ParseQueryParamType::EntityWild => {
             quote!(&archetype.entities()[idx])
         }
+        ParseQueryParamType::EntityAny => {
+            quote!(&archetype.entities()[idx].into())
+        }
         ParseQueryParamType::EntityDirect(_) => {
+            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version))
+        }
+        ParseQueryParamType::EntityDirectWild => {
             quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version))
         }
         ParseQueryParamType::EntityDirectAny => {
             quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version).into())
         }
-        ParseQueryParamType::EntityDirectWild => {
-            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(idx, version))
-        }
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
         }
         ParseQueryParamType::Option(_) => {
-            todo!() // Not yet implemented
+            todo!("Option not yet supported")
         }
         ParseQueryParamType::With(_) => {
-            todo!() // Not yet implemented
+            todo!("With not yet supported")
         }
         ParseQueryParamType::Without(_) => {
-            todo!() // Not yet implemented
+            todo!("Without not yet supported")
         }
     }
 }
@@ -578,15 +579,15 @@ fn to_type(param: &ParseQueryParam, archetype: &DataArchetype) -> TokenStream {
     match &param.param_type {
         ParseQueryParamType::Component(name) => quote!(#name),
         ParseQueryParamType::Entity(ident) => quote!(Entity<#ident>),
-        ParseQueryParamType::EntityAny => quote!(EntityAny),
         ParseQueryParamType::EntityWild => quote!(Entity<#archetype_name>),
+        ParseQueryParamType::EntityAny => quote!(EntityAny),
         ParseQueryParamType::EntityDirect(ident) => quote!(EntityDirect<#ident>),
-        ParseQueryParamType::EntityDirectAny => quote!(EntityDirectAny),
         ParseQueryParamType::EntityDirectWild => quote!(EntityDirect<#archetype_name>),
+        ParseQueryParamType::EntityDirectAny => quote!(EntityDirectAny),
         ParseQueryParamType::OneOf(_) => panic!("must unpack OneOf first"),
-        ParseQueryParamType::Option(_) => todo!(),
-        ParseQueryParamType::With(_) => todo!(),
-        ParseQueryParamType::Without(_) => todo!(),
+        ParseQueryParamType::Option(_) => todo!("Option not yet supported"),
+        ParseQueryParamType::With(_) => todo!("With not yet supported"),
+        ParseQueryParamType::Without(_) => todo!("Without not yet supported"),
     }
 }
 
@@ -595,22 +596,6 @@ fn to_maybe_mut(param: &ParseQueryParam) -> TokenStream {
         true => quote!(mut),
         false => quote!(),
     }
-}
-
-fn to_snake_name(name: &ParseComponentName) -> Ident {
-    let ident = match &name.generic {
-        None => format!(
-            "{}", //.
-            to_snake(&name.name.to_string())
-        ),
-        Some(generic) => format!(
-            "{}_{}",
-            to_snake(&name.name.to_string()),
-            to_snake(&generic.to_string())
-        ),
-    };
-
-    Ident::new(&ident, name.span())
 }
 
 fn to_attributes(param: &ParseQueryParam) -> TokenStream {
@@ -628,7 +613,8 @@ fn is_cfg_enabled(param: &ParseQueryParam, cfg_lookup: &HashMap<String, bool>) -
             return false;
         }
     }
-    return true;
+
+    true
 }
 
 fn bind_query_params(
@@ -636,57 +622,85 @@ fn bind_query_params(
     params: &[ParseQueryParam],
 ) -> syn::Result<HashMap<String, Vec<ParseQueryParam>>> {
     let mut result = HashMap::new();
-    let mut bound = Vec::new();
+    let mut binding = Vec::new();
 
     for archetype in world_data.archetypes.iter() {
-        bound.clear();
+        let mut matches = true;
+        binding.clear();
 
         for param in params {
             match &param.param_type {
-                ParseQueryParamType::EntityAny => {
-                    bound.push(param.clone()); // Always matches
-                }
-                ParseQueryParamType::EntityDirectAny => {
-                    bound.push(param.clone()); // Always matches
-                }
-                ParseQueryParamType::EntityWild => {
-                    bound.push(param.clone()); // Always matches
-                }
-                ParseQueryParamType::EntityDirectWild => {
-                    bound.push(param.clone()); // Always matches
-                }
                 ParseQueryParamType::Component(name) => {
-                    if param.is_cfg_enabled == false || archetype.has_component(name) {
-                        bound.push(param.clone());
+                    if param.is_cfg_enabled == false {
+                        continue; // Skip this entirely
+                    }
+
+                    // We have to take the archetype's version because we might have to bind a
+                    // placeholder generic argument in the process (including nested in OneOf).
+                    if let Some(bound) = archetype.try_bind_component(name)? {
+                        binding.push(ParseQueryParam {
+                            cfgs: param.cfgs.clone(),
+                            name: param.name.clone(),
+                            is_mut: param.is_mut,
+                            param_type: ParseQueryParamType::Component(bound.clone()),
+                            is_cfg_enabled: param.is_cfg_enabled,
+                        });
                     } else {
-                        continue; // No need to check more
+                        matches = false;
+                        break; // No need to check more
                     }
                 }
+
                 ParseQueryParamType::Entity(name) => {
-                    if param.is_cfg_enabled == false || archetype.name == name.to_string() {
-                        bound.push(param.clone());
+                    if param.is_cfg_enabled == false {
+                        continue; // Skip this entirely
+                    }
+
+                    if archetype.name == name.to_string() {
+                        binding.push(param.clone());
                     } else {
-                        continue; // No need to check more
+                        matches = false;
+                        break; // No need to check more
                     }
                 }
+
+                ParseQueryParamType::EntityWild => {
+                    binding.push(param.clone()); // Always matches
+                }
+
+                ParseQueryParamType::EntityAny => {
+                    binding.push(param.clone()); // Always matches
+                }
+
                 ParseQueryParamType::EntityDirect(name) => {
-                    if param.is_cfg_enabled == false || archetype.name == name.to_string() {
-                        bound.push(param.clone());
+                    if param.is_cfg_enabled == false {
+                        continue; // Skip this entirely
+                    }
+
+                    if archetype.name == name.to_string() {
+                        binding.push(param.clone());
                     } else {
-                        continue; // No need to check more
+                        matches = false;
+                        break; // No need to check more
                     }
                 }
+
+                ParseQueryParamType::EntityDirectWild => {
+                    binding.push(param.clone()); // Always matches
+                }
+
+                ParseQueryParamType::EntityDirectAny => {
+                    binding.push(param.clone()); // Always matches
+                }
+
                 ParseQueryParamType::OneOf(args) => {
-                    if param.cfgs.len() > 0 {
-                        return Err(syn::Error::new(
-                            param.name.span(),
-                            "cfg attributes not currently supported on OneOf",
-                        ));
+                    if param.is_cfg_enabled == false {
+                        continue; // Skip this entirely
                     }
 
                     if let Some(found) = bind_one_of(archetype, args)? {
                         // Convert this to a new Component type
-                        bound.push(ParseQueryParam {
+                        binding.push(ParseQueryParam {
                             cfgs: param.cfgs.clone(),
                             name: param.name.clone(),
                             is_mut: param.is_mut,
@@ -694,24 +708,28 @@ fn bind_query_params(
                             is_cfg_enabled: param.is_cfg_enabled,
                         });
                     } else {
-                        continue; // No need to check more
+                        matches = false;
+                        break; // No need to check more
                     }
                 }
+
                 ParseQueryParamType::Option(_) => {
-                    todo!() // Not yet implemented
+                    todo!("Option not yet supported")
                 }
+
                 ParseQueryParamType::With(_) => {
-                    todo!() // Not yet implemented
+                    todo!("With not yet supported")
                 }
+
                 ParseQueryParamType::Without(_) => {
-                    todo!() // Not yet implemented
+                    todo!("Without not yet supported")
                 }
             }
         }
 
         // Did we remap everything?
-        if bound.len() == params.len() {
-            result.insert(archetype.name.clone(), bound.clone());
+        if matches {
+            result.insert(archetype.name.clone(), binding.clone());
         }
     }
 
@@ -725,7 +743,7 @@ fn bind_one_of(
     let mut found: Option<ParseComponentName> = None;
 
     for name in one_of_args.iter() {
-        if archetype.has_component(name) {
+        if let Some(bound) = archetype.try_bind_component(name)? {
             // An OneOf can only match one component in a given archetype
             if let Some(found) = found {
                 return Err(syn::Error::new(
@@ -738,7 +756,7 @@ fn bind_one_of(
             }
 
             // We found at least one match for this archetype
-            found = Some(name.clone());
+            found = Some(bound.clone());
         }
     }
 

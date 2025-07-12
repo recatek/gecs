@@ -715,7 +715,7 @@ pub fn test_multi_replace() {
     assert!(ecs_find!(world, entity_7, |_: &CompA| panic!()).is_none());
     assert!(ecs_find!(world, entity_8, |_: &CompA| panic!()).is_none());
     assert!(ecs_find!(world, entity_9, |_: &CompA| panic!()).is_none());
-    
+
     assert!(ecs_find_borrow!(world, entity_0, |_: &CompA| panic!()).is_none());
     assert!(ecs_find_borrow!(world, entity_1, |_: &CompA| panic!()).is_none());
     assert!(ecs_find_borrow!(world, entity_2, |_: &CompA| panic!()).is_none());

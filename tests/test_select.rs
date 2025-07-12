@@ -22,9 +22,7 @@ ecs_world! {
 fn test_select() {
     let mut world = EcsWorld::default();
 
-    let entity: Entity<ArchFoo> = world
-        .archetype_mut::<ArchFoo>()
-        .create((CompA(1), CompZ));
+    let entity: Entity<ArchFoo> = world.archetype_mut::<ArchFoo>().create((CompA(1), CompZ));
 
     match entity.try_into() {
         Ok(SelectEntity::ArchFoo(entity)) => assert!(world.contains(entity)),
@@ -37,9 +35,7 @@ fn test_select() {
 fn test_select_direct() {
     let mut world = EcsWorld::default();
 
-    let entity = world
-        .archetype_mut::<ArchFoo>()
-        .create((CompA(1), CompZ));
+    let entity = world.archetype_mut::<ArchFoo>().create((CompA(1), CompZ));
     let entity: EntityDirect<ArchFoo> = world.resolve_direct(entity).unwrap();
 
     match entity.try_into() {
@@ -48,7 +44,6 @@ fn test_select_direct() {
         Err(_) => panic!(),
     };
 }
-
 
 #[test]
 fn test_select_any() {
@@ -70,9 +65,7 @@ fn test_select_any() {
 fn test_select_any_direct() {
     let mut world = EcsWorld::default();
 
-    let entity = world
-        .archetype_mut::<ArchFoo>()
-        .create((CompA(1), CompZ));
+    let entity = world.archetype_mut::<ArchFoo>().create((CompA(1), CompZ));
     let entity: EntityDirectAny = world.resolve_direct(entity).unwrap().into_any();
 
     match entity.try_into() {

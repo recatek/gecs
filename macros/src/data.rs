@@ -3,12 +3,19 @@ use std::fmt::Display;
 
 use base64::Engine as _;
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
+use quote::ToTokens;
 use speedy::{Readable, Writable};
-use syn::Ident;
+use syn::{self, Ident, LitInt};
+
+use crate::util;
 
 use crate::parse::{
-    HasAttributeId, ParseAttributeCfg, ParseCfgDecorated, ParseComponentName, ParseEcsWorld,
+    HasAttributeId, //.
+    ParseAttributeCfg,
+    ParseCfgDecorated,
+    ParseComponentGeneric,
+    ParseComponentName,
+    ParseEcsWorld,
 };
 
 #[derive(Debug, Readable, Writable)]
@@ -30,10 +37,17 @@ pub struct DataComponent {
     pub name: DataComponentName,
 }
 
-#[derive(Debug, Readable, Writable, PartialEq)]
+#[derive(Debug, Readable, Writable)]
 pub struct DataComponentName {
     pub name: String,
-    pub generic: Option<String>,
+    pub generic: Option<DataComponentGeneric>,
+}
+
+#[derive(Debug, Readable, Writable)]
+pub enum DataComponentGeneric {
+    Placeholder,
+    Ident(String),
+    LitInt(String),
 }
 
 impl DataWorld {
@@ -107,46 +121,118 @@ impl DataWorld {
 }
 
 impl DataArchetype {
-    pub fn has_component(&self, name: &ParseComponentName) -> bool {
-        let name = DataComponentName::new(name);
+    pub fn try_bind_component(
+        &self,
+        name: &ParseComponentName,
+    ) -> syn::Result<Option<ParseComponentName>> {
+        let mut found = None;
 
         for component in self.components.iter() {
-            if component.name == name {
-                return true;
+            if component.name.matches_with_placeholder(name) {
+                if let Some(found) = found {
+                    return Err(syn::Error::new(
+                        name.span(),
+                        format!(
+                            "Component parameter is ambiguous for {}, matching both {} and {}",
+                            self.name, found, component.name,
+                        ),
+                    ));
+                }
+
+                found = Some(component.name.as_parse());
             }
         }
 
-        false
+        Ok(found)
     }
 }
 
 impl DataComponentName {
     pub fn new(name: &ParseComponentName) -> Self {
+        use DataComponentGeneric as D;
+        use ParseComponentGeneric as P;
+
         DataComponentName {
             name: name.name.to_string(),
-            generic: name.generic.as_ref().map(|g| g.to_string()),
+            generic: name.generic.as_ref().map(|generic| match generic {
+                P::Placeholder(_) => D::Placeholder,
+                P::Ident(ident) => D::Ident(ident.to_string()),
+                P::LitInt(lit) => D::LitInt(lit.token().to_string()),
+            }),
         }
     }
-}
 
-impl Display for DataComponentName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(generic) = &self.generic {
-            write!(f, "{}<{}>", self.name, generic)
-        } else {
-            write!(f, "{}", self.name)
+    pub fn as_parse(&self) -> ParseComponentName {
+        use DataComponentGeneric as D;
+        use ParseComponentGeneric as P;
+
+        let name = Ident::new(&self.name, Span::call_site());
+        let generic = match &self.generic {
+            None => None,
+            Some(D::Placeholder) => panic!("placeholder type not allowed in this conversion"),
+            Some(D::Ident(ident)) => Some(P::Ident(Ident::new(ident, Span::call_site()))),
+            Some(D::LitInt(lit)) => Some(P::LitInt(LitInt::new(lit, Span::call_site()))),
+        };
+
+        ParseComponentName { name, generic }
+    }
+
+    pub fn as_snake_name(&self) -> String {
+        use DataComponentGeneric as D;
+
+        match &self.generic {
+            None => format!("{}", util::to_snake(&self.name)),
+            Some(D::Ident(ident)) => {
+                format!(
+                    "{}_{}", //.
+                    util::to_snake(&self.name),
+                    util::to_snake(&ident)
+                )
+            }
+            Some(D::LitInt(lit)) => {
+                format!(
+                    "{}_{}", //.
+                    util::to_snake(&self.name),
+                    util::to_snake(&lit)
+                )
+            }
+            Some(D::Placeholder) => panic!("placeholder type invalid as name"),
+        }
+    }
+
+    pub fn matches_with_placeholder(&self, name: &ParseComponentName) -> bool {
+        use DataComponentGeneric as D;
+        use ParseComponentGeneric as P;
+
+        if name.name.to_string() != self.name {
+            return false;
+        }
+
+        match (name.generic.as_ref(), self.generic.as_ref()) {
+            (None, None) => true,                       // Neither is generic
+            (Some(P::Placeholder(_)), Some(_)) => true, // Placeholder matches any generic
+            (Some(P::Ident(a)), Some(D::Ident(b))) => a.to_string() == b.as_str(),
+            (Some(P::LitInt(a)), Some(D::LitInt(b))) => a.token().to_string() == b.as_str(),
+            _ => false,
         }
     }
 }
 
 impl ToTokens for DataComponentName {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let name = Ident::new(&self.name, Span::call_site());
-        name.to_tokens(tokens);
+        self.as_parse().to_tokens(tokens)
+    }
+}
 
-        if let Some(generic) = &self.generic {
-            let generic = Ident::new(generic, Span::call_site());
-            tokens.extend(quote! {<#generic>});
+impl Display for DataComponentName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use DataComponentGeneric as D;
+
+        match &self.generic {
+            None => write!(f, "{}", self.name),
+            Some(D::Placeholder) => panic!("placeholder type not allowed in string conversion"),
+            Some(D::Ident(ident)) => write!(f, "{}<{}>", self.name, ident),
+            Some(D::LitInt(lit)) => write!(f, "{}<{}>", self.name, lit),
         }
     }
 }

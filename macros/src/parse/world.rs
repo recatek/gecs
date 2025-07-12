@@ -1,13 +1,13 @@
 use std::collections::HashSet;
 
+use super::*;
 use proc_macro2::{Span, TokenStream};
 use quote::format_ident;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 use syn::token::{Comma, Semi};
 use syn::{parenthesized, Ident, Token};
-
-use super::*;
 
 mod kw {
     syn::custom_keyword!(cfg);
@@ -198,6 +198,13 @@ impl Parse for ParseComponent {
             .collect::<Vec<_>>();
 
         let name = input.parse::<ParseComponentName>()?;
+
+        if let Some(ParseComponentGeneric::Placeholder(placeholder)) = name.generic {
+            return Err(syn::Error::new(
+                placeholder.span(),
+                "placeholder not supported here",
+            ));
+        }
 
         // See if we have a manually-assigned component ID
         let mut component_id = None;

@@ -1,14 +1,14 @@
-use proc_macro2::{Literal, TokenStream};
+use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{format_ident, quote};
 use xxhash_rust::xxh3::xxh3_128;
 
-use crate::data::{DataArchetype, DataComponentName, DataWorld};
-use crate::generate::util::to_snake;
+use crate::data::{DataArchetype, DataWorld};
+use crate::util;
 
 #[allow(non_snake_case)]
 #[allow(unused_variables)] // For unused feature-controlled generation elements
 pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
-    let world_snake = to_snake(&world_data.name);
+    let world_snake = util::to_snake(&world_data.name);
     let input_hash = xxh3_128(raw_input.as_bytes());
 
     // Module
@@ -42,7 +42,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     let archetype = world_data
         .archetypes
         .iter()
-        .map(|archetype| format_ident!("{}", to_snake(&archetype.name)))
+        .map(|archetype| format_ident!("{}", util::to_snake(&archetype.name)))
         .collect::<Vec<_>>();
     let num_archetypes = world_data.archetypes.len();
 
@@ -66,11 +66,16 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     let section_events = section_events_world(&world_data);
 
     // Documentation helpers
-    #[rustfmt::skip]
     let world_doc_archetypes = world_data
         .archetypes
         .iter()
-        .map(|archetype| format!("- `{}`: [`{}`],", to_snake(&archetype.name), &archetype.name))
+        .map(|archetype| {
+            format!(
+                "- `{}`: [`{}`],",
+                util::to_snake(&archetype.name),
+                &archetype.name
+            )
+        })
         .collect::<Vec<_>>();
 
     // Macros
@@ -768,7 +773,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
     let component = archetype_data
         .components
         .iter()
-        .map(|component| format_ident!("{}", to_snake_name(&component.name)))
+        .map(|component| Ident::new(&component.name.as_snake_name(), Span::call_site()))
         .collect::<Vec<_>>();
 
     // Generated subsections
@@ -791,7 +796,7 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         .map(|component| {
             format!(
                 "- {}: [`{}`]",
-                to_snake_name(&component.name),
+                &component.name.as_snake_name(),
                 &component.name.to_string()
             )
         })
@@ -1235,13 +1240,13 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
 #[allow(non_snake_case)]
 fn with_capacity_param(archetype_data: &DataArchetype) -> TokenStream {
-    let archetype = format_ident!("{}", to_snake(&archetype_data.name));
+    let archetype = format_ident!("{}", util::to_snake(&archetype_data.name));
     quote!(#archetype: usize)
 }
 
 #[allow(non_snake_case)]
 fn with_capacity_new(archetype_data: &DataArchetype) -> TokenStream {
-    let archetype = format_ident!("{}", to_snake(&archetype_data.name));
+    let archetype = format_ident!("{}", util::to_snake(&archetype_data.name));
     quote!(with_capacity(capacity.#archetype))
 }
 
@@ -1256,7 +1261,7 @@ fn section_event_iter(_world_data: &DataWorld) -> TokenStream {
         let iter = _world_data
             .archetypes
             .iter()
-            .map(|archetype| format_ident!("iter_{}", to_snake(&archetype.name)))
+            .map(|archetype| format_ident!("iter_{}", util::to_snake(&archetype.name)))
             .collect::<Vec<_>>();
         let index = (0.._world_data.archetypes.len()).collect::<Vec<_>>();
 
@@ -1331,12 +1336,12 @@ fn section_events_world(_world_data: &DataWorld) -> TokenStream {
         let iter = _world_data
             .archetypes
             .iter()
-            .map(|archetype| format_ident!("iter_{}", to_snake(&archetype.name)))
+            .map(|archetype| format_ident!("iter_{}", util::to_snake(&archetype.name)))
             .collect::<Vec<_>>();
         let archetype = _world_data
             .archetypes
             .iter()
-            .map(|archetype| format_ident!("{}", to_snake(&archetype.name)))
+            .map(|archetype| format_ident!("{}", util::to_snake(&archetype.name)))
             .collect::<Vec<_>>();
 
         quote!(
@@ -1389,19 +1394,5 @@ fn section_events_archetype(_archetype_data: &DataArchetype) -> TokenStream {
         )
     } else {
         quote!()
-    }
-}
-
-fn to_snake_name(name: &DataComponentName) -> String {
-    match &name.generic {
-        None => format!(
-            "{}", //.
-            to_snake(&name.name.to_string())
-        ),
-        Some(generic) => format!(
-            "{}_{}",
-            to_snake(&name.name.to_string()),
-            to_snake(&generic.to_string())
-        ),
     }
 }

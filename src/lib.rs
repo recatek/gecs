@@ -3,7 +3,6 @@
 #![allow(clippy::needless_doctest_main)] // this has false positives with gecs's macros
 #![allow(clippy::bool_comparison)] // using "== false" is easier to read in some cases
 #![allow(clippy::len_zero)] // using "len() > 0" is easier to read in some cases
-
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 //! [ecs_world!]: ecs_world!
