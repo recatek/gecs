@@ -18,7 +18,7 @@ impl TrimmedIndex {
     /// Creates a new `TrimmedIndex` if the given index is within bounds.
     #[inline(always)]
     pub(crate) const fn new_u32(index: u32) -> Option<Self> {
-        match index < MAX_DATA_CAPACITY {
+        match index <= MAX_DATA_INDEX {
             true => Some(Self(index)),
             false => None,
         }
@@ -27,7 +27,7 @@ impl TrimmedIndex {
     /// Creates a new `TrimmedIndex` if the given index is within bounds.
     #[inline(always)]
     pub(crate) const fn new_usize(index: usize) -> Option<Self> {
-        match index < MAX_DATA_CAPACITY as usize {
+        match index <= MAX_DATA_INDEX as usize {
             true => Some(Self(index as u32)),
             false => None,
         }
@@ -37,7 +37,7 @@ impl TrimmedIndex {
 impl From<TrimmedIndex> for u32 {
     fn from(value: TrimmedIndex) -> Self {
         // SAFETY: This is verified at creation
-        unsafe { debug_checked_assume!(value.0 < MAX_DATA_CAPACITY) };
+        unsafe { debug_checked_assume!(value.0 <= MAX_DATA_INDEX) };
         value.0
     }
 }

@@ -15,7 +15,7 @@ pub fn test_generic_view() {
 
     let entity = world.create::<ArchFoo>((CompA(1), CompB(1)));
 
-    let mut view = world.view(entity).unwrap();
+    let mut view = world.view_mut(entity).unwrap();
     view_increment(&mut view);
 
     assert_eq!(view.component::<CompA>().0, 2);
@@ -61,7 +61,7 @@ pub fn test_generic_borrow_get() {
     assert_eq!(borrow.component::<CompB>().0, 2);
 }
 
-fn view_increment<'a, V: View<'a>>(view: &mut V)
+fn view_increment<'a, V: ViewMut<'a>>(view: &mut V)
 where
     V::Archetype: ArchetypeHas<CompA> + ArchetypeHas<CompB>,
 {
@@ -74,7 +74,7 @@ where
     W: WorldHas<A>,
     A: ArchetypeHas<CompA> + ArchetypeHas<CompB>,
 {
-    let mut view = world.view(entity).unwrap();
+    let mut view = world.view_mut(entity).unwrap();
     view.component_mut::<CompA>().0 += 1;
     view.component_mut::<CompB>().0 += 1;
 }

@@ -104,6 +104,9 @@ pub fn generate_query_find(
             // Variables
             let archetype = format_ident!("{}", util::to_snake(&archetype.name));
 
+            // See if we need a direct entity when binding
+            let needs_direct = check_needs_direct(bound_params);
+
             // Fetch the archetype directly to allow queries to be sneaky with
             // direct archetype access to get cross-archetype nested mutability
             let get_archetype = match mode {
@@ -111,9 +114,16 @@ pub fn generate_query_find(
                 FetchMode::Mut => quote!(&mut #world.#archetype),
             };
 
-            let fetch = match mode {
-                FetchMode::Borrow => quote!(archetype.borrow(#resolved_entity)),
-                FetchMode::Mut => quote!(archetype.view(#resolved_entity)),
+            let fetch = match (mode, needs_direct) {
+                (FetchMode::Borrow, false) => quote!(archetype.borrow(#resolved_entity)),
+                (FetchMode::Borrow, true) => quote!(archetype.borrow_direct(#resolved_entity)),
+                (FetchMode::Mut, false) => quote!(archetype.view_mut(#resolved_entity)),
+                (FetchMode::Mut, true) => quote!(archetype.view_mut_direct(#resolved_entity)),
+            };
+
+            let map_args = match needs_direct {
+                true => quote!(|(found, direct)|),
+                false => quote!(|found|),
             };
 
             #[rustfmt::skip]
@@ -132,7 +142,7 @@ pub fn generate_query_find(
                     let archetype = #get_archetype;
                     let version = archetype.version();
 
-                    #fetch.map(|found| closure(#(#attrs #bind),*))
+                    #fetch.map(#map_args closure(#(#attrs #bind),*))
                 }
                 #__WorldSelectTotal::#ArchetypeDirect(#resolved_entity) => {
                     // Alias the current archetype for use in the closure.
@@ -143,7 +153,7 @@ pub fn generate_query_find(
                     let archetype = #get_archetype;
                     let version = archetype.version();
 
-                    #fetch.map(|found| closure(#(#attrs #bind),*))
+                    #fetch.map(#map_args closure(#(#attrs #bind),*))
                 }
             ));
         }
@@ -166,6 +176,19 @@ pub fn generate_query_find(
     }
 }
 
+fn check_needs_direct(bound_params: &[ParseQueryParam]) -> bool {
+    for param in bound_params {
+        match param.param_type {
+            ParseQueryParamType::EntityDirect(_) => return true,
+            ParseQueryParamType::EntityDirectAny => return true,
+            ParseQueryParamType::EntityDirectWild => return true,
+            _ => {}
+        };
+    }
+
+    false
+}
+
 #[rustfmt::skip]
 fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
     match &param.param_type {
@@ -183,13 +206,13 @@ fn find_bind_mut(param: &ParseQueryParam) -> TokenStream {
             quote!(found.entity)
         }
         ParseQueryParamType::EntityDirect(_) => {
-            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(found.index(), version))
+            quote!(&direct) // Comes from using view_mut_direct as our fetch function
         }
         ParseQueryParamType::EntityDirectAny => {
-            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(found.index(), version).into())
+            quote!(&direct.into()) // Comes from using view_mut_direct as our fetch function
         }
         ParseQueryParamType::EntityDirectWild => {
-            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(found.index(), version))
+            quote!(&direct) // Comes from using view_mut_direct as our fetch function
         }
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
@@ -225,13 +248,13 @@ fn find_bind_borrow(param: &ParseQueryParam) -> TokenStream {
             quote!(found.entity())
         }
         ParseQueryParamType::EntityDirect(_) => {
-            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(found.index(), version))
+            quote!(&direct) // Comes from using borrow_direct as our fetch function
         }
         ParseQueryParamType::EntityDirectAny => {
-            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(found.index(), version).into())
+            quote!(&direct.into()) // Comes from using borrow_direct as our fetch function
         }
         ParseQueryParamType::EntityDirectWild => {
-            quote!(&::gecs::__internal::new_entity_direct::<MatchedArchetype>(found.index(), version))
+            quote!(&direct) // Comes from using borrow_direct as our fetch function
         }
         ParseQueryParamType::OneOf(_) => {
             panic!("must unpack OneOf first")
@@ -267,8 +290,6 @@ pub fn generate_query_iter(
     // that might change after OneOf binding etc. must use the bound query params in
     // bound_params for the given archetype. Note that it's faster to use query.params
     // where available, since it avoids redundant computation for each archetype.
-
-    // TODO PERF: We could avoid binding entirely if we know that the params have no OneOf.
 
     // Variables and fields
     let world = &query_data.world;
@@ -380,8 +401,6 @@ pub fn generate_query_iter_destroy(
     // bound_params for the given archetype. Note that it's faster to use query.params
     // where available, since it avoids redundant computation for each archetype.
 
-    // TODO PERF: We could avoid binding entirely if we know that the params have no OneOf.
-
     // Variables and fields
     let world = &query_data.world;
     let body = &query_data.body;
@@ -422,13 +441,13 @@ pub fn generate_query_iter_destroy(
 
             #[rustfmt::skip]
             let get_slices = match mode {
-                FetchMode::Borrow => panic!("borrow unsupported for iter_remove"),
+                FetchMode::Borrow => panic!("borrow unsupported for iter_destroy"),
                 FetchMode::Mut => quote!(archetype.get_all_slices_mut()),
             };
 
             #[rustfmt::skip]
             let bind = match mode {
-                FetchMode::Borrow => panic!("borrow unsupported for iter_remove"),
+                FetchMode::Borrow => panic!("borrow unsupported for iter_destroy"),
                 FetchMode::Mut => bound_params.iter().map(iter_bind_mut).collect::<Vec<_>>(),
             };
 

@@ -459,6 +459,12 @@ mod macros {
     /// matched archetype being accessed during this execution of the closure. This can be used
     /// for generic operations.
     ///
+    /// # Ordering
+    ///
+    /// There are no guarantees on order in this iteration, nor any guarantees that the order will
+    /// be the same as that of any other iteration operation. However, the order is guaranteed to
+    /// be deterministic on runs given identical ECS world state and prior operation order.
+    ///
     /// # Examples
     ///
     /// ```
@@ -529,6 +535,12 @@ mod macros {
     /// [`std::cell::RefCell`] operations, and will panic if you attempt to mutably borrow an
     /// archetype's component row while any other borrow is currently active.
     ///
+    /// # Ordering
+    ///
+    /// There are no guarantees on order in this iteration, nor any guarantees that the order will
+    /// be the same as that of any other iteration operation. However, the order is guaranteed to
+    /// be deterministic on runs given identical ECS world state and prior operation order.
+    ///
     /// # Examples
     ///
     /// See the example for [`ecs_find_borrow!`].
@@ -545,12 +557,16 @@ mod macros {
     /// This version works similarly to [`ecs_iter`], but with the `EcsStepDestroy` enum that
     /// supports two additional values: `BreakDestroy` and `ContinueDestroy`. These will break
     /// or continue and also immediately remove that entity after that iteration step. The
-    /// entity and its handle are not preserved after this process. Note that this iterates the
-    /// world in a different order from the normal `ecs_iter!` (which should not be relied upon
-    /// for deterministic iteration anyway). This is also a bit slower than normal `ecs_iter!`.
+    /// entity and its handle are not preserved after this process.
     ///
     /// Note that performing an early-out break will end the iteration for all archetypes. This
     /// can have unpredictable order, and is recommended only for searching for single entities.
+    ///
+    /// # Ordering
+    ///
+    /// There are no guarantees on order in this iteration, nor any guarantees that the order will
+    /// be the same as that of any other iteration operation. However, the order is guaranteed to
+    /// be deterministic on runs given identical ECS world state and prior operation order.
     ///
     /// # Examples
     ///
@@ -792,7 +808,7 @@ pub mod prelude {
 
     pub use traits::{World, WorldHas};
     pub use traits::{Archetype, ArchetypeHas};
-    pub use traits::{Components, View, Borrow};
+    pub use traits::{Components, View, ViewMut, Borrow};
 }
 
 #[doc(hidden)]
@@ -827,5 +843,5 @@ pub mod __internal {
 
     pub use traits::{World, WorldHas};
     pub use traits::{Archetype, ArchetypeHas};
-    pub use traits::{Components, View, Borrow};
+    pub use traits::{Components, View, ViewMut, Borrow};
 }

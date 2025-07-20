@@ -1,0 +1,3 @@
+## [Unreleased]
+- Split `View` into `View` and `ViewMut`. Note that creating a `View` still requires mutable access to the
+  archetype/world, but can be useful for passing around read-only access to a given entity.

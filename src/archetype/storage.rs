@@ -27,6 +27,7 @@ macro_rules! declare_storage_n {
         $components:ident,
         $slices:ident,
         $view:ident,
+        $view_mut:ident,
         $n:literal
     ) => {
         seq!(I in 0..$n {
@@ -219,6 +220,30 @@ macro_rules! declare_storage_n {
                     self.resolve(entity).map(|index| $borrow { index, source: self })
                 }
 
+                /// Creates a borrow context to accelerate accessing borrowed data for an entity.
+                /// This version also returns an EntityDirect to the direct dense position.
+                #[inline(always)]
+                pub fn begin_borrow_direct<K: EntityKey>(
+                    &self,
+                    entity: K
+                ) -> Option<($borrow<A, #(T~I,)*>, EntityDirect<A>)>
+                where
+                    Self: StorageCanResolve<K>
+                {
+                    self.resolve(entity).map(|index| unsafe {
+                        let dense_index = TrimmedIndex::new_usize(index);
+                        debug_assert!(dense_index.is_some());
+                        // SAFETY: We know that the index was resolved to a valid trimmed index.
+                        let dense_index = dense_index.unwrap_unchecked();
+                        let version = self.version();
+
+                        (
+                            $borrow { index, source: self },
+                            EntityDirect::<A>::new(dense_index, version),
+                        )
+                    })
+                }
+
                 /// Returns an iterator over all of the entities and their data.
                 #[inline]
                 pub fn iter(&mut self) -> impl Iterator<Item = (&Entity<A>, #(&T~I,)*)> {
@@ -249,7 +274,7 @@ macro_rules! declare_storage_n {
 
                 /// Populates a view struct with our stored data for the given entity key.
                 #[inline(always)]
-                pub fn get_view_mut<'a, E: $view<'a, A, #(T~I,)*>, K: EntityKey>(
+                pub fn get_view<'a, E: $view<'a, A, #(T~I,)*>, K: EntityKey>(
                     &'a mut self,
                     entity: K,
                 ) -> Option<E>
@@ -260,9 +285,85 @@ macro_rules! declare_storage_n {
                         // SAFETY: We guarantee that if we can resolve, then index < self.len.
                         // SAFETY: We guarantee that the storage is valid up to self.len.
                         E::new(
-                            index,
+                            self.entities.slice(self.len).get_unchecked(index),
+                            #(self.d~I.get_mut().slice(self.len).get_unchecked(index),)*
+                        )
+                    })
+                }
+
+                /// Populates a view struct with our stored data for the given entity key.
+                /// This version also returns an EntityDirect to the direct dense position.
+                #[inline(always)]
+                pub fn get_view_direct<'a, E: $view<'a, A, #(T~I,)*>, K: EntityKey>(
+                    &'a mut self,
+                    entity: K,
+                ) -> Option<(E, EntityDirect<A>)>
+                where
+                    Self: StorageCanResolve<K>
+                {
+                    self.resolve(entity).map(|index| unsafe {
+                        let dense_index = TrimmedIndex::new_usize(index);
+                        debug_assert!(dense_index.is_some());
+                        // SAFETY: We know that the index was resolved to a valid trimmed index.
+                        let dense_index = dense_index.unwrap_unchecked();
+                        let version = self.version();
+
+                        // SAFETY: We guarantee that if we can resolve, then index < self.len.
+                        // SAFETY: We guarantee that the storage is valid up to self.len.
+                        (
+                            E::new(
+                                self.entities.slice(self.len).get_unchecked(index),
+                                #(self.d~I.get_mut().slice(self.len).get_unchecked(index),)*
+                            ),
+                            EntityDirect::<A>::new(dense_index, version),
+                        )
+                    })
+                }
+
+                /// Populates a mutable view struct with our stored data for the given entity key.
+                #[inline(always)]
+                pub fn get_view_mut<'a, E: $view_mut<'a, A, #(T~I,)*>, K: EntityKey>(
+                    &'a mut self,
+                    entity: K,
+                ) -> Option<E>
+                where
+                    Self: StorageCanResolve<K>
+                {
+                    self.resolve(entity).map(|index| unsafe {
+                        // SAFETY: We guarantee that if we can resolve, then index < self.len.
+                        // SAFETY: We guarantee that the storage is valid up to self.len.
+                        E::new(
                             self.entities.slice(self.len).get_unchecked(index),
                             #(self.d~I.get_mut().slice_mut(self.len).get_unchecked_mut(index),)*
+                        )
+                    })
+                }
+
+                /// Populates a mutable view struct with our stored data for the given entity key.
+                /// This version also returns an EntityDirect to the direct dense position.
+                #[inline(always)]
+                pub fn get_view_mut_direct<'a, E: $view_mut<'a, A, #(T~I,)*>, K: EntityKey>(
+                    &'a mut self,
+                    entity: K,
+                ) -> Option<(E, EntityDirect<A>)>
+                where
+                    Self: StorageCanResolve<K>
+                {
+                    self.resolve(entity).map(|index| unsafe {
+                        let dense_index = TrimmedIndex::new_usize(index);
+                        debug_assert!(dense_index.is_some());
+                        // SAFETY: We know that the index was resolved to a valid trimmed index.
+                        let dense_index = dense_index.unwrap_unchecked();
+                        let version = self.version();
+
+                        // SAFETY: We guarantee that if we can resolve, then index < self.len.
+                        // SAFETY: We guarantee that the storage is valid up to self.len.
+                        (
+                            E::new(
+                                self.entities.slice(self.len).get_unchecked(index),
+                                #(self.d~I.get_mut().slice_mut(self.len).get_unchecked_mut(index),)*
+                            ),
+                            EntityDirect::<A>::new(dense_index, version),
                         )
                     })
                 }
@@ -832,6 +933,7 @@ seq!(N in 1..=16 {
         Components~N,
         Slices~N,
         View~N,
+        ViewMut~N,
         N
     );
 });
@@ -846,6 +948,7 @@ seq!(N in 17..=32 {
         Components~N,
         Slices~N,
         View~N,
+        ViewMut~N,
         N
     );
 });

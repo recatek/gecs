@@ -737,17 +737,16 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
     let ArchetypeBorrow = format_ident!("{}Borrow", archetype_data.name);
     let ArchetypeView = format_ident!("{}View", archetype_data.name);
+    let ArchetypeViewMut = format_ident!("{}ViewMut", archetype_data.name);
     let ArchetypeSlices = format_ident!("{}Slices", archetype_data.name);
     let ArchetypeComponents = format_ident!("{}Components", archetype_data.name);
 
     let ComponentsN = format_ident!("Components{}", count_str);
     let ViewN = format_ident!("View{}", count_str);
+    let ViewMutN = format_ident!("ViewMut{}", count_str);
     let SlicesN = format_ident!("Slices{}", count_str);
     let StorageN = format_ident!("Storage{}", count_str);
     let BorrowN = format_ident!("Borrow{}", count_str);
-
-    let IterItem = quote!((&'a Entity<#Archetype>, #(&'a #Component,)*));
-    let IterItemMut = quote!((&'a Entity<#Archetype>, #(&'a mut #Component,)*));
 
     // Function names
     let get_slice = (0..count)
@@ -822,11 +821,12 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
             type Components = #ArchetypeComponents;
 
-            type IterItem<'a> = #IterItem;
-            type IterItemMut<'a> = #IterItemMut;
+            type IterItem<'a> = (&'a Entity<#Archetype>, #(&'a #Component,)*);
+            type IterItemMut<'a> = (&'a Entity<#Archetype>, #(&'a mut #Component,)*);
 
             type Slices<'a> = #ArchetypeSlices<'a>;
             type View<'a> = #ArchetypeView<'a>;
+            type ViewMut<'a> = #ArchetypeViewMut<'a>;
             type Borrow<'a> = #ArchetypeBorrow<'a>;
 
             // Will only appear if we have the events feature enabled.
@@ -939,7 +939,12 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 }
 
                 #[inline(always)]
-                fn resolve_extract_view_mut<'a>(view: &'a mut Self::View<'_>) -> &'a mut #Component {
+                fn resolve_extract_view_ref<'a>(view: &'a Self::ViewMut<'_>) -> &'a #Component {
+                    &view.#component
+                }
+
+                #[inline(always)]
+                fn resolve_extract_view_mut<'a>(view: &'a mut Self::ViewMut<'_>) -> &'a mut #Component {
                     &mut view.#component
                 }
 
@@ -1077,7 +1082,19 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
         ///
         /// [^1]: This list may change based on `#[cfg]` state.
         pub struct #ArchetypeView<'a> {
-            index: usize,
+            pub entity: &'a Entity<#Archetype>,
+            #(
+                pub #component: &'a #Component,
+            )*
+        }
+
+        /// See [`ViewMut`](gecs::traits::ViewMut) for more information on this type.
+        ///
+        /// Contained components[^1]:
+        #(#[doc = #archetype_doc_component_data])*
+        ///
+        /// [^1]: This list may change based on `#[cfg]` state.
+        pub struct #ArchetypeViewMut<'a> {
             pub entity: &'a Entity<#Archetype>,
             #(
                 pub #component: &'a mut #Component,
@@ -1088,19 +1105,53 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             type Archetype = #Archetype;
 
             #[inline(always)]
-            fn index(&self) -> usize {
-                self.index
+            fn component<C>(&self) -> &C
+            where
+                Self::Archetype: ArchetypeHas<C> + 'a
+            {
+                <Self::Archetype as ArchetypeHas<C>>::resolve_extract_view(self)
+            }
+        }
+
+        impl<'a> View<'a> for #ArchetypeViewMut<'a> {
+            type Archetype = #Archetype;
+
+            #[inline(always)]
+            fn component<C>(&self) -> &C
+            where
+                Self::Archetype: ArchetypeHas<C> + 'a
+            {
+                <Self::Archetype as ArchetypeHas<C>>::resolve_extract_view_ref(self)
+            }
+        }
+
+        impl<'a> ViewMut<'a> for #ArchetypeViewMut<'a> {
+            #[inline(always)]
+            fn component_mut<C>(&mut self) -> &mut C
+            where
+                Self::Archetype: ArchetypeHas<C> + 'a
+            {
+                <Self::Archetype as ArchetypeHas<C>>::resolve_extract_view_mut(self)
             }
         }
 
         impl<'a> #ViewN<'a, #Archetype, #(#Component),*> for #ArchetypeView<'a> {
             #[inline(always)]
             fn new(
-                index: usize,
+                entity: &'a Entity<#Archetype>,
+                #(#component: &'a #Component),*
+            ) -> Self {
+                Self { entity, #(#component),* }
+            }
+        }
+
+        impl<'a> #ViewMutN<'a, #Archetype, #(#Component),*> for #ArchetypeViewMut<'a> {
+            #[inline(always)]
+            fn new(
                 entity: &'a Entity<#Archetype>,
                 #(#component: &'a mut #Component),*
             ) -> Self {
-                Self { index, entity, #(#component),* }
+                Self { entity, #(#component),* }
             }
         }
 
@@ -1118,11 +1169,6 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             type Archetype = #Archetype;
 
             #[inline(always)]
-            fn index(&self) -> usize {
-                self.0.index()
-            }
-
-            #[inline(always)]
             fn entity(&self) -> &Entity<#Archetype> {
                 self.0.entity()
             }
@@ -1130,27 +1176,78 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
         impl ArchetypeCanResolve<Entity<#Archetype>> for #Archetype {
             #[inline(always)]
-            fn resolve_for(&self, entity: Entity<#Archetype>) -> Option<usize> {
+            fn resolve_for(
+                &self,
+                entity: Entity<#Archetype>,
+            ) -> Option<usize> {
                 self.data.resolve(entity)
             }
 
             #[inline(always)]
-            fn resolve_direct(&self, entity: Entity<#Archetype>) -> Option<EntityDirect<#Archetype>> {
+            fn resolve_direct(
+                &self,
+                entity: Entity<#Archetype>,
+            ) -> Option<EntityDirect<#Archetype>> {
                 self.data.to_direct(entity)
             }
 
             #[inline(always)]
-            fn resolve_view(&mut self, entity: Entity<#Archetype>) -> Option<<Self as Archetype>::View<'_>> {
+            fn resolve_view(
+                &mut self,
+                entity: Entity<#Archetype>,
+            ) -> Option<<Self as Archetype>::View<'_>> {
+                self.data.get_view(entity)
+            }
+
+            #[inline(always)]
+            fn resolve_view_direct(
+                &mut self,
+                entity: Entity<#Archetype>,
+            ) -> Option<(<Self as Archetype>::View<'_>, EntityDirect<Self>)> {
+                self.data.get_view_direct(entity)
+            }
+
+            #[inline(always)]
+            fn resolve_view_mut(
+                &mut self,
+                entity: Entity<#Archetype>,
+            ) -> Option<<Self as Archetype>::ViewMut<'_>> {
                 self.data.get_view_mut(entity)
             }
 
             #[inline(always)]
-            fn resolve_borrow(&self, entity: Entity<#Archetype>) -> Option<<Self as Archetype>::Borrow<'_>> {
-                self.data.begin_borrow(entity).map(#ArchetypeBorrow)
+            fn resolve_view_mut_direct(
+                &mut self,
+                entity: Entity<#Archetype>,
+            ) -> Option<(<Self as Archetype>::ViewMut<'_>, EntityDirect<Self>)> {
+                self.data.get_view_mut_direct(entity)
             }
 
             #[inline(always)]
-            fn resolve_destroy(&mut self, entity: Entity<#Archetype>) -> Option<<Self as Archetype>::Components> {
+            fn resolve_borrow(
+                &self,
+                entity: Entity<#Archetype>,
+            ) -> Option<<Self as Archetype>::Borrow<'_>> {
+                self.data.begin_borrow(entity).map(
+                    #ArchetypeBorrow
+                )
+            }
+
+            #[inline(always)]
+            fn resolve_borrow_direct(
+                &self,
+                entity: Entity<#Archetype>,
+            ) -> Option<(<Self as Archetype>::Borrow<'_>, EntityDirect<Self>)> {
+                self.data.begin_borrow_direct(entity).map(
+                    |(borrow, direct)| (#ArchetypeBorrow(borrow), direct)
+                )
+            }
+
+            #[inline(always)]
+            fn resolve_destroy(
+                &mut self,
+                entity: Entity<#Archetype>,
+            ) -> Option<<Self as Archetype>::Components> {
                 self.data.destroy(entity)
             }
         }
@@ -1162,22 +1259,70 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
 
             #[inline(always)]
-            fn resolve_direct(&self, entity: EntityDirect<#Archetype>) -> Option<EntityDirect<#Archetype>> {
+            fn resolve_direct(
+                &self,
+                entity: EntityDirect<#Archetype>,
+            ) -> Option<EntityDirect<#Archetype>> {
                 self.data.to_direct(entity)
             }
 
             #[inline(always)]
-            fn resolve_view(&mut self, entity: EntityDirect<#Archetype>) -> Option<<Self as Archetype>::View<'_>> {
+            fn resolve_view(
+                &mut self,
+                entity: EntityDirect<#Archetype>,
+            ) -> Option<<Self as Archetype>::View<'_>> {
+                self.data.get_view(entity)
+            }
+
+            #[inline(always)]
+            fn resolve_view_direct(
+                &mut self,
+                entity: EntityDirect<#Archetype>,
+            ) -> Option<(<Self as Archetype>::View<'_>, EntityDirect<Self>)> {
+                self.data.get_view_direct(entity)
+            }
+
+            #[inline(always)]
+            fn resolve_view_mut(
+                &mut self,
+                entity: EntityDirect<#Archetype>,
+            ) -> Option<<Self as Archetype>::ViewMut<'_>> {
                 self.data.get_view_mut(entity)
             }
 
             #[inline(always)]
-            fn resolve_borrow(&self, entity: EntityDirect<#Archetype>) -> Option<<Self as Archetype>::Borrow<'_>> {
-                self.data.begin_borrow(entity).map(#ArchetypeBorrow)
+            fn resolve_view_mut_direct(
+                &mut self,
+                entity: EntityDirect<#Archetype>,
+            ) -> Option<(<Self as Archetype>::ViewMut<'_>, EntityDirect<Self>)> {
+                self.data.get_view_mut_direct(entity)
             }
 
             #[inline(always)]
-            fn resolve_destroy(&mut self, entity: EntityDirect<#Archetype>) -> Option<<Self as Archetype>::Components> {
+            fn resolve_borrow(
+                &self,
+                entity: EntityDirect<#Archetype>,
+            ) -> Option<<Self as Archetype>::Borrow<'_>> {
+                self.data.begin_borrow(entity).map(
+                    #ArchetypeBorrow
+                )
+            }
+
+            #[inline(always)]
+            fn resolve_borrow_direct(
+                &self,
+                entity: EntityDirect<#Archetype>,
+            ) -> Option<(<Self as Archetype>::Borrow<'_>, EntityDirect<Self>)> {
+                self.data.begin_borrow_direct(entity).map(
+                    |(borrow, direct)| (#ArchetypeBorrow(borrow), direct)
+                )
+            }
+
+            #[inline(always)]
+            fn resolve_destroy(
+                &mut self,
+                entity: EntityDirect<#Archetype>,
+            ) -> Option<<Self as Archetype>::Components> {
                 self.data.destroy(entity)
             }
         }
@@ -1189,22 +1334,70 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
 
             #[inline(always)]
-            fn resolve_direct(&self, entity: EntityAny) -> Option<EntityDirectAny> {
+            fn resolve_direct(
+                &self,
+                entity: EntityAny,
+            ) -> Option<EntityDirectAny> {
                 self.data.resolve_direct(Entity::<Self>::try_from(entity).ok()?).map(Into::into)
             }
 
             #[inline(always)]
-            fn resolve_view(&mut self, entity: EntityAny) -> Option<<Self as Archetype>::View<'_>> {
+            fn resolve_view(
+                &mut self,
+                entity: EntityAny,
+            ) -> Option<<Self as Archetype>::View<'_>> {
+                self.data.get_view(Entity::<Self>::try_from(entity).ok()?)
+            }
+
+            #[inline(always)]
+            fn resolve_view_direct(
+                &mut self,
+                entity: EntityAny,
+            ) -> Option<(<Self as Archetype>::View<'_>, EntityDirect<Self>)> {
+                self.data.get_view_direct(Entity::<Self>::try_from(entity).ok()?)
+            }
+
+            #[inline(always)]
+            fn resolve_view_mut(
+                &mut self,
+                entity: EntityAny,
+            ) -> Option<<Self as Archetype>::ViewMut<'_>> {
                 self.data.get_view_mut(Entity::<Self>::try_from(entity).ok()?)
             }
 
             #[inline(always)]
-            fn resolve_borrow(&self, entity: EntityAny) -> Option<<Self as Archetype>::Borrow<'_>> {
-                self.data.begin_borrow(Entity::<Self>::try_from(entity).ok()?).map(#ArchetypeBorrow)
+            fn resolve_view_mut_direct(
+                &mut self,
+                entity: EntityAny,
+            ) -> Option<(<Self as Archetype>::ViewMut<'_>, EntityDirect<Self>)> {
+                self.data.get_view_mut_direct(Entity::<Self>::try_from(entity).ok()?)
             }
 
             #[inline(always)]
-            fn resolve_destroy(&mut self, entity: EntityAny) -> Option<<Self as Archetype>::Components> {
+            fn resolve_borrow(
+                &self,
+                entity: EntityAny,
+            ) -> Option<<Self as Archetype>::Borrow<'_>> {
+                self.data.begin_borrow(Entity::<Self>::try_from(entity).ok()?).map(
+                    #ArchetypeBorrow
+                )
+            }
+
+            #[inline(always)]
+            fn resolve_borrow_direct(
+                &self,
+                entity: EntityAny,
+            ) -> Option<(<Self as Archetype>::Borrow<'_>, EntityDirect<Self>)> {
+                self.data.begin_borrow_direct(Entity::<Self>::try_from(entity).ok()?).map(
+                    |(borrow, direct)| (#ArchetypeBorrow(borrow), direct)
+                )
+            }
+
+            #[inline(always)]
+            fn resolve_destroy(
+                &mut self,
+                entity: EntityAny,
+            ) -> Option<<Self as Archetype>::Components> {
                 self.data.destroy(Entity::<Self>::try_from(entity).ok()?)
             }
         }
@@ -1216,18 +1409,63 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
 
             #[inline(always)]
-            fn resolve_direct(&self, entity: EntityDirectAny) -> Option<EntityDirectAny> {
+            fn resolve_direct(
+                &self,
+                entity: EntityDirectAny,
+            ) -> Option<EntityDirectAny> {
                 self.data.resolve_direct(EntityDirect::<Self>::try_from(entity).ok()?).map(Into::into)
             }
 
             #[inline(always)]
-            fn resolve_view(&mut self, entity: EntityDirectAny) -> Option<<Self as Archetype>::View<'_>> {
+            fn resolve_view(
+                &mut self,
+                entity: EntityDirectAny,
+            ) -> Option<<Self as Archetype>::View<'_>> {
+                self.data.get_view(EntityDirect::<Self>::try_from(entity).ok()?)
+            }
+
+            #[inline(always)]
+            fn resolve_view_direct(
+                &mut self,
+                entity: EntityDirectAny,
+            ) -> Option<(<Self as Archetype>::View<'_>, EntityDirect<Self>)> {
+                self.data.get_view_direct(EntityDirect::<Self>::try_from(entity).ok()?)
+            }
+
+            #[inline(always)]
+            fn resolve_view_mut(
+                &mut self,
+                entity: EntityDirectAny,
+            ) -> Option<<Self as Archetype>::ViewMut<'_>> {
                 self.data.get_view_mut(EntityDirect::<Self>::try_from(entity).ok()?)
             }
 
             #[inline(always)]
-            fn resolve_borrow(&self, entity: EntityDirectAny) -> Option<<Self as Archetype>::Borrow<'_>> {
-                self.data.begin_borrow(EntityDirect::<Self>::try_from(entity).ok()?).map(#ArchetypeBorrow)
+            fn resolve_view_mut_direct(
+                &mut self,
+                entity: EntityDirectAny,
+            ) -> Option<(<Self as Archetype>::ViewMut<'_>, EntityDirect<Self>)> {
+                self.data.get_view_mut_direct(EntityDirect::<Self>::try_from(entity).ok()?)
+            }
+
+            #[inline(always)]
+            fn resolve_borrow(
+                &self,
+                entity: EntityDirectAny,
+            ) -> Option<<Self as Archetype>::Borrow<'_>> {
+                self.data.begin_borrow(EntityDirect::<Self>::try_from(entity).ok()?).map(
+                    #ArchetypeBorrow
+                )
+            }
+
+            #[inline(always)]
+            fn resolve_borrow_direct(
+                &self,
+                entity: EntityDirectAny,
+            ) -> Option<(<Self as Archetype>::Borrow<'_>, EntityDirect<Self>)> {
+                self.data.begin_borrow_direct(EntityDirect::<Self>::try_from(entity).ok()?).map(
+                    |(borrow, direct)| (#ArchetypeBorrow(borrow), direct)
+                )
             }
 
             #[inline(always)]

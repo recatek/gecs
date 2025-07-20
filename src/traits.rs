@@ -139,10 +139,6 @@ pub trait World: Sized {
     ///     let mut view = world.view(entity_a).unwrap();
     ///
     ///     assert!(view.component::<CompA>().0 == 1);
-    ///     view.component_mut::<CompA>().0 += 1;
-    ///
-    ///     let found = ecs_find!(world, entity_a, |comp_a: &CompA| { assert_eq!(comp_a.0, 2); });
-    ///     assert!(found.is_some())
     /// }
     /// ```
     #[inline(always)]
@@ -152,6 +148,44 @@ pub trait World: Sized {
         A: Archetype + ArchetypeCanResolve<K>,
     {
         <Self as WorldHas<A>>::resolve_archetype_mut(self).view(entity)
+    }
+
+    /// Gets a [`ViewMut`] for the given entity across archetypes in the full world.
+    /// This is a convenience function for [`Archetype::view_mut`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gecs::prelude::*;
+    ///
+    /// pub struct CompA(u32);
+    ///
+    /// ecs_world! {
+    ///     ecs_archetype!(ArchFoo, CompA);
+    ///     ecs_archetype!(ArchBar, CompA);
+    /// }
+    ///
+    /// fn main() {
+    ///     let mut world = EcsWorld::default();
+    ///
+    ///     let entity_a = world.create::<ArchFoo>((CompA(1),));
+    ///     // Note: Does not work with EntityAny/EntityDirectAny (archetype is unknown)
+    ///     let mut view = world.view_mut(entity_a).unwrap();
+    ///
+    ///     assert!(view.component::<CompA>().0 == 1);
+    ///     view.component_mut::<CompA>().0 += 1;
+    ///
+    ///     let found = ecs_find!(world, entity_a, |comp_a: &CompA| { assert_eq!(comp_a.0, 2); });
+    ///     assert!(found.is_some())
+    /// }
+    /// ```
+    #[inline(always)]
+    fn view_mut<A, K: EntityKeyTyped<A>>(&mut self, entity: K) -> Option<A::ViewMut<'_>>
+    where
+        Self: WorldHas<A>,
+        A: Archetype + ArchetypeCanResolve<K>,
+    {
+        <Self as WorldHas<A>>::resolve_archetype_mut(self).view_mut(entity)
     }
 
     /// Gets a [`Borrow`] for the given entity across archetypes in the full world.
@@ -173,7 +207,7 @@ pub trait World: Sized {
     ///
     ///     let entity_a = world.create::<ArchFoo>((CompA(1),));
     ///     // Note: Does not work with EntityAny/EntityDirectAny (archetype is unknown)
-    ///     let mut borrow = world.view(entity_a).unwrap();
+    ///     let mut borrow = world.borrow(entity_a).unwrap();
     ///
     ///     assert!(borrow.component::<CompA>().0 == 1);
     ///     borrow.component_mut::<CompA>().0 += 1;
@@ -339,6 +373,11 @@ where
     where
         Self: 'a;
 
+    /// The mutable view type when accessing a single entity's components simultaneously.
+    type ViewMut<'a>: ViewMut<'a, Archetype = Self>
+    where
+        Self: 'a;
+
     /// Constructs a new, empty archetype.
     ///
     /// If the archetype uses dynamic storage, this archetype will not allocate until
@@ -428,7 +467,9 @@ where
         <Self as ArchetypeCanResolve<K>>::resolve_direct(self, entity)
     }
 
-    /// Returns a ['View'] with mutable references to all of this entity's components.
+    /// Returns a ['View'] with references to all of this entity's components.
+    /// Despite returning a read-only view, this requires mutable access to the archetype.
+    /// For accessing components with immutable access, see [`Archetype::borrow`]..
     ///
     /// # Examples
     ///
@@ -448,10 +489,6 @@ where
     ///     let mut view = world.arch_foo.view(entity_a).unwrap();
     ///
     ///     assert!(view.component::<CompA>().0 == 1);
-    ///     view.component_mut::<CompA>().0 += 1;
-    ///
-    ///     let found = ecs_find!(world, entity_a, |comp_a: &CompA| { assert_eq!(comp_a.0, 2); });
-    ///     assert!(found.is_some())
     /// }
     /// ```
     #[inline(always)]
@@ -460,6 +497,68 @@ where
         Self: ArchetypeCanResolve<K>,
     {
         <Self as ArchetypeCanResolve<K>>::resolve_view(self, entity)
+    }
+
+    /// Returns a ['View'] with references to all of this entity's components.
+    /// This version also outputs an [`EntityDirect`] for the given input entity.
+    /// Despite returning a read-only view, this requires mutable access to the archetype.
+    /// For accessing components with immutable access, see [`borrow`].
+    #[inline(always)]
+    fn view_direct<K: EntityKey>(
+        &mut self,
+        entity: K,
+    ) -> Option<(Self::View<'_>, EntityDirect<Self>)>
+    where
+        Self: ArchetypeCanResolve<K>,
+    {
+        <Self as ArchetypeCanResolve<K>>::resolve_view_direct(self, entity)
+    }
+
+    /// Returns a ['ViewMut'] with mutable references to all of this entity's components.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gecs::prelude::*;
+    ///
+    /// pub struct CompA(u32);
+    ///
+    /// ecs_world! {
+    ///     ecs_archetype!(ArchFoo, CompA);
+    /// }
+    ///
+    /// fn main() {
+    ///     let mut world = EcsWorld::default();
+    ///
+    ///     let entity_a = world.create::<ArchFoo>((CompA(1),));
+    ///     let mut view = world.arch_foo.view_mut(entity_a).unwrap();
+    ///
+    ///     assert!(view.component::<CompA>().0 == 1);
+    ///     view.component_mut::<CompA>().0 += 1;
+    ///
+    ///     let found = ecs_find!(world, entity_a, |comp_a: &CompA| { assert_eq!(comp_a.0, 2); });
+    ///     assert!(found.is_some())
+    /// }
+    /// ```
+    #[inline(always)]
+    fn view_mut<K: EntityKey>(&mut self, entity: K) -> Option<Self::ViewMut<'_>>
+    where
+        Self: ArchetypeCanResolve<K>,
+    {
+        <Self as ArchetypeCanResolve<K>>::resolve_view_mut(self, entity)
+    }
+
+    /// Returns a ['ViewMut'] with mutable references to all of this entity's components.
+    /// This version also outputs an [`EntityDirect`] for the given input entity.
+    #[inline(always)]
+    fn view_mut_direct<K: EntityKey>(
+        &mut self,
+        entity: K,
+    ) -> Option<(Self::ViewMut<'_>, EntityDirect<Self>)>
+    where
+        Self: ArchetypeCanResolve<K>,
+    {
+        <Self as ArchetypeCanResolve<K>>::resolve_view_mut_direct(self, entity)
     }
 
     /// Returns a [`Borrow`] with borrowed references to all of this entity's components.
@@ -494,6 +593,19 @@ where
         Self: ArchetypeCanResolve<K>,
     {
         <Self as ArchetypeCanResolve<K>>::resolve_borrow(self, entity)
+    }
+
+    /// Returns a [`Borrow`] with borrowed references to all of this entity's components.
+    /// This version also outputs an [`EntityDirect`] for the given input entity.
+    #[inline(always)]
+    fn borrow_direct<K: EntityKey>(
+        &self,
+        entity: K,
+    ) -> Option<(Self::Borrow<'_>, EntityDirect<Self>)>
+    where
+        Self: ArchetypeCanResolve<K>,
+    {
+        <Self as ArchetypeCanResolve<K>>::resolve_borrow_direct(self, entity)
     }
 
     /// If the entity exists in the archetype, this destroys it.
@@ -735,7 +847,9 @@ pub trait ArchetypeHas<C>: Archetype {
     #[doc(hidden)]
     fn resolve_extract_view<'a>(view: &'a Self::View<'_>) -> &'a C;
     #[doc(hidden)]
-    fn resolve_extract_view_mut<'a>(view: &'a mut Self::View<'_>) -> &'a mut C;
+    fn resolve_extract_view_ref<'a>(view: &'a Self::ViewMut<'_>) -> &'a C;
+    #[doc(hidden)]
+    fn resolve_extract_view_mut<'a>(view: &'a mut Self::ViewMut<'_>) -> &'a mut C;
     #[doc(hidden)]
     fn resolve_extract_borrow<'a>(borrow: &'a Self::Borrow<'_>) -> Ref<'a, C>;
     #[doc(hidden)]
@@ -760,41 +874,25 @@ pub trait Components {
     fn into_tuple(self) -> Self::Tuple;
 }
 
-/// A `View` is a mutable reference to a specific entity's components within an archetype. It
-/// allows direct access to all of a specific entity's components, but exclusively borrows the
-/// entire archetype in the process (for more flexibility here at a runtime cost, see [`Borrow`]).
+/// A `View` is a reference to a specific entity's components within an archetype. It allows
+/// direct access to all of a specific entity's components, but exclusively borrows the entire
+/// archetype in the process (for more flexibility here at a runtime cost, see [`Borrow`]).
 ///
 /// This can be used in generic functions to access components from entity handles.
 ///
 /// The `View` trait should be implemented only by the `ecs_world!` macro.
 /// This is not intended for manual implementation by any user data structures.
-//
-// DEV NOTE: There's no point in trying to make a View/ViewMut split because each column is in
-// a RefCell anyway, so you can't make non-mut references to them without borrowing, and Borrow
-// already exists for that. Borrow also does it better, since it doesn't fully borrow each slice.
 pub trait View<'a> {
-    type Archetype: Archetype<View<'a> = Self> + 'a;
-
-    /// Returns the archetype dense index that this view refers to.
-    fn index(&self) -> usize;
+    type Archetype: Archetype + 'a;
 
     /// Fetches the given component from this view.
-    #[inline(always)]
-    fn component<C>(&self) -> &C
-    where
-        Self::Archetype: ArchetypeHas<C>,
-    {
-        <Self::Archetype as ArchetypeHas<C>>::resolve_extract_view(self)
-    }
+    fn component<C>(&self) -> &C where Self::Archetype: ArchetypeHas<C> + 'a;
+}
 
+/// A mutable version of ['View']. This allows mutable access to the view's components.
+pub trait ViewMut<'a> : View<'a> {
     /// Mutably fetches the given component from this view.
-    #[inline(always)]
-    fn component_mut<C>(&mut self) -> &mut C
-    where
-        Self::Archetype: ArchetypeHas<C>,
-    {
-        <Self::Archetype as ArchetypeHas<C>>::resolve_extract_view_mut(self)
-    }
+    fn component_mut<C>(&mut self) -> &mut C where Self::Archetype: ArchetypeHas<C> + 'a;
 }
 
 /// A `Borrow` is a borrowed reference to a specific entity's components within an archetype.
@@ -808,9 +906,6 @@ pub trait View<'a> {
 /// This is not intended for manual implementation by any user data structures.
 pub trait Borrow<'a> {
     type Archetype: Archetype<Borrow<'a> = Self> + 'a;
-
-    /// Returns the archetype dense index that this borrow refers to.
-    fn index(&self) -> usize;
 
     /// Returns the entity handle that this borrow refers to.
     fn entity(&self) -> &Entity<Self::Archetype>;
@@ -847,6 +942,7 @@ pub trait Borrow<'a> {
 /// Trait promising that a given ECS world can resolve a type of entity key.
 ///
 /// This is implemented for [`Entity`], [`EntityDirect`]. [`EntityAny`], and [`EntityDirectAny`].
+#[rustfmt::skip]
 pub trait WorldCanResolve<K: EntityKey> {
     #[doc(hidden)]
     fn resolve_contains(&self, entity: K) -> bool;
@@ -861,6 +957,7 @@ pub trait WorldCanResolve<K: EntityKey> {
 /// Trait promising that a given archetype can resolve a type of entity key.
 ///
 /// This is implemented for [`Entity`], [`EntityDirect`]. [`EntityAny`], and [`EntityDirectAny`].
+#[rustfmt::skip]
 pub trait ArchetypeCanResolve<K: EntityKey> {
     #[doc(hidden)]
     fn resolve_for(&self, entity: K) -> Option<usize>;
@@ -874,7 +971,27 @@ pub trait ArchetypeCanResolve<K: EntityKey> {
         Self: Archetype;
 
     #[doc(hidden)]
+    fn resolve_view_direct(&mut self, entity: K) -> Option<(Self::View<'_>, EntityDirect<Self>)>
+    where
+        Self: Archetype;
+
+    #[doc(hidden)]
+    fn resolve_view_mut(&mut self, entity: K) -> Option<Self::ViewMut<'_>>
+    where
+        Self: Archetype;
+
+    #[doc(hidden)]
+    fn resolve_view_mut_direct(&mut self, entity: K) -> Option<(Self::ViewMut<'_>, EntityDirect<Self>)>
+    where
+        Self: Archetype;
+
+    #[doc(hidden)]
     fn resolve_borrow(&self, entity: K) -> Option<Self::Borrow<'_>>
+    where
+        Self: Archetype;
+
+    #[doc(hidden)]
+    fn resolve_borrow_direct(&self, entity: K) -> Option<(Self::Borrow<'_>, EntityDirect<Self>)>
     where
         Self: Archetype;
 
