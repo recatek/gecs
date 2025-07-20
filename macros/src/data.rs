@@ -5,7 +5,7 @@ use base64::Engine as _;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 use speedy::{Readable, Writable};
-use syn::{self, Ident, LitInt};
+use syn::{self, Expr, Ident, LitInt};
 
 use crate::util;
 
@@ -35,6 +35,8 @@ pub struct DataArchetype {
 pub struct DataComponent {
     pub id: u8,
     pub name: DataComponentName,
+    #[speedy(skip)]
+    pub default: Option<Expr>, // Used in world generation only
 }
 
 #[derive(Debug, Readable, Writable)]
@@ -87,13 +89,14 @@ impl DataWorld {
                 )?;
 
                 components.push(DataComponent {
-                    id: last_component_id.unwrap(), // TODO
+                    id: last_component_id.expect("internal error"),
                     name: DataComponentName::new(&component.name),
+                    default: component.default.clone(),
                 });
             }
 
             archetypes.push(DataArchetype {
-                id: last_archetype_id.unwrap(),
+                id: last_archetype_id.expect("internal error"),
                 name: archetype.name.to_string(),
                 components,
             })

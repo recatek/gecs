@@ -7,7 +7,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::{Comma, Semi};
-use syn::{parenthesized, Ident, Token};
+use syn::{parenthesized, Expr, Ident, Token};
 
 mod kw {
     syn::custom_keyword!(cfg);
@@ -55,6 +55,7 @@ pub struct ParseComponent {
     pub cfgs: Vec<ParseAttributeCfg>,
     pub id: Option<u8>,
     pub name: ParseComponentName,
+    pub default: Option<Expr>,
 }
 
 impl HasCfgPredicates for ParseEcsWorld {
@@ -234,6 +235,7 @@ impl Parse for ParseComponent {
             cfgs,
             id: component_id,
             name,
+            default: None, // TODO (default_field_values)
         })
     }
 }
