@@ -651,7 +651,7 @@ where
     ///
     /// Panics if the runtime borrow fails, see [`std::cell::RefCell::borrow`].
     #[inline(always)]
-    fn borrow_slice<C>(&self) -> Ref<[C]>
+    fn borrow_slice<C>(&self) -> Ref<'_, [C]>
     where
         Self: ArchetypeHas<C>,
     {
@@ -666,7 +666,7 @@ where
     ///
     /// Panics if the runtime borrow fails, see [`std::cell::RefCell::borrow_mut`].
     #[inline(always)]
-    fn borrow_slice_mut<C>(&self) -> RefMut<[C]>
+    fn borrow_slice_mut<C>(&self) -> RefMut<'_, [C]>
     where
         Self: ArchetypeHas<C>,
     {
@@ -836,9 +836,9 @@ pub trait ArchetypeHas<C>: Archetype {
     #[doc(hidden)]
     fn resolve_get_slice_mut(&mut self) -> &mut [C];
     #[doc(hidden)]
-    fn resolve_borrow_slice(&self) -> Ref<[C]>;
+    fn resolve_borrow_slice(&self) -> Ref<'_, [C]>;
     #[doc(hidden)]
-    fn resolve_borrow_slice_mut(&self) -> RefMut<[C]>;
+    fn resolve_borrow_slice_mut(&self) -> RefMut<'_, [C]>;
 
     #[doc(hidden)]
     fn resolve_extract_components(components: &Self::Components) -> &C;

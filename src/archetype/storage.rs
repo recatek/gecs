@@ -213,7 +213,7 @@ macro_rules! declare_storage_n {
                 pub fn begin_borrow<K: EntityKey>(
                     &self,
                     entity: K
-                ) -> Option<$borrow<A, #(T~I,)*>>
+                ) -> Option<$borrow<'_, A, #(T~I,)*>>
                 where
                     Self: StorageCanResolve<K>
                 {
@@ -226,7 +226,7 @@ macro_rules! declare_storage_n {
                 pub fn begin_borrow_direct<K: EntityKey>(
                     &self,
                     entity: K
-                ) -> Option<($borrow<A, #(T~I,)*>, EntityDirect<A>)>
+                ) -> Option<($borrow<'_, A, #(T~I,)*>, EntityDirect<A>)>
                 where
                     Self: StorageCanResolve<K>
                 {
@@ -415,7 +415,7 @@ macro_rules! declare_storage_n {
 
                     /// Borrows the slice of the given component index.
                     #[inline(always)]
-                    pub fn borrow_slice_~I(&self) -> Ref<[T~I]> {
+                    pub fn borrow_slice_~I(&self) -> Ref<'_, [T~I]> {
                         Ref::map(self.d~I.borrow(), |slice| unsafe {
                             debug_checked_assume!(self.len <= MAX_DATA_CAPACITY as usize);
                             // SAFETY: We guarantee that the storage is valid up to self.len.
@@ -425,7 +425,7 @@ macro_rules! declare_storage_n {
 
                     /// Mutably borrows the slice of the given component index.
                     #[inline(always)]
-                    pub fn borrow_slice_mut_~I(&self) -> RefMut<[T~I]> {
+                    pub fn borrow_slice_mut_~I(&self) -> RefMut<'_, [T~I]> {
                         RefMut::map(self.d~I.borrow_mut(), |slice| unsafe {
                             debug_checked_assume!(self.len <= MAX_DATA_CAPACITY as usize);
                             // SAFETY: We guarantee that the storage is valid up to self.len.
@@ -886,7 +886,7 @@ macro_rules! declare_storage_n {
                 #(
                     /// Borrows the element of the given component index.
                     #[inline(always)]
-                    pub fn borrow_component_~I(&self) -> Ref<T~I> {
+                    pub fn borrow_component_~I(&self) -> Ref<'_, T~I> {
                         Ref::map(self.source.d~I.borrow(), |slice| unsafe {
                             debug_assert!(self.index < self.source.len);
                             // SAFETY: We can only be created with a valid index, and because
@@ -899,7 +899,7 @@ macro_rules! declare_storage_n {
 
                     /// Mutably borrows the element of the given component index.
                     #[inline(always)]
-                    pub fn borrow_component_mut_~I(&self) -> RefMut<T~I> {
+                    pub fn borrow_component_mut_~I(&self) -> RefMut<'_, T~I> {
                         RefMut::map(self.source.d~I.borrow_mut(), |slice| unsafe {
                             debug_assert!(self.index < self.source.len);
                             // SAFETY: We can only be created with a valid index, and because
