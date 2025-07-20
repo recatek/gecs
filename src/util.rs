@@ -2,37 +2,6 @@
 #![allow(unused_macros)]
 #![allow(unused_imports)]
 
-pub(crate) struct NumAssert<const L: usize, const R: usize>;
-
-#[allow(clippy::erasing_op)]
-impl<const L: usize, const R: usize> NumAssert<L, R> {
-    pub const LEQ: usize = R - L;
-    pub const LT: usize = R - L - 1;
-}
-
-macro_rules! num_assert_leq {
-    ($a:expr, $b:expr) => {
-        #[allow(path_statements)]
-        #[allow(clippy::no_effect)]
-        {
-            $crate::util::NumAssert::<{ $a }, { $b }>::LEQ;
-        }
-    };
-}
-
-macro_rules! num_assert_lt {
-    ($a:expr, $b:expr) => {
-        #[allow(path_statements)]
-        #[allow(clippy::no_effect)]
-        {
-            $crate::util::NumAssert::<{ $a }, { $b }>::LT;
-        }
-    };
-}
-
-pub(crate) use num_assert_leq;
-pub(crate) use num_assert_lt;
-
 /// Hints the compiler that the given predicate will always be true.
 ///
 /// # Safety

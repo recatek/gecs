@@ -24,20 +24,20 @@ pub fn test_single_iter() {
 
     let mut vec = Vec::new();
 
-    for (_, a, _) in world.arch_foo.iter() {
-        vec.push(a.0);
+    for view in world.arch_foo.iter() {
+        vec.push(view.comp_a.0);
     }
 
     assert_eq!(vec, vec![0, 1, 2, 3, 4]);
 
     vec.clear();
 
-    for (_, a, _) in world.arch_foo.iter_mut() {
-        a.0 += 1;
+    for view in world.arch_foo.iter_mut() {
+        view.comp_a.0 += 1;
     }
 
-    for (_, a, _) in world.arch_foo.iter() {
-        vec.push(a.0);
+    for view in world.arch_foo.iter() {
+        vec.push(view.comp_a.0);
     }
 
     assert_eq!(vec, vec![1, 2, 3, 4, 5]);

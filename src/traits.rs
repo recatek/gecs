@@ -348,16 +348,6 @@ where
     /// A struct with named storage to each component in this archetype.
     type Components: Components<Archetype = Self>;
 
-    /// A struct yielded by iterators on this archetype, including the entity itself.
-    type IterItem<'a>
-    where
-        Self: 'a;
-
-    /// A struct yielded by mut iterators on this archetype, including the entity itself.
-    type IterItemMut<'a>
-    where
-        Self: 'a;
-
     /// The slices type when accessing all of this archetype's slices simultaneously.
     type Slices<'a>
     where
@@ -429,10 +419,10 @@ where
     ) -> Result<Entity<Self>, Self::Components>;
 
     /// Returns an iterator over all of the entities and their data.
-    fn iter(&mut self) -> impl Iterator<Item = Self::IterItem<'_>>;
+    fn iter(&mut self) -> impl Iterator<Item = Self::View<'_>>;
 
     /// Returns a mutable iterator over all of the entities and their data.
-    fn iter_mut(&mut self) -> impl Iterator<Item = Self::IterItemMut<'_>>;
+    fn iter_mut(&mut self) -> impl Iterator<Item = Self::ViewMut<'_>>;
 
     /// Returns mutable slices to all data for all entities in the archetype. To get the
     /// data index for a specific entity using this function, use the `resolve` function.

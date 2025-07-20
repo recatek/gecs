@@ -821,9 +821,6 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
 
             type Components = #ArchetypeComponents;
 
-            type IterItem<'a> = (&'a Entity<#Archetype>, #(&'a #Component,)*);
-            type IterItemMut<'a> = (&'a Entity<#Archetype>, #(&'a mut #Component,)*);
-
             type Slices<'a> = #ArchetypeSlices<'a>;
             type View<'a> = #ArchetypeView<'a>;
             type ViewMut<'a> = #ArchetypeViewMut<'a>;
@@ -884,12 +881,12 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
             }
 
             #[inline(always)]
-            fn iter(&mut self) -> impl Iterator<Item = Self::IterItem<'_>> {
+            fn iter(&mut self) -> impl Iterator<Item = #ArchetypeView<'_>> {
                 self.data.iter()
             }
 
             #[inline(always)]
-            fn iter_mut(&mut self) -> impl Iterator<Item = Self::IterItemMut<'_>> {
+            fn iter_mut(&mut self) -> impl Iterator<Item = #ArchetypeViewMut<'_>> {
                 self.data.iter_mut()
             }
 

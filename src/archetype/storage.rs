@@ -15,7 +15,7 @@ use crate::archetype::view::*;
 use crate::entity::{Entity, EntityDirect};
 use crate::index::{TrimmedIndex, MAX_DATA_CAPACITY};
 use crate::traits::{Archetype, EntityKey, StorageCanResolve};
-use crate::util::{debug_checked_assume, num_assert_leq};
+use crate::util::debug_checked_assume;
 use crate::version::ArchetypeVersion;
 
 macro_rules! declare_storage_n {
@@ -58,8 +58,13 @@ macro_rules! declare_storage_n {
 
                 #[inline(always)]
                 pub fn with_capacity(capacity: usize) -> Self {
-                    // We assume in a lot of places that u32 can trivially convert to usize
-                    num_assert_leq!(std::mem::size_of::<u32>(), std::mem::size_of::<usize>());
+                    const {
+                        assert!(
+                            mem::size_of::<u32>() <= mem::size_of::<usize>(),
+                            "unsupported architecture (usize too small)",
+                        );
+                    }
+
                     // Our data indices must be able to fit inside of entity handles
                     if capacity > MAX_DATA_CAPACITY as usize {
                         panic!("capacity may not exceed {}", MAX_DATA_CAPACITY);
@@ -246,7 +251,9 @@ macro_rules! declare_storage_n {
 
                 /// Returns an iterator over all of the entities and their data.
                 #[inline]
-                pub fn iter(&mut self) -> impl Iterator<Item = (&Entity<A>, #(&T~I,)*)> {
+                pub fn iter<'a, V: $view<'a, A, #(T~I,)*> + 'a>(
+                    &'a mut self,
+                ) -> impl Iterator<Item = V> + use<'a, V, A, #(T~I,)*> {
                     unsafe {
                         // SAFETY: We've initialized all data by this point and won't exceed self.len.
                         $iter {
@@ -260,7 +267,9 @@ macro_rules! declare_storage_n {
 
                 /// Returns a mutable iterator over all of the entities and their data.
                 #[inline]
-                pub fn iter_mut(&mut self) -> impl Iterator<Item = (&Entity<A>, #(&mut T~I,)*)> {
+                pub fn iter_mut<'a, V: $view_mut<'a, A, #(T~I,)*> + 'a>(
+                    &'a mut self,
+                ) -> impl Iterator<Item = V> + use<'a, V, A, #(T~I,)*> {
                     unsafe {
                         // SAFETY: We've initialized all data by this point and won't exceed self.len.
                         $iter_mut {

@@ -61,6 +61,16 @@ pub fn test_generic_borrow_get() {
     assert_eq!(borrow.component::<CompB>().0, 2);
 }
 
+#[test]
+pub fn test_generic_iter() {
+    let mut world = EcsWorld::new();
+
+    world.create::<ArchFoo>((CompA(1), CompB(2)));
+    world.create::<ArchFoo>((CompA(3), CompB(4)));
+
+    assert_eq!(sum_generic(world.archetype_mut::<ArchFoo>()), 1 + 2 + 3 + 4);
+}
+
 fn view_increment<'a, V: ViewMut<'a>>(view: &mut V)
 where
     V::Archetype: ArchetypeHas<CompA> + ArchetypeHas<CompB>,
@@ -95,4 +105,18 @@ where
     let borrow = world.borrow(entity).unwrap();
     borrow.component_mut::<CompA>().0 += 1;
     borrow.component_mut::<CompB>().0 += 1;
+}
+
+fn sum_generic<A>(archetype: &mut A) -> u32
+where
+    A: ArchetypeHas<CompA> + ArchetypeHas<CompB>,
+{
+    let mut sum = 0;
+    
+    for view in archetype.iter() {
+        sum += view.component::<CompA>().0;
+        sum += view.component::<CompB>().0;
+    }
+    
+    sum
 }
