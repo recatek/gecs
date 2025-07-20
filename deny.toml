@@ -1,0 +1,23 @@
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+
+[licenses]
+version = 2
+allow = [
+  "Apache-2.0",
+  "BSL-1.0",
+  "MIT",
+]
+exceptions = [
+  { name = "unicode-ident", allow = [
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+  ] },
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
