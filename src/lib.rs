@@ -789,6 +789,21 @@ pub enum SelectEntity {}
 #[cfg(doc)]
 pub enum SelectEntityDirect {}
 
+/// Similar to SelectEntity, but stores a [`View`](crate::traits::View) for the matched
+/// archetype. Returned as a result of the `view` function on [`World`](crate::traits::World).
+#[cfg(doc)]
+pub enum SelectView {}
+
+/// Similar to SelectEntity, but stores a [`ViewMut`](crate::traits::ViewMut) for the matched
+/// archetype. Returned as a result of the `view_mut` function on [`World`](crate::traits::World).
+#[cfg(doc)]
+pub enum SelectViewMut {}
+
+/// Similar to SelectEntity, but stores a [`Borrow`](crate::traits::Borrow) for the matched
+/// archetype. Returned as a result of the `borrow` function on [`World`](crate::traits::World).
+#[cfg(doc)]
+pub enum SelectBorrow {}
+
 #[cfg(not(doc))]
 pub use gecs_macros::{ecs_component_id, ecs_world};
 
@@ -803,7 +818,7 @@ pub mod prelude {
 
     pub use iter::{EcsStepDestroy, EcsStep};
 
-    pub use traits::EntityKey;
+    pub use traits::{EntityKey, EntityKeyTyped, EntityKeySelectable};
     pub use traits::{WorldCanResolve, ArchetypeCanResolve, StorageCanResolve};
 
     pub use traits::{World, WorldHas};

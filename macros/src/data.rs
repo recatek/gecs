@@ -35,8 +35,10 @@ pub struct DataArchetype {
 pub struct DataComponent {
     pub id: u8,
     pub name: DataComponentName,
+
     #[speedy(skip)]
-    pub default: Option<Expr>, // Used in world generation only
+    pub _default: Option<Expr>, // Preparation for future support for feature(default_field_values)
+                                // Not serialized due to being used in world generation only
 }
 
 #[derive(Debug, Readable, Writable)]
@@ -91,7 +93,7 @@ impl DataWorld {
                 components.push(DataComponent {
                     id: last_component_id.expect("internal error"),
                     name: DataComponentName::new(&component.name),
-                    default: component.default.clone(),
+                    _default: component.default.clone(),
                 });
             }
 

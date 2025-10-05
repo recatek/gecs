@@ -119,6 +119,13 @@ pub trait World: Sized {
     /// Gets a [`View`] for the given entity across archetypes in the full world.
     /// This is a convenience function for [`Archetype::view`].
     ///
+    /// If given an [`EntityAny`] or [`EntityDirectAny`], this returns a `SelectView` enum.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called with [`EntityAny`] or [`EntityDirectAny`] with an archetype unrecognized
+    /// by this world. For fallible conversions, first resolve the entity using a `Select` type.
+    ///
     /// # Examples
     ///
     /// ```rust
@@ -135,23 +142,27 @@ pub trait World: Sized {
     ///     let mut world = EcsWorld::default();
     ///
     ///     let entity_a = world.create::<ArchFoo>((CompA(1),));
-    ///     // Note: Does not work with EntityAny/EntityDirectAny (archetype is unknown)
     ///     let mut view = world.view(entity_a).unwrap();
     ///
     ///     assert!(view.component::<CompA>().0 == 1);
     /// }
     /// ```
-    #[inline(always)]
-    fn view<A, K: EntityKeyTyped<A>>(&mut self, entity: K) -> Option<A::View<'_>>
-    where
-        Self: WorldHas<A>,
-        A: Archetype + ArchetypeCanResolve<K>,
-    {
-        <Self as WorldHas<A>>::resolve_archetype_mut(self).view(entity)
+    fn view<'a, K: EntityKeySelectable<'a, Self>>(
+        &'a mut self,
+        entity: K, //.
+    ) -> Option<K::View> {
+        entity.resolve_view(self)
     }
 
     /// Gets a [`ViewMut`] for the given entity across archetypes in the full world.
     /// This is a convenience function for [`Archetype::view_mut`].
+    ///
+    /// If given an [`EntityAny`] or [`EntityDirectAny`], this returns a `SelectViewMut` enum.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called with [`EntityAny`] or [`EntityDirectAny`] with an archetype unrecognized
+    /// by this world. For fallible access, manually resolve the entity using [`SelectEntity`].
     ///
     /// # Examples
     ///
@@ -169,7 +180,6 @@ pub trait World: Sized {
     ///     let mut world = EcsWorld::default();
     ///
     ///     let entity_a = world.create::<ArchFoo>((CompA(1),));
-    ///     // Note: Does not work with EntityAny/EntityDirectAny (archetype is unknown)
     ///     let mut view = world.view_mut(entity_a).unwrap();
     ///
     ///     assert!(view.component::<CompA>().0 == 1);
@@ -179,17 +189,22 @@ pub trait World: Sized {
     ///     assert!(found.is_some())
     /// }
     /// ```
-    #[inline(always)]
-    fn view_mut<A, K: EntityKeyTyped<A>>(&mut self, entity: K) -> Option<A::ViewMut<'_>>
-    where
-        Self: WorldHas<A>,
-        A: Archetype + ArchetypeCanResolve<K>,
-    {
-        <Self as WorldHas<A>>::resolve_archetype_mut(self).view_mut(entity)
+    fn view_mut<'a, K: EntityKeySelectable<'a, Self>>(
+        &'a mut self,
+        entity: K,
+    ) -> Option<K::ViewMut> {
+        entity.resolve_view_mut(self)
     }
 
     /// Gets a [`Borrow`] for the given entity across archetypes in the full world.
     /// This is a convenience function for [`Archetype::borrow`].
+    ///
+    /// If given an [`EntityAny`] or [`EntityDirectAny`], this returns a `SelectBorrow` enum.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called with [`EntityAny`] or [`EntityDirectAny`] with an archetype unrecognized
+    /// by this world. For fallible access, manually resolve the entity using [`SelectEntity`].
     ///
     /// # Examples
     ///
@@ -217,12 +232,11 @@ pub trait World: Sized {
     /// }
     /// ```
     #[inline(always)]
-    fn borrow<A, K: EntityKeyTyped<A>>(&self, entity: K) -> Option<A::Borrow<'_>>
-    where
-        Self: WorldHas<A>,
-        A: Archetype + ArchetypeCanResolve<K>,
-    {
-        <Self as WorldHas<A>>::resolve_archetype(self).borrow(entity)
+    fn borrow<'a, K: EntityKeySelectable<'a, Self>>(
+        &'a self,
+        entity: K, //.
+    ) -> Option<K::Borrow> {
+        entity.resolve_borrow(self)
     }
 
     /// If the entity exists in the world, this destroys it.
@@ -876,13 +890,17 @@ pub trait View<'a> {
     type Archetype: Archetype + 'a;
 
     /// Fetches the given component from this view.
-    fn component<C>(&self) -> &C where Self::Archetype: ArchetypeHas<C> + 'a;
+    fn component<C>(&self) -> &C
+    where
+        Self::Archetype: ArchetypeHas<C> + 'a;
 }
 
 /// A mutable version of ['View']. This allows mutable access to the view's components.
-pub trait ViewMut<'a> : View<'a> {
+pub trait ViewMut<'a>: View<'a> {
     /// Mutably fetches the given component from this view.
-    fn component_mut<C>(&mut self) -> &mut C where Self::Archetype: ArchetypeHas<C> + 'a;
+    fn component_mut<C>(&mut self) -> &mut C
+    where
+        Self::Archetype: ArchetypeHas<C> + 'a;
 }
 
 /// A `Borrow` is a borrowed reference to a specific entity's components within an archetype.
@@ -1015,4 +1033,69 @@ pub trait EntityKey: Clone + Copy {
 pub trait EntityKeyTyped<A: Archetype + ArchetypeCanResolve<Self>>: EntityKey {
     #[doc(hidden)]
     type Archetype: Archetype;
+}
+
+#[doc(hidden)]
+pub trait EntityKeySelectable<'a, W: World>: EntityKey {
+    #[doc(hidden)]
+    type View;
+    #[doc(hidden)]
+    type ViewMut;
+    #[doc(hidden)]
+    type Borrow;
+
+    #[doc(hidden)]
+    fn resolve_view(self, world: &'a mut W) -> Option<Self::View>;
+    #[doc(hidden)]
+    fn resolve_view_mut(self, world: &'a mut W) -> Option<Self::ViewMut>;
+    #[doc(hidden)]
+    fn resolve_borrow(self, world: &'a W) -> Option<Self::Borrow>;
+}
+
+impl<'a, A: Archetype + 'a, W: World> EntityKeySelectable<'a, W> for Entity<A>
+where
+    W: WorldHas<A>,
+{
+    type View = <A as Archetype>::View<'a>;
+    type ViewMut = <A as Archetype>::ViewMut<'a>;
+    type Borrow = <A as Archetype>::Borrow<'a>;
+
+    #[inline(always)]
+    fn resolve_view(self, world: &'a mut W) -> Option<Self::View> {
+        world.archetype_mut::<A>().view(self)
+    }
+
+    #[inline(always)]
+    fn resolve_view_mut(self, world: &'a mut W) -> Option<Self::ViewMut> {
+        world.archetype_mut::<A>().view_mut(self)
+    }
+
+    #[inline(always)]
+    fn resolve_borrow(self, world: &'a W) -> Option<Self::Borrow> {
+        world.archetype::<A>().borrow(self)
+    }
+}
+
+impl<'a, A: Archetype + 'a, W: World> EntityKeySelectable<'a, W> for EntityDirect<A>
+where
+    W: WorldHas<A>,
+{
+    type View = <A as Archetype>::View<'a>;
+    type ViewMut = <A as Archetype>::ViewMut<'a>;
+    type Borrow = <A as Archetype>::Borrow<'a>;
+
+    #[inline(always)]
+    fn resolve_view(self, world: &'a mut W) -> Option<Self::View> {
+        world.archetype_mut::<A>().view(self)
+    }
+
+    #[inline(always)]
+    fn resolve_view_mut(self, world: &'a mut W) -> Option<Self::ViewMut> {
+        world.archetype_mut::<A>().view_mut(self)
+    }
+
+    #[inline(always)]
+    fn resolve_borrow(self, world: &'a W) -> Option<Self::Borrow> {
+        world.archetype::<A>().borrow(self)
+    }
 }

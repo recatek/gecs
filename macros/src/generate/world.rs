@@ -37,6 +37,21 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         .iter()
         .map(|archetype| format_ident!("{}Direct", archetype.name))
         .collect::<Vec<_>>();
+    let ArchetypeView = world_data
+        .archetypes
+        .iter()
+        .map(|archetype| format_ident!("{}View", archetype.name))
+        .collect::<Vec<_>>();
+    let ArchetypeViewMut = world_data
+        .archetypes
+        .iter()
+        .map(|archetype| format_ident!("{}ViewMut", archetype.name))
+        .collect::<Vec<_>>();
+    let ArchetypeBorrow = world_data
+        .archetypes
+        .iter()
+        .map(|archetype| format_ident!("{}Borrow", archetype.name))
+        .collect::<Vec<_>>();
 
     // Variables and fields
     let archetype = world_data
@@ -93,6 +108,9 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             SelectArchetype,
             SelectEntity,
             SelectEntityDirect,
+            SelectView,
+            SelectViewMut,
+            SelectBorrow,
 
             #(
                 #Archetype,
@@ -246,6 +264,21 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 #( #Archetype(EntityDirect<#Archetype>), )*
             }
 
+            /// See `SelectView` in the `gecs` docs for more information.
+            pub enum SelectView<'a> {
+                #( #Archetype(#ArchetypeView<'a>), )*
+            }
+
+            /// See `SelectViewMut` in the `gecs` docs for more information.
+            pub enum SelectViewMut<'a> {
+                #( #Archetype(#ArchetypeViewMut<'a>), )*
+            }
+
+            /// See `SelectBorrow` in the `gecs` docs for more information.
+            pub enum SelectBorrow<'a> {
+                #( #Archetype(#ArchetypeBorrow<'a>), )*
+            }
+
             // Combined dispatch table for resolving both entity key types.
             /// Used internally by world queries. Not for general use.
             #[doc(hidden)]
@@ -302,6 +335,27 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                     #[inline(always)]
                     fn from(entity: Entity<#Archetype>) -> Self {
                         #__WorldSelectTotal::#Archetype(entity)
+                    }
+                }
+
+                impl<'a> From<#ArchetypeView<'a>> for SelectView<'a> {
+                    #[inline(always)]
+                    fn from(view: #ArchetypeView<'a>) -> Self {
+                        SelectView::#Archetype(view)
+                    }
+                }
+
+                impl<'a> From<#ArchetypeViewMut<'a>> for SelectViewMut<'a> {
+                    #[inline(always)]
+                    fn from(view: #ArchetypeViewMut<'a>) -> Self {
+                        SelectViewMut::#Archetype(view)
+                    }
+                }
+
+                impl<'a> From<#ArchetypeBorrow<'a>> for SelectBorrow<'a> {
+                    #[inline(always)]
+                    fn from(view: #ArchetypeBorrow<'a>) -> Self {
+                        SelectBorrow::#Archetype(view)
                     }
                 }
 
@@ -464,6 +518,39 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 }
             }
 
+            impl<'a> From<SelectView<'a>> for SelectArchetype {
+                #[inline(always)]
+                fn from(view: SelectView<'a>) -> Self {
+                    match view {
+                        #(
+                            SelectView::#Archetype(_) => SelectArchetype::#Archetype,
+                        )*
+                    }
+                }
+            }
+
+            impl<'a> From<SelectViewMut<'a>> for SelectArchetype {
+                #[inline(always)]
+                fn from(view: SelectViewMut<'a>) -> Self {
+                    match view {
+                        #(
+                            SelectViewMut::#Archetype(_) => SelectArchetype::#Archetype,
+                        )*
+                    }
+                }
+            }
+
+            impl<'a> From<SelectBorrow<'a>> for SelectArchetype {
+                #[inline(always)]
+                fn from(view: SelectBorrow<'a>) -> Self {
+                    match view {
+                        #(
+                            SelectBorrow::#Archetype(_) => SelectArchetype::#Archetype,
+                        )*
+                    }
+                }
+            }
+
             impl TryFrom<ArchetypeId> for SelectArchetype {
                 type Error = EcsError;
 
@@ -483,6 +570,20 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
                 #[inline(always)]
                 fn try_from(entity: EntityAny) -> Result<Self, EcsError> {
+                    match entity.archetype_id() {
+                        #(
+                            #Archetype::ARCHETYPE_ID => Ok(SelectArchetype::#Archetype),
+                        )*
+                        _ => Err(EcsError::InvalidEntityType),
+                    }
+                }
+            }
+
+            impl TryFrom<EntityDirectAny> for SelectArchetype {
+                type Error = EcsError;
+
+                #[inline(always)]
+                fn try_from(entity: EntityDirectAny) -> Result<Self, EcsError> {
                     match entity.archetype_id() {
                         #(
                             #Archetype::ARCHETYPE_ID => Ok(SelectArchetype::#Archetype),
@@ -645,6 +746,84 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
                 #[inline(always)]
                 fn try_from(entity: &mut EntityDirect<A>) -> Result<Self, EcsError> {
                     (*entity).try_into()
+                }
+            }
+
+            impl<'a> EntityKeySelectable<'a, #World> for EntityAny {
+                type View = SelectView<'a>;
+                type ViewMut = SelectViewMut<'a>;
+                type Borrow = SelectBorrow<'a>;
+
+                #[inline(always)]
+                fn resolve_view(self, world: &'a mut #World) -> Option<Self::View> {
+                    match self.try_into() {
+                        #(
+                            Ok(SelectEntity::#Archetype(entity)) =>
+                                world.#archetype.view(entity).map(|v| v.into()),
+                        )*
+                        Err(_) => panic!("invalid entity type"),
+                    }
+                }
+
+                #[inline(always)]
+                fn resolve_view_mut(self, world: &'a mut #World) -> Option<Self::ViewMut> {
+                    match self.try_into() {
+                        #(
+                            Ok(SelectEntity::#Archetype(entity)) =>
+                                world.#archetype.view_mut(entity).map(|v| v.into()),
+                        )*
+                        Err(_) => panic!("invalid entity type"),
+                    }
+                }
+
+                #[inline(always)]
+                fn resolve_borrow(self, world: &'a #World) -> Option<Self::Borrow> {
+                    match self.try_into() {
+                        #(
+                            Ok(SelectEntity::#Archetype(entity)) =>
+                                world.#archetype.borrow(entity).map(|v| v.into()),
+                        )*
+                        Err(_) => panic!("invalid entity type"),
+                    }
+                }
+            }
+
+            impl<'a> EntityKeySelectable<'a, #World> for EntityDirectAny {
+                type View = SelectView<'a>;
+                type ViewMut = SelectViewMut<'a>;
+                type Borrow = SelectBorrow<'a>;
+
+                #[inline(always)]
+                fn resolve_view(self, world: &'a mut #World) -> Option<Self::View> {
+                    match self.try_into() {
+                        #(
+                            Ok(SelectEntityDirect::#Archetype(entity)) =>
+                                world.#archetype.view(entity).map(|v| v.into()),
+                        )*
+                        Err(_) => panic!("invalid entity type"),
+                    }
+                }
+
+                #[inline(always)]
+                fn resolve_view_mut(self, world: &'a mut #World) -> Option<Self::ViewMut> {
+                    match self.try_into() {
+                        #(
+                            Ok(SelectEntityDirect::#Archetype(entity)) =>
+                                world.#archetype.view_mut(entity).map(|v| v.into()),
+                        )*
+                        Err(_) => panic!("invalid entity type"),
+                    }
+                }
+
+                #[inline(always)]
+                fn resolve_borrow(self, world: &'a #World) -> Option<Self::Borrow> {
+                    match self.try_into() {
+                        #(
+                            Ok(SelectEntityDirect::#Archetype(entity)) =>
+                                world.#archetype.borrow(entity).map(|v| v.into()),
+                        )*
+                        Err(_) => panic!("invalid entity type"),
+                    }
                 }
             }
         }

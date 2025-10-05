@@ -1,6 +1,4 @@
 ## [Unreleased]
-- Split `View` into `View` and `ViewMut`. Note that creating a `View` still requires mutable access to the
-  archetype/world, but can be useful for passing around read-only access to a given entity.
-- The `iter`/`iter_mut` functions on archetypes now return a `View`/`ViewMut` with named component fields rather than
-  anonymous tuples, making element access less sensitive to component order changes. This also makes iteration more
-  compatible with the `ArchetypeHas` trait, as that can be used to generically access components from views.
+- Split `View` into `View` and `ViewMut`. Note that creating a `View` still requires mutable access to the archetype/world, but can be useful for passing around read-only access to a given entity.
+- The `iter`/`iter_mut` functions on archetypes now return a `View`/`ViewMut` with named component fields rather than anonymous tuples, making element access less sensitive to component order changes. This also makes iteration more compatible with the `ArchetypeHas` trait, as that can be used to generically access components from views.
+- Adding `SelectView`, `SelectViewMut`, and `SelectBorrow` for resolving views/borrows from `EntityAny` and `EntityDirectAny`. Also adding support for `EntityAny` and `EntityDirectAny` to `World::view`, `World::view_mut`, and `World::borrow`. This has a breaking change to generics using `WorldHas<A>` to access views -- the `World::view` function no longer takes an archetype as a generic argument. In generics, instead of using `World::view::<A>(entity)`, use `World::archetype[_mut]::<A>().view(entity)`. The same applies to `view_mut` and `borrow` calls.
