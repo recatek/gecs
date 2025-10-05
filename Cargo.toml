@@ -3,7 +3,7 @@ name = "gecs"
 version = "0.4.0"
 authors = ["recatek"]
 description = "A generated entity component system."
-edition = "2021"
+edition = "2024"
 repository = "https://github.com/recatek/gecs"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -32,4 +32,4 @@ events = ['gecs_macros/events']
 [dependencies]
 gecs_macros = { version = "0.4.0", path = "macros", default-features = false }
 
-seq-macro = { version = "0.3" } # For building "variadic" storage
+seq-macro = { version = "0.3.6" } # For building "variadic" storage

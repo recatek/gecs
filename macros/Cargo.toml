@@ -3,7 +3,7 @@ name = "gecs_macros"
 version = "0.4.0"
 authors = ["recatek"]
 description = "Procedural macros for the gecs crate."
-edition = "2021"
+edition = "2024"
 repository = "https://github.com/recatek/gecs"
 license = "MIT OR Apache-2.0"
 
@@ -15,14 +15,14 @@ default = []
 events = []
 
 [dependencies]
-convert_case = { version = "0.6" }
-proc-macro2 = { version = "1.0" }
-quote = { version = "1.0" }
-syn = { version = "2.0", features = ["full", "extra-traits"] }
+convert_case = { version = "0.8.0" }
+proc-macro2 = { version = "1.0.101" }
+quote = { version = "1.0.41" }
+syn = { version = "2.0.106", features = ["full", "extra-traits"] }
 
 # For unique generation of query macros
-xxhash-rust = { version = "0.8", features = ["xxh3"] }
+xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
 
 # Serialization for passing world data to queries
-base64 = { version = "0.22" }
-speedy = { version = "0.8" }
+base64 = { version = "0.22.1" }
+speedy = { version = "0.8.7" }
