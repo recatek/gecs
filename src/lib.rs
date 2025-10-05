@@ -814,6 +814,8 @@ pub mod prelude {
 
     pub use gecs_macros::{ecs_component_id, ecs_world};
 
+    pub use error::EcsError;
+
     pub use entity::{ArchetypeId, Entity, EntityAny, EntityDirect, EntityDirectAny};
 
     pub use iter::{EcsStepDestroy, EcsStep};
