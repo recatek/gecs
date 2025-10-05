@@ -47,4 +47,16 @@ fn test_select_view() {
             assert_eq!(view.component::<CompC>(), &CompC(20));
         }
     }
+
+    let select_view = world.view(entity_any_a).unwrap();
+    assert_eq!(select_view.component::<CompA>().unwrap(), &CompA(1));
+
+    let mut select_view = world.view_mut(entity_any_a).unwrap();
+    select_view.component_mut::<CompA>().unwrap().0 += 10;
+    assert_eq!(select_view.component::<CompA>().unwrap(), &CompA(11));
+
+    let select_borrow = world.borrow(entity_any_b).unwrap();
+    assert_eq!(&*select_borrow.component::<CompA>().unwrap(), &CompA(2));
+    select_borrow.component_mut::<CompA>().unwrap().0 += 10;
+    assert_eq!(&*select_borrow.component::<CompA>().unwrap(), &CompA(12));
 }

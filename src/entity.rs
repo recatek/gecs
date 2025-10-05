@@ -7,7 +7,7 @@ use std::num::NonZeroU32;
 
 use crate::error::EcsError;
 use crate::index::{TrimmedIndex, MAX_DATA_INDEX};
-use crate::traits::{Archetype, ArchetypeCanResolve, EntityKey, EntityKeyTyped};
+use crate::traits::*;
 use crate::version::{ArchetypeVersion, SlotVersion};
 
 // NOTE: While this is extremely unlikely to change, if it does, the proc
@@ -486,6 +486,54 @@ impl EntityKey for EntityAny {
 impl EntityKey for EntityDirectAny {
     type DestroyOutput = Option<()>;
     type DirectOutput = EntityDirectAny;
+}
+
+impl<'a, A: Archetype + 'a, W: World> EntityKeySelectable<'a, W> for Entity<A>
+where
+    W: WorldHas<A>,
+{
+    type View = <A as Archetype>::View<'a>;
+    type ViewMut = <A as Archetype>::ViewMut<'a>;
+    type Borrow = <A as Archetype>::Borrow<'a>;
+
+    #[inline(always)]
+    fn resolve_view(self, world: &'a mut W) -> Option<Self::View> {
+        world.archetype_mut::<A>().view(self)
+    }
+
+    #[inline(always)]
+    fn resolve_view_mut(self, world: &'a mut W) -> Option<Self::ViewMut> {
+        world.archetype_mut::<A>().view_mut(self)
+    }
+
+    #[inline(always)]
+    fn resolve_borrow(self, world: &'a W) -> Option<Self::Borrow> {
+        world.archetype::<A>().borrow(self)
+    }
+}
+
+impl<'a, A: Archetype + 'a, W: World> EntityKeySelectable<'a, W> for EntityDirect<A>
+where
+    W: WorldHas<A>,
+{
+    type View = <A as Archetype>::View<'a>;
+    type ViewMut = <A as Archetype>::ViewMut<'a>;
+    type Borrow = <A as Archetype>::Borrow<'a>;
+
+    #[inline(always)]
+    fn resolve_view(self, world: &'a mut W) -> Option<Self::View> {
+        world.archetype_mut::<A>().view(self)
+    }
+
+    #[inline(always)]
+    fn resolve_view_mut(self, world: &'a mut W) -> Option<Self::ViewMut> {
+        world.archetype_mut::<A>().view_mut(self)
+    }
+
+    #[inline(always)]
+    fn resolve_borrow(self, world: &'a W) -> Option<Self::Borrow> {
+        world.archetype::<A>().borrow(self)
+    }
 }
 
 impl<'a, A: Archetype> From<&'a Entity<A>> for &'a EntityAny {

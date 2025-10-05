@@ -41,13 +41,13 @@ pub struct DataComponent {
                                 // Not serialized due to being used in world generation only
 }
 
-#[derive(Debug, Readable, Writable)]
+#[derive(Clone, Debug, Readable, Writable, PartialEq, Eq, Hash)]
 pub struct DataComponentName {
     pub name: String,
     pub generic: Option<DataComponentGeneric>,
 }
 
-#[derive(Debug, Readable, Writable)]
+#[derive(Clone, Debug, Readable, Writable, PartialEq, Eq, Hash)]
 pub enum DataComponentGeneric {
     Placeholder,
     Ident(String),
