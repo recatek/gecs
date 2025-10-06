@@ -479,7 +479,7 @@ where
         Self: ArchetypeHas<C>,
     {
         let index = self.resolve(entity)?;
-        self.get_slice::<C>().get(index)
+        Some(&self.get_slice::<C>()[index])
     }
 
     /// If the entity exists in the archetype, returns a mutable reference to a given component.
@@ -490,7 +490,7 @@ where
         Self: ArchetypeHas<C>,
     {
         let index = self.resolve(entity)?;
-        self.get_slice_mut::<C>().get_mut(index)
+        Some(&mut self.get_slice_mut::<C>()[index])
     }
 
     /// If the entity exists in the archetype, returns a borrow of a given component.
@@ -502,13 +502,6 @@ where
     {
         let index = self.resolve(entity)?;
         let slice = self.borrow_slice::<C>();
-
-        debug_assert!(index < slice.len(), "out of bounds index");
-
-        if index >= slice.len() {
-            return None;
-        }
-
         Some(Ref::map(slice, |slice| &slice[index]))
     }
 
@@ -521,13 +514,6 @@ where
     {
         let index = self.resolve(entity)?;
         let slice = self.borrow_slice_mut::<C>();
-
-        debug_assert!(index < slice.len(), "out of bounds index");
-
-        if index >= slice.len() {
-            return None;
-        }
-
         Some(RefMut::map(slice, |slice| &mut slice[index]))
     }
 
