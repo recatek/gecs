@@ -451,7 +451,7 @@ where
         <Self as ArchetypeCanResolve<K>>::resolve_for(self, entity).is_some()
     }
 
-    /// If the entity exists in the archetype, this returns its dense data slice index.
+    /// If the entity exists in the archetype, returns its dense data slice index.
     /// The returned index is guaranteed to be within bounds of the dense data slices.
     #[inline(always)]
     fn resolve<K: EntityKey>(&self, entity: K) -> Option<usize>
@@ -461,7 +461,7 @@ where
         <Self as ArchetypeCanResolve<K>>::resolve_for(self, entity)
     }
 
-    /// If the entity exists in the archetype, this returns a direct entity pointing to its data.
+    /// If the entity exists in the archetype, returns a direct entity pointing to its data.
     /// See [`EntityDirect`] and [`EntityDirectAny`] for more information.
     #[inline(always)]
     fn to_direct<K: EntityKey>(&self, entity: K) -> Option<K::DirectOutput>
@@ -469,6 +469,66 @@ where
         Self: ArchetypeCanResolve<K>,
     {
         <Self as ArchetypeCanResolve<K>>::resolve_direct(self, entity)
+    }
+
+    /// If the entity exists in the archetype, returns a reference to a given component.
+    #[inline(always)]
+    fn get_component<C, K: EntityKey>(&mut self, entity: K) -> Option<&C>
+    where
+        Self: ArchetypeCanResolve<K>,
+        Self: ArchetypeHas<C>,
+    {
+        let index = self.resolve(entity)?;
+        self.get_slice::<C>().get(index)
+    }
+
+    /// If the entity exists in the archetype, returns a mutable reference to a given component.
+    #[inline(always)]
+    fn get_component_mut<C, K: EntityKey>(&mut self, entity: K) -> Option<&mut C>
+    where
+        Self: ArchetypeCanResolve<K>,
+        Self: ArchetypeHas<C>,
+    {
+        let index = self.resolve(entity)?;
+        self.get_slice_mut::<C>().get_mut(index)
+    }
+
+    /// If the entity exists in the archetype, returns a borrow of a given component.
+    #[inline(always)]
+    fn borrow_component<C, K: EntityKey>(&self, entity: K) -> Option<Ref<'_, C>>
+    where
+        Self: ArchetypeCanResolve<K>,
+        Self: ArchetypeHas<C>,
+    {
+        let index = self.resolve(entity)?;
+        let slice = self.borrow_slice::<C>();
+
+        debug_assert!(index < slice.len(), "out of bounds index");
+
+        if index >= slice.len() {
+            return None;
+        }
+
+        Some(Ref::map(slice, |slice| &slice[index]))
+    }
+
+    /// If the entity exists in the archetype, returns a mutable borrow of a given component.
+    #[inline(always)]
+    fn borrow_component_mut<C, K: EntityKey>(&self, entity: K) -> Option<RefMut<'_, C>>
+    where
+        Self: ArchetypeCanResolve<K>,
+        Self: ArchetypeHas<C>,
+    {
+        let index = self.resolve(entity)?;
+        let slice = self.borrow_slice_mut::<C>();
+
+        debug_assert!(index < slice.len(), "out of bounds index");
+
+        if index >= slice.len() {
+            return None;
+        }
+
+        Some(RefMut::map(slice, |slice| &mut slice[index]))
     }
 
     /// Returns a ['View'] with references to all of this entity's components.
