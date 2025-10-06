@@ -1,10 +1,8 @@
-use std::collections::{HashMap, HashSet};
-
 use proc_macro2::{Ident, Literal, Span, TokenStream};
-use quote::{format_ident, quote, TokenStreamExt};
+use quote::{format_ident, quote};
 use xxhash_rust::xxh3::xxh3_128;
 
-use crate::data::{DataArchetype, DataComponentName, DataWorld};
+use crate::data::{DataArchetype, DataWorld};
 use crate::util;
 
 #[allow(non_snake_case)]
@@ -14,7 +12,7 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
     let input_hash = xxh3_128(raw_input.as_bytes());
 
     // Module
-    let ecs_world_sealed = format_ident!("{}_sealed", world_snake);
+    let ecs_world_sealed = format_ident!("ecs_{}_sealed", world_snake);
 
     // Constants and literals
     let WORLD_DATA = world_data.to_base64();
@@ -81,7 +79,6 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         .collect::<Vec<_>>();
     let section_event_iter = section_event_iter(&world_data);
     let section_events = section_events_world(&world_data);
-    let section_select_component = section_select_component(&world_data);
 
     // Documentation helpers
     let world_doc_archetypes = world_data
@@ -143,9 +140,6 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
 
             // Will only appear if we have the events feature enabled.
             #section_event_iter
-
-            // Section for accessing components from SelectView etc.
-            #section_select_component
 
             /// The generated ECS world. See [`World`](gecs::traits::World) for more information.
             ///
@@ -291,63 +285,6 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
             pub enum #__WorldSelectTotal {
                 #( #Archetype(Entity<#Archetype>), )*
                 #( #ArchetypeDirect(EntityDirect<#Archetype>), )*
-            }
-
-            // Stupid tricks for naming convenience
-            impl<'a> ::gecs::__internal::SelectView for SelectView<'a> {}
-            impl<'a> ::gecs::__internal::SelectView for SelectViewMut<'a> {}
-            impl<'a> ::gecs::__internal::SelectViewMut for SelectViewMut<'a> {}
-            impl<'a> ::gecs::__internal::SelectBorrow for SelectBorrow<'a> {}
-
-            impl<'a> SelectView<'a> {
-                /// See [`gecs::traits::SelectView::component`].
-                #[inline(always)]
-                pub fn component<C>(&self) -> Option<&C>
-                where
-                    Self: SelectViewCanAccess<C>,
-                {
-                    <Self as ::gecs::__internal::SelectView>::component(self)
-                }
-            }
-
-            impl<'a> SelectViewMut<'a> {
-                /// See [`gecs::traits::SelectView::component`].
-                #[inline(always)]
-                pub fn component<C>(&self) -> Option<&C>
-                where
-                    Self: SelectViewCanAccess<C>,
-                {
-                    <Self as ::gecs::__internal::SelectView>::component(self)
-                }
-
-                /// See [`gecs::traits::SelectViewMut::component_mut`].
-                #[inline(always)]
-                pub fn component_mut<C>(&mut self) -> Option<&mut C>
-                where
-                    Self: SelectViewCanAccessMut<C>,
-                {
-                    <Self as ::gecs::__internal::SelectViewMut>::component_mut(self)
-                }
-            }
-
-            impl<'a> SelectBorrow<'a> {
-                /// See [`gecs::traits::SelectBorrow::component`].
-                #[inline(always)]
-                pub fn component<C>(&self) -> Option<Ref<C>>
-                where
-                    Self: SelectBorrowCanAccess<C>,
-                {
-                    <Self as ::gecs::__internal::SelectBorrow>::component(self)
-                }
-
-                /// See [`gecs::traits::SelectBorrow::component_mut`].
-                #[inline(always)]
-                pub fn component_mut<C>(&self) -> Option<RefMut<C>>
-                where
-                    Self: SelectBorrowCanAccess<C>,
-                {
-                    <Self as ::gecs::__internal::SelectBorrow>::component_mut(self)
-                }
             }
 
             // Resolve dispatch implementation
@@ -1872,98 +1809,4 @@ fn section_events_archetype(_archetype_data: &DataArchetype) -> TokenStream {
     } else {
         quote!()
     }
-}
-
-#[allow(non_snake_case)]
-fn section_select_component(world_data: &DataWorld) -> TokenStream {
-    let mut tokens = TokenStream::new();
-
-    let Archetype = world_data
-        .archetypes
-        .iter()
-        .map(|archetype| format_ident!("{}", archetype.name))
-        .collect::<Vec<_>>();
-
-    let mut all_components = HashMap::<DataComponentName, HashSet<String>>::new();
-
-    for archetype in &world_data.archetypes {
-        for component in &archetype.components {
-            all_components
-                .entry(component.name.clone())
-                .or_default()
-                .insert(archetype.name.clone());
-        }
-    }
-
-    for (Component, matched_archetypes) in all_components {
-        let mut get = Vec::with_capacity(world_data.archetypes.len());
-        let mut get_mut = Vec::with_capacity(world_data.archetypes.len());
-
-        for archetype in &world_data.archetypes {
-            if matched_archetypes.contains(&archetype.name) {
-                get.push(quote!(Some(entry.component::<#Component>())));
-                get_mut.push(quote!(Some(entry.component_mut::<#Component>())));
-            } else {
-                get.push(quote!(None));
-                get_mut.push(quote!(None));
-            }
-        }
-
-        tokens.append_all(quote!(
-            impl SelectViewCanAccess<#Component> for SelectView<'_> {
-                #[inline(always)]
-                fn resolve_component(&self) -> Option<&#Component> {
-                    match self {
-                        #(
-                            SelectView::#Archetype(entry) => #get,
-                        )*
-                    }
-                }
-            }
-
-            impl SelectViewCanAccess<#Component> for SelectViewMut<'_> {
-                #[inline(always)]
-                fn resolve_component(&self) -> Option<&#Component> {
-                    match self {
-                        #(
-                            SelectViewMut::#Archetype(entry) => #get,
-                        )*
-                    }
-                }
-            }
-
-            impl SelectViewCanAccessMut<#Component> for SelectViewMut<'_> {
-                #[inline(always)]
-                fn resolve_component_mut(&mut self) -> Option<&mut #Component> {
-                    match self {
-                        #(
-                            SelectViewMut::#Archetype(entry) => #get_mut,
-                        )*
-                    }
-                }
-            }
-
-            impl SelectBorrowCanAccess<#Component> for SelectBorrow<'_> {
-                #[inline(always)]
-                fn resolve_component(&self) -> Option<Ref<'_, #Component>> {
-                    match self {
-                        #(
-                            SelectBorrow::#Archetype(entry) => #get,
-                        )*
-                    }
-                }
-
-                #[inline(always)]
-                fn resolve_component_mut(&self) -> Option<RefMut<'_, #Component>> {
-                    match self {
-                        #(
-                            SelectBorrow::#Archetype(entry) => #get_mut,
-                        )*
-                    }
-                }
-            }
-        ));
-    }
-
-    tokens
 }

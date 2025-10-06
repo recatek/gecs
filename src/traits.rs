@@ -993,81 +993,6 @@ pub trait Borrow<'a> {
     }
 }
 
-/// A `SelectView` is a generated static disambiguation enum for resolving an [`EntityAny`] or
-/// [`EntityDirectAny`] into a view of a known type. This trait provides some helper functions for
-/// accessing components without fully disambuguating the enum.
-///
-/// For generics, do not use this trait on its own, use [`SelectViewCanAccess`] instead.
-///
-/// See also [`View`].
-pub trait SelectView {
-    /// Accesses the given component without requiring full disambiguation of the selector.
-    /// If the archetype of this underlying [`View`] does not have the component, returns `None`.
-    ///
-    /// See also [`View::component`].
-    #[inline(always)]
-    fn component<C>(&self) -> Option<&C>
-    where
-        Self: SelectViewCanAccess<C>,
-    {
-        <Self as SelectViewCanAccess<C>>::resolve_component(self)
-    }
-}
-
-/// Similar to a [`SelectView`], but contains mutable access to the underlying view.
-///
-/// For generics, do not use this trait on its own, use [`SelectViewCanAccessMut`] instead.
-///
-/// See also [`ViewMut`].
-pub trait SelectViewMut: SelectView {
-    /// Mutably accesses the given component without requiring full disambiguation of the selector.
-    /// If the archetype of this underlying [`ViewMut`] does not have the component, returns `None`.
-    ///
-    /// See also [`ViewMut::component_mut`].
-    #[inline(always)]
-    fn component_mut<C>(&mut self) -> Option<&mut C>
-    where
-        Self: SelectViewCanAccessMut<C>,
-    {
-        <Self as SelectViewCanAccessMut<C>>::resolve_component_mut(self)
-    }
-}
-
-/// Similar to a [`SelectView`], but contains borrowed access to the underlying view.
-///
-/// For generics, do not use this trait on its own, use [`SelectBorrowCanAccess`] instead.
-///
-/// See also [`Borrow`].
-pub trait SelectBorrow {
-    /// Mutably borrows the given component without requiring full disambiguation of the selector.
-    /// If the archetype of this underlying [`Borrow`] does not have the component, returns `None`.
-    ///
-    /// # Panics
-    ///
-    /// See panic section in [`Borrow::component`].
-    #[inline(always)]
-    fn component<C>(&self) -> Option<Ref<C>>
-    where
-        Self: SelectBorrowCanAccess<C>,
-    {
-        <Self as SelectBorrowCanAccess<C>>::resolve_component(self)
-    }
-
-    /// Mutably borrows the given component without requiring full disambiguation of the selector.
-    /// If the archetype of this underlying [`Borrow`] does not have the component, returns `None`.
-    ///
-    /// # Panics
-    ///
-    /// See panic section in [`Borrow::component_mut`].
-    #[inline(always)]
-    fn component_mut<C>(&self) -> Option<RefMut<C>>
-    where
-        Self: SelectBorrowCanAccess<C>,
-    {
-        <Self as SelectBorrowCanAccess<C>>::resolve_component_mut(self)
-    }
-}
-
 /// Trait promising that a given ECS world can resolve a type of entity key.
 ///
 /// This is implemented for [`Entity`], [`EntityDirect`]. [`EntityAny`], and [`EntityDirectAny`].
@@ -1143,26 +1068,6 @@ pub trait StorageCanResolve<K: EntityKey> {
 }
 
 #[doc(hidden)]
-pub trait SelectViewCanAccess<C>: SelectView {
-    #[doc(hidden)]
-    fn resolve_component(&self) -> Option<&C>;
-}
-
-#[doc(hidden)]
-pub trait SelectViewCanAccessMut<C>: SelectViewMut {
-    #[doc(hidden)]
-    fn resolve_component_mut(&mut self) -> Option<&mut C>;
-}
-
-#[doc(hidden)]
-pub trait SelectBorrowCanAccess<C>: SelectBorrow {
-    #[doc(hidden)]
-    fn resolve_component(&self) -> Option<Ref<C>>;
-    #[doc(hidden)]
-    fn resolve_component_mut(&self) -> Option<RefMut<C>>;
-}
-
-#[doc(hidden)]
 pub trait EntityKey: Clone + Copy {
     #[doc(hidden)]
     type DestroyOutput;
@@ -1191,4 +1096,52 @@ pub trait EntityKeySelectable<'a, W: World>: EntityKey {
     fn resolve_view_mut(self, world: &'a mut W) -> Option<Self::ViewMut>;
     #[doc(hidden)]
     fn resolve_borrow(self, world: &'a W) -> Option<Self::Borrow>;
+}
+
+impl<'a, A: Archetype + 'a, W: World> EntityKeySelectable<'a, W> for Entity<A>
+where
+    W: WorldHas<A>,
+{
+    type View = <A as Archetype>::View<'a>;
+    type ViewMut = <A as Archetype>::ViewMut<'a>;
+    type Borrow = <A as Archetype>::Borrow<'a>;
+
+    #[inline(always)]
+    fn resolve_view(self, world: &'a mut W) -> Option<Self::View> {
+        world.archetype_mut::<A>().view(self)
+    }
+
+    #[inline(always)]
+    fn resolve_view_mut(self, world: &'a mut W) -> Option<Self::ViewMut> {
+        world.archetype_mut::<A>().view_mut(self)
+    }
+
+    #[inline(always)]
+    fn resolve_borrow(self, world: &'a W) -> Option<Self::Borrow> {
+        world.archetype::<A>().borrow(self)
+    }
+}
+
+impl<'a, A: Archetype + 'a, W: World> EntityKeySelectable<'a, W> for EntityDirect<A>
+where
+    W: WorldHas<A>,
+{
+    type View = <A as Archetype>::View<'a>;
+    type ViewMut = <A as Archetype>::ViewMut<'a>;
+    type Borrow = <A as Archetype>::Borrow<'a>;
+
+    #[inline(always)]
+    fn resolve_view(self, world: &'a mut W) -> Option<Self::View> {
+        world.archetype_mut::<A>().view(self)
+    }
+
+    #[inline(always)]
+    fn resolve_view_mut(self, world: &'a mut W) -> Option<Self::ViewMut> {
+        world.archetype_mut::<A>().view_mut(self)
+    }
+
+    #[inline(always)]
+    fn resolve_borrow(self, world: &'a W) -> Option<Self::Borrow> {
+        world.archetype::<A>().borrow(self)
+    }
 }

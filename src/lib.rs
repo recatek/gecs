@@ -822,7 +822,6 @@ pub mod prelude {
 
     pub use traits::{EntityKey, EntityKeyTyped, EntityKeySelectable};
     pub use traits::{WorldCanResolve, ArchetypeCanResolve, StorageCanResolve};
-    pub use traits::{SelectViewCanAccess, SelectViewCanAccessMut, SelectBorrowCanAccess};
 
     pub use traits::{World, WorldHas};
     pub use traits::{Archetype, ArchetypeHas};
@@ -856,12 +855,10 @@ pub mod __internal {
 
     pub use iter::{EcsStepDestroy, EcsStep};
 
-    pub use traits::{EntityKey, EntityKeyTyped, EntityKeySelectable};
+    pub use traits::EntityKey;
     pub use traits::{WorldCanResolve, ArchetypeCanResolve, StorageCanResolve};
-    pub use traits::{SelectViewCanAccess, SelectViewCanAccessMut, SelectBorrowCanAccess};
 
     pub use traits::{World, WorldHas};
     pub use traits::{Archetype, ArchetypeHas};
     pub use traits::{Components, View, ViewMut, Borrow};
-    pub use traits::{SelectView, SelectViewMut, SelectBorrow};
 }
