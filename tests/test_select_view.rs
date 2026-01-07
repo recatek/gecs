@@ -32,6 +32,14 @@ fn test_select_view() {
     let entity_any_a = entity_a.into_any();
     let entity_any_b = entity_b.into_any();
 
+    let view = world.view(entity_a).unwrap();
+    assert_eq!(view.component::<CompA>(), &CompA(1));
+    assert_eq!(view.component::<CompB>(), &CompB(10));
+
+    let view = world.archetype_mut::<ArchFoo>().view(entity_a).unwrap();
+    assert_eq!(view.component::<CompA>(), &CompA(1));
+    assert_eq!(view.component::<CompB>(), &CompB(10));
+
     match world.view(entity_any_a).unwrap() {
         SelectView::ArchFoo(view) => {
             assert_eq!(view.component::<CompA>(), &CompA(1));
@@ -45,6 +53,28 @@ fn test_select_view() {
         SelectView::ArchBar(view) => {
             assert_eq!(view.component::<CompA>(), &CompA(2));
             assert_eq!(view.component::<CompC>(), &CompC(20));
+        }
+    }
+
+    let read_only = &world;
+
+    let view = read_only.archetype::<ArchFoo>().borrow(entity_a).unwrap();
+    assert_eq!(&*view.component::<CompA>(), &CompA(1));
+    assert_eq!(&*view.component::<CompB>(), &CompB(10));
+
+    match read_only.borrow(entity_any_a).unwrap() {
+        SelectBorrow::ArchFoo(view) => {
+            assert_eq!(&*view.component::<CompA>(), &CompA(1));
+            assert_eq!(&*view.component::<CompB>(), &CompB(10));
+        }
+        SelectBorrow::ArchBar(_) => panic!("wrong view type"),
+    }
+
+    match read_only.borrow(entity_any_b).unwrap() {
+        SelectBorrow::ArchFoo(_) => panic!("wrong view type"),
+        SelectBorrow::ArchBar(view) => {
+            assert_eq!(&*view.component::<CompA>(), &CompA(2));
+            assert_eq!(&*view.component::<CompC>(), &CompC(20));
         }
     }
 }
