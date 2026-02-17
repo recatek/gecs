@@ -1,5 +1,4 @@
 use std::alloc::{self, Layout};
-use std::cell::{Ref, RefCell, RefMut};
 use std::marker::PhantomData;
 use std::mem::{self, MaybeUninit};
 use std::ptr::{self, NonNull};
@@ -12,8 +11,9 @@ use crate::archetype::iter::*;
 use crate::archetype::slices::*;
 use crate::archetype::slot::{Slot, SlotIndex};
 use crate::archetype::view::*;
+use crate::cell::{BorrowCell, BorrowRefMut, BorrowRef};
 use crate::entity::{Entity, EntityDirect};
-use crate::index::{TrimmedIndex, MAX_DATA_CAPACITY};
+use crate::index::{MAX_DATA_CAPACITY, TrimmedIndex};
 use crate::traits::{Archetype, EntityKey, StorageCanResolve};
 use crate::util::debug_checked_assume;
 use crate::version::ArchetypeVersion;
@@ -37,9 +37,9 @@ macro_rules! declare_storage_n {
                 capacity: usize,
                 free_head: SlotIndex,
                 slots: DataPtr<Slot>, // Sparse
-                // No RefCell here since we never grant mutable access externally
+                // No BorrowCell here since we never grant mutable access externally
                 entities: DataPtr<Entity<A>>,
-                #(d~I: RefCell<DataPtr<T~I>>,)*
+                #(d~I: BorrowCell<DataPtr<T~I>>,)*
 
                 #[cfg(feature = "events")]
                 created: Vec<Entity<A>>,
@@ -82,7 +82,7 @@ macro_rules! declare_storage_n {
                         free_head,
                         slots,
                         entities: DataPtr::with_capacity(capacity),
-                        #(d~I: RefCell::new(DataPtr::with_capacity(capacity)),)*
+                        #(d~I: BorrowCell::new(DataPtr::with_capacity(capacity)),)*
 
                         #[cfg(feature = "events")]
                         created: Vec::new(), // Shouldn't initially allocate
@@ -424,8 +424,8 @@ macro_rules! declare_storage_n {
 
                     /// Borrows the slice of the given component index.
                     #[inline(always)]
-                    pub fn borrow_slice_~I(&self) -> Ref<'_, [T~I]> {
-                        Ref::map(self.d~I.borrow(), |slice| unsafe {
+                    pub fn borrow_slice_~I(&self) -> BorrowRef<'_, [T~I]> {
+                        BorrowRef::map(self.d~I.borrow(), |slice| unsafe {
                             debug_checked_assume!(self.len <= MAX_DATA_CAPACITY as usize);
                             // SAFETY: We guarantee that the storage is valid up to self.len.
                             slice.slice(self.len)
@@ -434,8 +434,8 @@ macro_rules! declare_storage_n {
 
                     /// Mutably borrows the slice of the given component index.
                     #[inline(always)]
-                    pub fn borrow_slice_mut_~I(&self) -> RefMut<'_, [T~I]> {
-                        RefMut::map(self.d~I.borrow_mut(), |slice| unsafe {
+                    pub fn borrow_slice_mut_~I(&self) -> BorrowRefMut<'_, [T~I]> {
+                        BorrowRefMut::map(self.d~I.borrow_mut(), |slice| unsafe {
                             debug_checked_assume!(self.len <= MAX_DATA_CAPACITY as usize);
                             // SAFETY: We guarantee that the storage is valid up to self.len.
                             slice.slice_mut(self.len)
@@ -858,7 +858,7 @@ macro_rules! declare_storage_n {
                             free_head: self.free_head,
                             slots: new_slots,
                             entities: new_entities,
-                            #(d~I: RefCell::new(new_d~I),)*
+                            #(d~I: BorrowCell::new(new_d~I),)*
 
                             #[cfg(feature = "events")]
                             created: self.created.clone(),
@@ -895,8 +895,8 @@ macro_rules! declare_storage_n {
                 #(
                     /// Borrows the element of the given component index.
                     #[inline(always)]
-                    pub fn borrow_component_~I(&self) -> Ref<'_, T~I> {
-                        Ref::map(self.source.d~I.borrow(), |slice| unsafe {
+                    pub fn borrow_component_~I(&self) -> BorrowRef<'_, T~I> {
+                        BorrowRef::map(self.source.d~I.borrow(), |slice| unsafe {
                             debug_assert!(self.index < self.source.len);
                             // SAFETY: We can only be created with a valid index, and because
                             // we hold a reference to the source, that reference can't have
@@ -908,8 +908,8 @@ macro_rules! declare_storage_n {
 
                     /// Mutably borrows the element of the given component index.
                     #[inline(always)]
-                    pub fn borrow_component_mut_~I(&self) -> RefMut<'_, T~I> {
-                        RefMut::map(self.source.d~I.borrow_mut(), |slice| unsafe {
+                    pub fn borrow_component_mut_~I(&self) -> BorrowRefMut<'_, T~I> {
+                        BorrowRefMut::map(self.source.d~I.borrow_mut(), |slice| unsafe {
                             debug_assert!(self.index < self.source.len);
                             // SAFETY: We can only be created with a valid index, and because
                             // we hold a reference to the source, that reference can't have

@@ -16,6 +16,9 @@ all-features = true
 [features]
 default = []
 
+# Makes archetype storage Sync using an AtomicRefCell for borrow-based access.
+sync = ["dep:atomic_refcell"]
+
 # Allow archetypes to have up to 32 components (default is 16). Worsens compile times.
 32_components = []
 
@@ -32,4 +35,7 @@ events = ['gecs_macros/events']
 [dependencies]
 gecs_macros = { version = "0.4.0", path = "macros", default-features = false }
 
-seq-macro = { version = "0.3.6" } # For building "variadic" storage
+# For enabling Sync on archetype storage
+atomic_refcell = { version = "0.1.13", optional = true }
+# For building "variadic" storage
+seq-macro = { version = "0.3.6" }

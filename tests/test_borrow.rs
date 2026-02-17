@@ -33,3 +33,18 @@ fn test_borrow() {
     assert_eq!(&*borrow_c.component::<CompA>(), &CompA(40));
     assert_eq!(&*borrow_c.component::<CompC>(), &CompC(310));
 }
+
+#[test]
+#[should_panic]
+fn test_borrow_panic() {
+    let mut world = EcsWorld::default();
+
+    let entity_a = world.create::<ArchFoo>((CompA(1), CompB(10)));
+    let entity_b = world.create::<ArchFoo>((CompA(2), CompB(20)));
+
+    let borrow_a = world.borrow(entity_a).unwrap();
+    let borrow_b = world.borrow(entity_b).unwrap();
+
+    let _comp_a = borrow_a.component_mut::<CompA>();
+    let _comp_b = borrow_b.component::<CompA>(); // Existing mut borrow of ArchFoo's CompA data
+}

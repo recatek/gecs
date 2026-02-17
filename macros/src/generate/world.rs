@@ -132,8 +132,6 @@ pub fn generate_world(world_data: &DataWorld, raw_input: &str) -> TokenStream {
         mod #ecs_world_sealed {
             use super::*;
 
-            use ::std::cell::{Ref, RefMut};
-
             use ::gecs::__internal::*;
 
             #(#section_archetype)*
@@ -1090,12 +1088,12 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 }
 
                 #[inline(always)]
-                fn resolve_borrow_slice(&self) -> Ref<[#Component]> {
+                fn resolve_borrow_slice(&self) -> BorrowRef<[#Component]> {
                     self.data.#borrow_slice()
                 }
 
                 #[inline(always)]
-                fn resolve_borrow_slice_mut(&self) -> RefMut<[#Component]> {
+                fn resolve_borrow_slice_mut(&self) -> BorrowRefMut<[#Component]> {
                     self.data.#borrow_slice_mut()
                 }
 
@@ -1125,12 +1123,12 @@ fn section_archetype(archetype_data: &DataArchetype) -> TokenStream {
                 }
 
                 #[inline(always)]
-                fn resolve_extract_borrow<'a>(borrow: &'a Self::Borrow<'_>) -> Ref<'a, #Component> {
+                fn resolve_extract_borrow<'a>(borrow: &'a Self::Borrow<'_>) -> BorrowRef<'a, #Component> {
                     borrow.0.#borrow_component()
                 }
 
                 #[inline(always)]
-                fn resolve_extract_borrow_mut<'a>(borrow: &'a Self::Borrow<'_>) -> RefMut<'a, #Component> {
+                fn resolve_extract_borrow_mut<'a>(borrow: &'a Self::Borrow<'_>) -> BorrowRefMut<'a, #Component> {
                     borrow.0.#borrow_component_mut()
                 }
             }

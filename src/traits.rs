@@ -1,5 +1,4 @@
-use std::cell::{Ref, RefMut};
-
+use crate::cell::{BorrowRef, BorrowRefMut};
 use crate::entity::{ArchetypeId, Entity, EntityDirect};
 use crate::version::ArchetypeVersion;
 
@@ -495,26 +494,26 @@ where
 
     /// If the entity exists in the archetype, returns a borrow of a given component.
     #[inline(always)]
-    fn borrow_component<C, K: EntityKey>(&self, entity: K) -> Option<Ref<'_, C>>
+    fn borrow_component<C, K: EntityKey>(&self, entity: K) -> Option<BorrowRef<'_, C>>
     where
         Self: ArchetypeCanResolve<K>,
         Self: ArchetypeHas<C>,
     {
         let index = self.resolve(entity)?;
         let slice = self.borrow_slice::<C>();
-        Some(Ref::map(slice, |slice| &slice[index]))
+        Some(BorrowRef::map(slice, |slice| &slice[index]))
     }
 
     /// If the entity exists in the archetype, returns a mutable borrow of a given component.
     #[inline(always)]
-    fn borrow_component_mut<C, K: EntityKey>(&self, entity: K) -> Option<RefMut<'_, C>>
+    fn borrow_component_mut<C, K: EntityKey>(&self, entity: K) -> Option<BorrowRefMut<'_, C>>
     where
         Self: ArchetypeCanResolve<K>,
         Self: ArchetypeHas<C>,
     {
         let index = self.resolve(entity)?;
         let slice = self.borrow_slice_mut::<C>();
-        Some(RefMut::map(slice, |slice| &mut slice[index]))
+        Some(BorrowRefMut::map(slice, |slice| &mut slice[index]))
     }
 
     /// Returns a ['View'] with references to all of this entity's components.
@@ -701,7 +700,7 @@ where
     ///
     /// Panics if the runtime borrow fails, see [`std::cell::RefCell::borrow`].
     #[inline(always)]
-    fn borrow_slice<C>(&self) -> Ref<'_, [C]>
+    fn borrow_slice<C>(&self) -> BorrowRef<'_, [C]>
     where
         Self: ArchetypeHas<C>,
     {
@@ -716,7 +715,7 @@ where
     ///
     /// Panics if the runtime borrow fails, see [`std::cell::RefCell::borrow_mut`].
     #[inline(always)]
-    fn borrow_slice_mut<C>(&self) -> RefMut<'_, [C]>
+    fn borrow_slice_mut<C>(&self) -> BorrowRefMut<'_, [C]>
     where
         Self: ArchetypeHas<C>,
     {
@@ -886,9 +885,9 @@ pub trait ArchetypeHas<C>: Archetype {
     #[doc(hidden)]
     fn resolve_get_slice_mut(&mut self) -> &mut [C];
     #[doc(hidden)]
-    fn resolve_borrow_slice(&self) -> Ref<'_, [C]>;
+    fn resolve_borrow_slice(&self) -> BorrowRef<'_, [C]>;
     #[doc(hidden)]
-    fn resolve_borrow_slice_mut(&self) -> RefMut<'_, [C]>;
+    fn resolve_borrow_slice_mut(&self) -> BorrowRefMut<'_, [C]>;
 
     #[doc(hidden)]
     fn resolve_extract_components(components: &Self::Components) -> &C;
@@ -901,9 +900,9 @@ pub trait ArchetypeHas<C>: Archetype {
     #[doc(hidden)]
     fn resolve_extract_view_mut<'a>(view: &'a mut Self::ViewMut<'_>) -> &'a mut C;
     #[doc(hidden)]
-    fn resolve_extract_borrow<'a>(borrow: &'a Self::Borrow<'_>) -> Ref<'a, C>;
+    fn resolve_extract_borrow<'a>(borrow: &'a Self::Borrow<'_>) -> BorrowRef<'a, C>;
     #[doc(hidden)]
-    fn resolve_extract_borrow_mut<'a>(borrow: &'a Self::Borrow<'_>) -> RefMut<'a, C>;
+    fn resolve_extract_borrow_mut<'a>(borrow: &'a Self::Borrow<'_>) -> BorrowRefMut<'a, C>;
 }
 
 pub trait Components {
@@ -971,7 +970,7 @@ pub trait Borrow<'a> {
     /// Panics if any other borrow has exclusive/mut access to any entry for this type of component
     /// within this same archetype, even if it is for a different entity.
     #[inline(always)]
-    fn component<'b, C>(&'b self) -> Ref<'b, C>
+    fn component<C>(&self) -> BorrowRef<'_, C>
     where
         Self::Archetype: ArchetypeHas<C>,
     {
@@ -985,7 +984,7 @@ pub trait Borrow<'a> {
     /// Panics if any other borrow has any type of access to any entry for this type of component
     /// within this same archetype, even if it is for a different entity.
     #[inline(always)]
-    fn component_mut<'b, C>(&'b self) -> RefMut<'b, C>
+    fn component_mut<C>(&self) -> BorrowRefMut<'_, C>
     where
         Self::Archetype: ArchetypeHas<C>,
     {

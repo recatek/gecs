@@ -3,6 +3,12 @@
 version = 4
 
 [[package]]
+name = "atomic_refcell"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41e67cd8309bbd06cd603a9e693a784ac2e5d1e955f11286e355089fcab3047c"
+
+[[package]]
 name = "autocfg"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -27,6 +33,7 @@ dependencies = [
 name = "gecs"
 version = "0.4.0"
 dependencies = [
+ "atomic_refcell",
  "gecs_macros",
  "seq-macro",
 ]

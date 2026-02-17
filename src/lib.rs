@@ -16,6 +16,9 @@ mod archetype;
 mod index;
 mod util;
 
+/// Wrappers for interchangeable runtime borrow constructs.
+pub mod cell;
+
 /// Handles for accessing entity representations as component data.
 pub mod entity;
 
@@ -841,6 +844,8 @@ pub mod __internal {
     pub use gecs_macros::{__expand_ecs_iter, __impl_ecs_iter};
     pub use gecs_macros::{__expand_ecs_iter_borrow, __impl_ecs_iter_borrow};
     pub use gecs_macros::{__expand_ecs_iter_destroy, __impl_ecs_iter_destroy};
+
+    pub use cell::*;
 
     pub use error::EcsError;
 
