@@ -22,3 +22,7 @@ jobs:
       run: cargo test --verbose
     - name: Run tests with events
       run: cargo test --verbose --features="events"
+    - name: Run tests with sync
+      run: cargo test --verbose --features="sync"
+    - name: Run tests with all features
+      run: cargo test --verbose --all-features
