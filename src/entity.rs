@@ -2,7 +2,6 @@ use std::fmt::Display;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::mem;
 use std::num::NonZeroU32;
 
 use crate::error::EcsError;
@@ -539,44 +538,28 @@ where
 impl<'a, A: Archetype> From<&'a Entity<A>> for &'a EntityAny {
     #[inline(always)]
     fn from(value: &'a Entity<A>) -> Self {
-        unsafe {
-            // SAFETY: Entity<A> is a transparent struct containing only an EntityAny,
-            // which guarantees that they have the same representation in memory
-            mem::transmute(value)
-        }
+        &value.inner
     }
 }
 
 impl<'a, A: Archetype> From<&'a EntityDirect<A>> for &'a EntityDirectAny {
     #[inline(always)]
     fn from(value: &'a EntityDirect<A>) -> Self {
-        unsafe {
-            // SAFETY: EntityDirect<A> is a transparent struct containing only an EntityDirectAny,
-            // which guarantees that they have the same representation in memory
-            mem::transmute(value)
-        }
+        &value.inner
     }
 }
 
 impl<'a, A: Archetype> From<&'a mut Entity<A>> for &'a mut EntityAny {
     #[inline(always)]
     fn from(value: &'a mut Entity<A>) -> Self {
-        unsafe {
-            // SAFETY: Entity<A> is a transparent struct containing only an EntityAny,
-            // which guarantees that they have the same representation in memory
-            mem::transmute(value)
-        }
+        &mut value.inner
     }
 }
 
 impl<'a, A: Archetype> From<&'a mut EntityDirect<A>> for &'a mut EntityDirectAny {
     #[inline(always)]
     fn from(value: &'a mut EntityDirect<A>) -> Self {
-        unsafe {
-            // SAFETY: EntityDirect<A> is a transparent struct containing only an EntityDirectAny,
-            // which guarantees that they have the same representation in memory
-            mem::transmute(value)
-        }
+        &mut value.inner
     }
 }
 

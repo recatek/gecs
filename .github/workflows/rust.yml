@@ -26,3 +26,7 @@ jobs:
       run: cargo test --verbose --features="sync"
     - name: Run tests with all features
       run: cargo test --verbose --all-features
+    - name: Run Miri
+      run: |
+        rustup toolchain install nightly --component miri
+        cargo +nightly miri test --all-features
